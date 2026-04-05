@@ -169,6 +169,25 @@ insert into shops (name, slug, timezone)
 values ('Clean Car Collective Christchurch', 'christchurch', 'Pacific/Auckland')
 on conflict (slug) do nothing;
 
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-confirmation',
+  'Booking Confirmation',
+  'Booking confirmed for {{service_name}} on {{scheduled_date}}',
+  E'Hi {{first_name}},\n\nYour booking with Clean Car Collective Christchurch is confirmed.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nIf you need to make any changes, reply to this email.\n\nClean Car Collective Christchurch',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
 alter table vehicles
 add column if not exists size text;
 

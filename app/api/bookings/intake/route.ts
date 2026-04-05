@@ -4,10 +4,12 @@ import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
 import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
+import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type ShopRow = {
   id: string;
+  name: string;
   slug: string;
   timezone: string;
 };
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
   try {
     const { data: shop, error: shopError } = await supabase
       .from("shops")
-      .select("id, slug, timezone")
+      .select("id, name, slug, timezone")
       .eq("slug", initialValidation.data.shopSlug)
       .maybeSingle();
 
@@ -117,6 +119,19 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       throw bookingError;
+    }
+
+    try {
+      await sendBookingConfirmationEmail({
+        shop: shop as ShopRow,
+        booking: {
+          ...booking,
+          contact,
+          vehicle
+        }
+      });
+    } catch (emailError) {
+      console.error("Booking confirmation email failed", emailError);
     }
 
     return withCors(NextResponse.json({
