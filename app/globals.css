@@ -1,17 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #f3f5f8;
+  --bg: #ece9e4;
   --panel: #ffffff;
-  --panel-soft: #f7f9fc;
-  --line: #d8e0ea;
-  --text: #122033;
-  --muted: #627389;
-  --accent: #0f6cbd;
-  --accent-soft: #d9ecfb;
-  --success: #1e9e52;
-  --warning: #e6a700;
-  --danger: #cc4b37;
-  --shadow: 0 18px 48px rgba(18, 32, 51, 0.08);
+  --panel-soft: #f5f2ed;
+  --line: #d3cdc5;
+  --text: #111111;
+  --muted: #6f6860;
+  --accent: #111111;
+  --accent-soft: #e7e2db;
+  --success: #2f7a57;
+  --warning: #9a6a12;
+  --danger: #a04333;
+  --shadow: 0 16px 42px rgba(17, 17, 17, 0.08);
 }
 
 * {
@@ -24,10 +24,10 @@ body {
   padding: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(15, 108, 189, 0.1), transparent 32%),
-    linear-gradient(180deg, #eff4fb 0%, var(--bg) 28%, #eef2f6 100%);
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 28%),
+    linear-gradient(180deg, #f7f4ef 0%, var(--bg) 32%, #e8e3dc 100%);
   color: var(--text);
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
 }
 
 a {
@@ -43,7 +43,7 @@ textarea {
 }
 
 .pageShell {
-  max-width: 1500px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 32px 24px 48px;
 }
@@ -88,8 +88,8 @@ textarea {
 }
 
 .summaryCard {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 252, 0.95));
-  border: 1px solid rgba(216, 224, 234, 0.8);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 242, 237, 0.95));
+  border: 1px solid rgba(211, 205, 197, 0.9);
   border-radius: 22px;
   box-shadow: var(--shadow);
   padding: 18px 22px;
@@ -115,14 +115,14 @@ textarea {
 .detailPanel,
 .detailShell {
   background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(216, 224, 234, 0.72);
+  border: 1px solid rgba(211, 205, 197, 0.82);
   border-radius: 28px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
 }
 
 .calendarShell {
-  padding: 28px;
+  padding: 24px;
 }
 
 .calendarHeader {
@@ -141,11 +141,11 @@ textarea {
   min-height: 46px;
   padding: 0 20px;
   border-radius: 14px;
-  border: 1px solid rgba(15, 108, 189, 0.12);
-  background: linear-gradient(180deg, #1d7ad0, #0f6cbd);
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  background: linear-gradient(180deg, #2d2d2d, #111111);
   color: white;
   font-weight: 700;
-  box-shadow: 0 14px 28px rgba(15, 108, 189, 0.18);
+  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.16);
 }
 
 .textLink {
@@ -178,7 +178,7 @@ textarea {
   gap: 12px;
   margin-bottom: 12px;
   padding: 0 4px;
-  color: var(--accent);
+  color: #3a342e;
   font-size: 16px;
   font-weight: 500;
   text-align: center;
@@ -191,12 +191,12 @@ textarea {
 }
 
 .calendarCard {
-  min-height: 172px;
+  min-height: 150px;
   border-radius: 20px;
-  padding: 14px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  border: 1px solid rgba(216, 224, 234, 0.78);
-  box-shadow: 0 10px 26px rgba(18, 32, 51, 0.08);
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff, #f7f3ee);
+  border: 1px solid rgba(211, 205, 197, 0.82);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.07);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -205,8 +205,8 @@ textarea {
 
 .calendarCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(18, 32, 51, 0.12);
-  border-color: rgba(15, 108, 189, 0.28);
+  box-shadow: 0 16px 30px rgba(17, 17, 17, 0.12);
+  border-color: rgba(17, 17, 17, 0.18);
 }
 
 .calendarCardMuted {
@@ -214,8 +214,8 @@ textarea {
 }
 
 .calendarCardToday {
-  background: linear-gradient(180deg, #edf7ff, #fafdff);
-  border-color: rgba(15, 108, 189, 0.42);
+  background: linear-gradient(180deg, #f0ece6, #fbfaf8);
+  border-color: rgba(17, 17, 17, 0.32);
 }
 
 .calendarCardTop {
@@ -236,7 +236,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #57a5e6;
+  background: #111111;
   color: white;
   font-size: 14px;
   font-weight: 700;
@@ -250,7 +250,7 @@ textarea {
 
 .calendarMetrics strong {
   color: var(--success);
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .calendarMetrics span,
@@ -271,9 +271,9 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border-top: 1px solid rgba(216, 224, 234, 0.7);
+  border-top: 1px solid rgba(211, 205, 197, 0.7);
   padding-top: 8px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .calendarPreview span:first-child {
@@ -296,12 +296,12 @@ textarea {
 }
 
 .bookingRow + .bookingRow {
-  border-top: 1px solid rgba(216, 224, 234, 0.65);
+  border-top: 1px solid rgba(211, 205, 197, 0.65);
 }
 
 .bookingRow:hover {
-  background: rgba(15, 108, 189, 0.04);
-  border-color: rgba(15, 108, 189, 0.12);
+  background: rgba(17, 17, 17, 0.03);
+  border-color: rgba(17, 17, 17, 0.08);
 }
 
 .bookingRowMain {
@@ -354,7 +354,7 @@ textarea {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.86);
   border-radius: 24px;
-  border: 1px solid rgba(216, 224, 234, 0.72);
+  border: 1px solid rgba(211, 205, 197, 0.82);
   box-shadow: var(--shadow);
 }
 
@@ -376,7 +376,7 @@ textarea {
 }
 
 .statusPending {
-  background: rgba(230, 167, 0, 0.14);
+  background: rgba(154, 106, 18, 0.14);
   color: #a36c00;
 }
 
@@ -386,7 +386,7 @@ textarea {
 }
 
 .statusInfo {
-  background: rgba(15, 108, 189, 0.12);
+  background: rgba(17, 17, 17, 0.08);
   color: var(--accent);
 }
 
@@ -435,7 +435,7 @@ textarea {
   justify-content: space-between;
   gap: 18px;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(216, 224, 234, 0.58);
+  border-bottom: 1px solid rgba(211, 205, 197, 0.58);
 }
 
 .detailItem:last-child {
