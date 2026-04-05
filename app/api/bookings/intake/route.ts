@@ -122,13 +122,17 @@ export async function POST(request: Request) {
     }
 
     try {
-      await sendBookingConfirmationEmail({
+      const emailResult = await sendBookingConfirmationEmail({
         shop: shop as ShopRow,
         booking: {
           ...booking,
           contact,
           vehicle
         }
+      });
+      console.info("Booking confirmation email result", {
+        bookingId: booking.id,
+        emailResult
       });
     } catch (emailError) {
       console.error("Booking confirmation email failed", emailError);

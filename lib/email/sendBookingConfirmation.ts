@@ -28,12 +28,20 @@ export async function sendBookingConfirmationEmail({
   const recipient = booking.contact?.email;
 
   if (!recipient) {
+    console.info("Booking confirmation email skipped: missing recipient email", {
+      bookingId: booking.id,
+      contactId: booking.contact_id
+    });
     return { skipped: true as const, reason: "missing_recipient" };
   }
 
   const template = await getEmailTemplate(shop.id, "booking-confirmation");
 
   if (!template || !template.is_active) {
+    console.info("Booking confirmation email skipped: missing or inactive template", {
+      bookingId: booking.id,
+      shopId: shop.id
+    });
     return { skipped: true as const, reason: "missing_template" };
   }
 
@@ -58,6 +66,12 @@ export async function sendBookingConfirmationEmail({
     body: rendered.body
   });
 
+  console.info("Booking confirmation email queued", {
+    bookingId: booking.id,
+    emailMessageId: messageRecord.id,
+    recipient
+  });
+
   try {
     const postmark = getPostmarkClient();
     const response = await postmark.sendEmail({
@@ -78,10 +92,22 @@ export async function sendBookingConfirmationEmail({
       providerMessageId: response.MessageID
     });
 
+    console.info("Booking confirmation email sent", {
+      bookingId: booking.id,
+      emailMessageId: messageRecord.id,
+      providerMessageId: response.MessageID
+    });
+
     return { skipped: false as const, emailMessageId: messageRecord.id, providerMessageId: response.MessageID };
   } catch (error) {
     await updateEmailMessageFailed({
       id: messageRecord.id
+    });
+
+    console.error("Booking confirmation email send failed", {
+      bookingId: booking.id,
+      emailMessageId: messageRecord.id,
+      error
     });
 
     throw error;
