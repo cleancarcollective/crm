@@ -1,0 +1,50 @@
+{
+  "Event Date": "2026-04-08",
+  "Event Time": "08:30",
+  "Title": "Premium Detail - Ross Gribben",
+  "Details": "SERVICES: Premium Detail\nADD-ONS: None\nVEHICLE: 2018 Audi SQ7 (Large SUV / Ute)\nLOCATION: In-Store\nSERVICE ADDRESS: N/A\nDELIVERY ADDRESS: N/A\nDATE: 8/04/2026\nTIME: 08:30\nNOTES: Under 2nd row and 3rd row is something spilt on carpet",
+  "Price": 700,
+  "Duration (minutes)": 390,
+
+  "New Client Name": "Ross Gribben",
+  "New Lead/Client Email": "rossgribben@yahoo.com.au",
+  "New Lead/Client Phone": "0272022511",
+
+  "Vehicle Year": "2018",
+  "Vehicle Make": "Audi",
+  "Vehicle Model": "SQ7",
+
+  "source": "Website Booking Flow",
+  "timestamp": "2026-04-03T05:26:56.599Z",
+
+  "first_name": "Ross",
+  "last_name": "Gribben",
+  "email": "rossgribben@yahoo.com.au",
+  "phone": "0272022511",
+
+  "vehicle_year": "2018",
+  "vehicle_make": "Audi",
+  "vehicle_model": "SQ7",
+  "vehicle_make_model": "Audi SQ7",
+  "vehicle_size": "Large SUV / Ute",
+
+  "appointment_date": "2026-04-08",
+  "appointment_time": "08:30",
+  "location_type": "In-Store",
+
+  "address": "",
+  "delivery_address": "",
+
+  "notes": "SERVICES: Premium Detail\nADD-ONS: None\nVEHICLE: 2018 Audi SQ7 (Large SUV / Ute)",
+  "user_notes": "Under 2nd row and 3rd row is something spilt on carpet",
+
+  "services_array": ["Premium Detail"],
+  "service_ids": "63348",
+
+  "total_price": 700,
+  "duration_minutes": 390,
+
+  "Service Name": "Premium Detail",
+  "Service ID": "63348",
+  "Event Address": ""
+}
