@@ -106,7 +106,7 @@ export async function sendBookingEmail({
       Subject: rendered.subject,
       TextBody: rendered.textBody,
       HtmlBody: rendered.htmlBody,
-      MessageStream: "outbound",
+      MessageStream: "booking-emails",
       Metadata: {
         email_message_id: messageRecord.id,
         booking_id: booking.id,
