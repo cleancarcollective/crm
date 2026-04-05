@@ -188,6 +188,120 @@ from shops
 where shops.slug = 'christchurch'
 on conflict (shop_id, key) do nothing;
 
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-reminder',
+  'Booking Reminder',
+  'Reminder: {{service_name}} on {{scheduled_date}} at {{scheduled_time}}',
+  E'Hi {{first_name}},\n\nThis is a reminder about your upcoming booking with Clean Car Collective Christchurch.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nIf anything has changed, reply to this email.\n\nClean Car Collective Christchurch',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-team-notification',
+  'New Booking Team Notification',
+  'New booking: {{service_name}} on {{scheduled_date}} at {{scheduled_time}}',
+  E'Hi {{first_name}},\n\nA new booking has been created in the CRM.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nReview this booking in the CRM calendar if any prep or follow-up is required.\n\n{{shop_name}}',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-reminder-week',
+  'Booking Reminder - One Week',
+  'Reminder: {{service_name}} in one week on {{scheduled_date}}',
+  E'Hi {{first_name}},\n\nThis is your one-week reminder for your upcoming booking with Clean Car Collective Christchurch.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nIf anything has changed, reply to this email.\n\n{{shop_name}}',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-reminder-day',
+  'Booking Reminder - One Day',
+  'Reminder: {{service_name}} tomorrow at {{scheduled_time}}',
+  E'Hi {{first_name}},\n\nThis is your one-day reminder for your upcoming booking with Clean Car Collective Christchurch.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nIf anything has changed, reply to this email.\n\n{{shop_name}}',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-reminder-hour',
+  'Booking Reminder - One Hour',
+  'Reminder: {{service_name}} starts in one hour',
+  E'Hi {{first_name}},\n\nThis is your one-hour reminder for your upcoming booking with Clean Car Collective Christchurch.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nWe look forward to seeing you shortly.\n\n{{shop_name}}',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
+insert into email_templates (
+  shop_id,
+  key,
+  name,
+  subject_template,
+  body_template,
+  is_active
+)
+select
+  shops.id,
+  'booking-update',
+  'Booking Update',
+  'Updated booking: {{service_name}} on {{scheduled_date}}',
+  E'Hi {{first_name}},\n\nThere has been an update to your booking with Clean Car Collective Christchurch.\n\nService: {{service_name}}\nDate: {{scheduled_date}}\nTime: {{scheduled_time}}\nVehicle: {{vehicle_label}}\nLocation: {{location_type}}\nEstimated price: {{price_estimate}}\n\nNotes:\n{{notes}}\n\nIf you have any questions, reply to this email.\n\nClean Car Collective Christchurch',
+  true
+from shops
+where shops.slug = 'christchurch'
+on conflict (shop_id, key) do nothing;
+
 alter table vehicles
 add column if not exists size text;
 

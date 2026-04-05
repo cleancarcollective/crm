@@ -5,6 +5,7 @@ import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
+import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type ShopRow = {
@@ -136,6 +137,23 @@ export async function POST(request: Request) {
       });
     } catch (emailError) {
       console.error("Booking confirmation email failed", emailError);
+    }
+
+    try {
+      const teamEmailResult = await sendTeamBookingNotification({
+        shop: shop as ShopRow,
+        booking: {
+          ...booking,
+          contact,
+          vehicle
+        }
+      });
+      console.info("Team booking notification result", {
+        bookingId: booking.id,
+        teamEmailResult
+      });
+    } catch (teamEmailError) {
+      console.error("Team booking notification failed", teamEmailError);
     }
 
     return withCors(NextResponse.json({

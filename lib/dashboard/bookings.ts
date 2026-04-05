@@ -155,6 +155,10 @@ async function getBookingsForRange(shopId: string, startIso: string, endIso: str
   return attachRelations(bookings);
 }
 
+export async function getBookingsWithRelationsForRange(shopId: string, startIso: string, endIso: string) {
+  return getBookingsForRange(shopId, startIso, endIso);
+}
+
 async function attachRelations(bookings: BookingRecord[]) {
   if (bookings.length === 0) {
     return [] as BookingWithRelations[];
