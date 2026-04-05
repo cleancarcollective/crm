@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import "@/app/globals.css";
+
 export const metadata: Metadata = {
   title: "Clean Car Collective CRM",
   description: "Internal CRM booking intake"
