@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { sendLeadTeamNotification } from "@/lib/email/sendLeadTeamNotification";
+import { sendEstimateAutomationBridge } from "@/lib/leads/sendEstimateAutomationBridge";
+import { parseLeadVehicleInput } from "@/lib/leads/parseVehicleInput";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type LeadIntakePayload = {
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
 
   const shopSlug = payload.shop_slug ?? "christchurch";
   const supabase = getSupabaseAdminClient();
+  const parsedVehicle = parseLeadVehicleInput(payload);
 
   const { data: shop, error: shopError } = await supabase
     .from("shops")
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
 
     // Create vehicle if details provided
     let vehicleId: string | null = null;
-    const hasVehicle = payload.vehicle_make || payload.vehicle_model || payload.vehicle_year;
+    const hasVehicle = parsedVehicle.make || parsedVehicle.model || parsedVehicle.year;
 
     if (hasVehicle) {
       const { data: newVehicle, error: vehicleError } = await supabase
@@ -106,9 +109,9 @@ export async function POST(request: Request) {
         .insert({
           shop_id: shop.id,
           contact_id: contactId,
-          make: payload.vehicle_make ?? null,
-          model: payload.vehicle_model ?? null,
-          year: payload.vehicle_year ?? null,
+          make: parsedVehicle.make,
+          model: parsedVehicle.model,
+          year: parsedVehicle.year,
         })
         .select("id")
         .single();
@@ -145,15 +148,34 @@ export async function POST(request: Request) {
           last_name: payload.last_name ?? null,
           email: payload.email,
           phone: payload.phone ?? null,
-          vehicle_year: payload.vehicle_year ?? null,
-          vehicle_make: payload.vehicle_make ?? null,
-          vehicle_model: payload.vehicle_model ?? null,
+          vehicle_year: parsedVehicle.year,
+          vehicle_make: parsedVehicle.make,
+          vehicle_model: parsedVehicle.model,
           service_requested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
         },
       });
     } catch (emailError) {
       console.error("Lead team notification failed", emailError);
+    }
+
+    try {
+      await sendEstimateAutomationBridge({
+        shop,
+        lead: {
+          full_name: fullName,
+          email: payload.email,
+          phone: payload.phone ?? null,
+          service_requested: payload.service_requested ?? null,
+          notes: payload.notes ?? null,
+          source: payload.source ?? "website-lead-form",
+          vehicle_year: parsedVehicle.year,
+          vehicle_make: parsedVehicle.make,
+          vehicle_model: parsedVehicle.model,
+        },
+      });
+    } catch (bridgeError) {
+      console.error("Estimate automation bridge failed", bridgeError);
     }
 
     return withCors(NextResponse.json({ success: true, lead_id: lead.id, contact_id: contactId }));
