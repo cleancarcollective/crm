@@ -13,6 +13,7 @@ type BridgeLeadPayload = {
 };
 
 type EstimateAutomationBridgeBody = {
+  webhook_secret?: string;
   full_name: string;
   email: string;
   phone: string;
@@ -36,8 +37,13 @@ type EstimateAutomationBridgeBody = {
   submitted_at: string;
 };
 
-function buildBridgeBody(shop: ShopRecord, lead: BridgeLeadPayload): EstimateAutomationBridgeBody {
+function buildBridgeBody(
+  shop: ShopRecord,
+  lead: BridgeLeadPayload,
+  webhookSecret?: string
+): EstimateAutomationBridgeBody {
   return {
+    ...(webhookSecret ? { webhook_secret: webhookSecret } : {}),
     full_name: lead.full_name,
     email: lead.email,
     phone: lead.phone ?? "",
@@ -80,9 +86,8 @@ export async function sendEstimateAutomationBridge({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(webhookSecret ? { "x-estimate-automation-secret": webhookSecret } : {}),
     },
-    body: JSON.stringify(buildBridgeBody(shop, lead)),
+    body: JSON.stringify(buildBridgeBody(shop, lead, webhookSecret)),
   });
 
   if (!response.ok) {
