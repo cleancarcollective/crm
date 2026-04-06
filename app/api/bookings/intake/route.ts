@@ -4,6 +4,7 @@ import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
 import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
+import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -120,6 +121,21 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       throw bookingError;
+    }
+
+    try {
+      const reminderJobs = await createReminderJobsForBooking({
+        shop: shop as ShopRow,
+        bookingId: booking.id,
+        contactId: contact.id,
+        scheduledStart: booking.scheduled_start
+      });
+      console.info("Scheduled reminder jobs created", {
+        bookingId: booking.id,
+        count: reminderJobs.length
+      });
+    } catch (reminderError) {
+      console.error("Failed to create scheduled reminder jobs", reminderError);
     }
 
     try {

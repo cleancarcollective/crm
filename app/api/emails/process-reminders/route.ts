@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { processBookingReminders } from "@/lib/email/processBookingReminders";
+import { processScheduledReminderJobs } from "@/lib/email/scheduledReminderJobs";
 
 function isAuthorized(request: Request) {
   const vercelCron = request.headers.get("x-vercel-cron");
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const results = await processBookingReminders();
+  const results = await processScheduledReminderJobs();
 
   return NextResponse.json({
     success: true,

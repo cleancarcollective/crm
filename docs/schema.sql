@@ -104,6 +104,22 @@ create table if not exists email_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists scheduled_email_jobs (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references shops(id) on delete cascade,
+  booking_id uuid references bookings(id) on delete cascade,
+  contact_id uuid references contacts(id) on delete set null,
+  template_key text not null,
+  scheduled_for timestamptz not null,
+  status text not null default 'pending' check (status in ('pending','processing','sent','cancelled','failed','skipped')),
+  email_message_id uuid references email_messages(id) on delete set null,
+  attempt_count integer not null default 0,
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (shop_id, booking_id, template_key)
+);
+
 create index if not exists contacts_shop_id_idx on contacts(shop_id);
 create index if not exists contacts_email_idx on contacts(email);
 create index if not exists contacts_phone_idx on contacts(phone);
@@ -131,6 +147,11 @@ create index if not exists email_messages_provider_message_id_idx on email_messa
 create index if not exists email_events_shop_id_idx on email_events(shop_id);
 create index if not exists email_events_message_id_idx on email_events(email_message_id);
 create index if not exists email_events_type_idx on email_events(event_type);
+
+create index if not exists scheduled_email_jobs_shop_id_idx on scheduled_email_jobs(shop_id);
+create index if not exists scheduled_email_jobs_booking_id_idx on scheduled_email_jobs(booking_id);
+create index if not exists scheduled_email_jobs_status_idx on scheduled_email_jobs(status);
+create index if not exists scheduled_email_jobs_scheduled_for_idx on scheduled_email_jobs(scheduled_for);
 
 create or replace function set_updated_at()
 returns trigger as $$
@@ -163,6 +184,11 @@ for each row execute function set_updated_at();
 drop trigger if exists email_templates_set_updated_at on email_templates;
 create trigger email_templates_set_updated_at
 before update on email_templates
+for each row execute function set_updated_at();
+
+drop trigger if exists scheduled_email_jobs_set_updated_at on scheduled_email_jobs;
+create trigger scheduled_email_jobs_set_updated_at
+before update on scheduled_email_jobs
 for each row execute function set_updated_at();
 
 insert into shops (name, slug, timezone)

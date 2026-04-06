@@ -39,6 +39,21 @@ export async function getShopBySlug(slug = DEFAULT_SHOP_SLUG) {
   return data as ShopRecord;
 }
 
+export async function getShopById(id: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("shops")
+    .select("id, slug, name, timezone")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ShopRecord;
+}
+
 function parseMonthKey(month: string | undefined, timezone: string) {
   if (!month) {
     return formatInTimeZone(new Date(), timezone, "yyyy-MM");
@@ -108,32 +123,15 @@ export async function getBookingsForDay(day: string, shopSlug = DEFAULT_SHOP_SLU
 
 export async function getBookingById(id: string, shopSlug = DEFAULT_SHOP_SLUG) {
   const shop = await getShopBySlug(shopSlug);
-  const supabase = getSupabaseAdminClient();
+  const booking = await getBookingWithRelationsById(id, shop.id);
 
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("shop_id", shop.id)
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    throw error;
+  if (!booking) {
+    throw new Error(`Booking not found: ${id}`);
   }
-
-  const booking = data as BookingRecord;
-  const [contact, vehicle] = await Promise.all([
-    booking.contact_id ? getContactById(booking.contact_id) : Promise.resolve(null),
-    booking.vehicle_id ? getVehicleById(booking.vehicle_id) : Promise.resolve(null)
-  ]);
 
   return {
     shop,
-    booking: {
-      ...booking,
-      contact,
-      vehicle
-    } satisfies BookingWithRelations
+    booking
   };
 }
 
@@ -157,6 +155,36 @@ async function getBookingsForRange(shopId: string, startIso: string, endIso: str
 
 export async function getBookingsWithRelationsForRange(shopId: string, startIso: string, endIso: string) {
   return getBookingsForRange(shopId, startIso, endIso);
+}
+
+export async function getBookingWithRelationsById(id: string, shopId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("shop_id", shopId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const booking = data as BookingRecord;
+  const [contact, vehicle] = await Promise.all([
+    booking.contact_id ? getContactById(booking.contact_id) : Promise.resolve(null),
+    booking.vehicle_id ? getVehicleById(booking.vehicle_id) : Promise.resolve(null)
+  ]);
+
+  return {
+    ...booking,
+    contact,
+    vehicle
+  } satisfies BookingWithRelations;
 }
 
 async function attachRelations(bookings: BookingRecord[]) {
