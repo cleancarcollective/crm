@@ -462,6 +462,82 @@ textarea {
   font-size: 13px;
 }
 
+.editorHeader,
+.editorActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.editorField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editorField span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.editorField input,
+.editorField select,
+.editorField textarea {
+  width: 100%;
+  border: 1px solid rgba(211, 205, 197, 0.9);
+  border-radius: 14px;
+  background: #fffdfa;
+  padding: 12px 14px;
+  color: var(--text);
+}
+
+.editorFieldFull {
+  grid-column: 1 / -1;
+}
+
+.buttonPrimary,
+.buttonGhost {
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  border: 1px solid #111111;
+  background: #111111;
+  color: white;
+}
+
+.buttonGhost {
+  border: 1px solid rgba(17, 17, 17, 0.15);
+  background: transparent;
+  color: var(--danger);
+}
+
+.buttonPrimary:disabled,
+.buttonGhost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.editorError {
+  margin: 14px 0 0;
+  color: var(--danger);
+  font-weight: 600;
+}
+
 @media (max-width: 1100px) {
   .calendarGrid,
   .weekHeader {
@@ -472,6 +548,7 @@ textarea {
 @media (max-width: 860px) {
   .summaryStrip,
   .detailGrid,
+  .editorGrid,
   .calendarGrid,
   .weekHeader {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -505,6 +582,7 @@ textarea {
 
   .summaryStrip,
   .detailGrid,
+  .editorGrid,
   .calendarGrid,
   .weekHeader {
     grid-template-columns: minmax(0, 1fr);

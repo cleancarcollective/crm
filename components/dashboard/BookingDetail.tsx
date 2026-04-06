@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BookingEditor } from "@/components/dashboard/BookingEditor";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime, formatMinutes } from "@/lib/dashboard/format";
@@ -72,6 +73,8 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
         <h2>Raw Payload</h2>
         <pre className="payloadBox">{JSON.stringify(booking.raw_payload, null, 2)}</pre>
       </div>
+
+      <BookingEditor booking={booking} shop={shop} />
     </section>
   );
 }
