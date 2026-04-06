@@ -8,6 +8,28 @@ import { renderTemplate } from "@/lib/email/templateRenderer";
 import type { BookingConfirmationEmailContext, EmailTemplateKey, EmailTemplateRecord } from "@/lib/email/types";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
+const SHOP_DETAILS: Record<string, { address: string; mapLink: string; phone: string; email: string }> = {
+  christchurch: {
+    address: "20 Southwark Street, Christchurch, Central City, 8011",
+    mapLink: "https://maps.app.goo.gl/jAb6JhCgXV8Nafc49",
+    phone: "0800 476 667",
+    email: "hello@cleancarcollective.co.nz"
+  },
+  wellington: {
+    address: "8 Ebor Street, Te Aro, Wellington 6011",
+    mapLink: "https://maps.app.goo.gl/7SKjCH5gcAffkfEi7",
+    phone: "0800 476 667",
+    email: "hello@cleancarcollective.co.nz"
+  }
+};
+
+const DEFAULT_SHOP_DETAILS = {
+  address: "New Zealand",
+  mapLink: "https://cleancarcollective.co.nz",
+  phone: "0800 476 667",
+  email: "hello@cleancarcollective.co.nz"
+};
+
 type SendBookingEmailArgs = {
   shop: ShopRecord;
   booking: BookingWithRelations;
@@ -157,6 +179,9 @@ function buildTemplateContext({
   firstName?: string | null;
   fullNameOverride?: string | null;
 }): BookingConfirmationEmailContext {
+  const shopDetails = SHOP_DETAILS[shop.slug] ?? DEFAULT_SHOP_DETAILS;
+  const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
+
   return {
     first_name: firstName ?? booking.contact?.first_name ?? "there",
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
@@ -169,7 +194,11 @@ function buildTemplateContext({
     notes: booking.notes || booking.service_details || "No additional notes.",
     intro_line: introLine,
     action_line: actionLine,
-    shop_name: shop.name
+    shop_name: shop.name,
+    shop_address: isMobile ? "Mobile — our team will come to you" : shopDetails.address,
+    shop_map_link: isMobile ? "" : shopDetails.mapLink,
+    shop_phone: shopDetails.phone,
+    shop_email: shopDetails.email
   };
 }
 

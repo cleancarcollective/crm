@@ -16,6 +16,21 @@ export type EmailTemplateKey =
   | "booking-reminder-hour"
   | "booking-update";
 
+export type ScheduledEmailJobRecord = {
+  id: string;
+  shop_id: string;
+  booking_id: string | null;
+  contact_id: string | null;
+  template_key: EmailTemplateKey;
+  scheduled_for: string;
+  status: "pending" | "processing" | "sent" | "cancelled" | "failed" | "skipped";
+  email_message_id: string | null;
+  attempt_count: number;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BookingConfirmationEmailContext = {
   first_name: string;
   full_name: string;
@@ -29,6 +44,10 @@ export type BookingConfirmationEmailContext = {
   intro_line: string;
   action_line: string;
   shop_name: string;
+  shop_address: string;
+  shop_map_link: string;
+  shop_phone: string;
+  shop_email: string;
 };
 
 export type RenderedEmail = {
