@@ -470,6 +470,12 @@ textarea {
   gap: 12px;
 }
 
+.editorSaved {
+  font-size: 13px;
+  color: #22c55e;
+  font-weight: 600;
+}
+
 .editorGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

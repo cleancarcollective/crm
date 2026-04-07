@@ -32,18 +32,18 @@ export function BookingEditor({ booking, shop }: BookingEditorProps) {
   const [locationType, setLocationType] = useState(booking.location_type ?? "");
   const [notes, setNotes] = useState(booking.notes ?? "");
   const [errorMessage, setErrorMessage] = useState("");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const dayKey = getZonedDateKey(booking.scheduled_start, shop.timezone);
 
   function handleSave() {
     setErrorMessage("");
+    setSavedAt(null);
 
     startTransition(async () => {
       const response = await fetch(`/api/bookings/${booking.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service_name: serviceName,
           status,
@@ -56,20 +56,18 @@ export function BookingEditor({ booking, shop }: BookingEditorProps) {
       });
 
       if (!response.ok) {
-        setErrorMessage("Failed to save booking changes.");
+        setErrorMessage("Failed to save booking. Please try again.");
         return;
       }
 
+      setSavedAt(new Date());
       router.refresh();
     });
   }
 
   function handleDelete() {
     const confirmed = window.confirm("Delete this booking? This cannot be undone.");
-
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setErrorMessage("");
 
@@ -79,12 +77,11 @@ export function BookingEditor({ booking, shop }: BookingEditorProps) {
       });
 
       if (!response.ok) {
-        setErrorMessage("Failed to delete booking.");
+        setErrorMessage("Failed to delete booking. Please try again.");
         return;
       }
 
       router.push(`/day/${dayKey}`);
-      router.refresh();
     });
   }
 
@@ -93,11 +90,14 @@ export function BookingEditor({ booking, shop }: BookingEditorProps) {
       <div className="editorHeader">
         <h2>Edit Booking</h2>
         <div className="editorActions">
+          {savedAt && !isPending && (
+            <span className="editorSaved">Saved ✓</span>
+          )}
           <button type="button" className="buttonGhost" onClick={handleDelete} disabled={isPending}>
             Delete
           </button>
           <button type="button" className="buttonPrimary" onClick={handleSave} disabled={isPending}>
-            {isPending ? "Saving..." : "Save Changes"}
+            {isPending ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
