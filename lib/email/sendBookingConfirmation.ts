@@ -6,7 +6,7 @@ export async function sendBookingConfirmationEmail({
   shop,
   booking,
   templateKey = "booking-confirmation",
-  introLine = "Your booking with Clean Car Collective Christchurch is confirmed.",
+  introLine,
   actionLine = "If you need to make any changes, reply to this email."
 }: {
   shop: ShopRecord;
@@ -15,12 +15,13 @@ export async function sendBookingConfirmationEmail({
   introLine?: string;
   actionLine?: string;
 }) {
+  const resolvedIntroLine = introLine ?? `Your booking with ${shop.name} is confirmed.`;
   return sendBookingEmail({
     shop,
     booking,
     templateKey,
     recipient: booking.contact?.email ?? null,
-    introLine,
+    introLine: resolvedIntroLine,
     actionLine
   });
 }

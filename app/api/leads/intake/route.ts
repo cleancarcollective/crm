@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { sendLeadConfirmationEmail } from "@/lib/email/sendLeadConfirmationEmail";
 import { sendLeadTeamNotification } from "@/lib/email/sendLeadTeamNotification";
 import { sendEstimateAutomationBridge } from "@/lib/leads/sendEstimateAutomationBridge";
 import { parseLeadVehicleInput } from "@/lib/leads/parseVehicleInput";
@@ -137,6 +138,22 @@ export async function POST(request: Request) {
       .single();
 
     if (leadError) throw leadError;
+
+    const vehicleLabel = [parsedVehicle.year, parsedVehicle.make, parsedVehicle.model].filter(Boolean).join(" ") || null;
+
+    // Send customer confirmation (non-blocking)
+    try {
+      await sendLeadConfirmationEmail({
+        shop,
+        firstName: payload.first_name,
+        email: payload.email,
+        vehicleLabel,
+        serviceRequested: payload.service_requested ?? null,
+        leadId: lead.id,
+      });
+    } catch (confirmError) {
+      console.error("Lead confirmation email failed", confirmError);
+    }
 
     // Send team notification (non-blocking)
     try {

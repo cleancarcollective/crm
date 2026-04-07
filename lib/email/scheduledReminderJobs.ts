@@ -10,22 +10,32 @@ const REMINDER_DEFINITIONS = [
   {
     templateKey: "booking-reminder-week" as const,
     offset: (scheduledStart: Date) => addWeeks(scheduledStart, -1),
-    introLine: "This is your one-week reminder for your upcoming booking with Clean Car Collective Christchurch.",
     actionLine: "If anything has changed, reply to this email."
   },
   {
     templateKey: "booking-reminder-day" as const,
     offset: (scheduledStart: Date) => addDays(scheduledStart, -1),
-    introLine: "This is your one-day reminder for your upcoming booking with Clean Car Collective Christchurch.",
     actionLine: "If anything has changed, reply to this email."
   },
   {
     templateKey: "booking-reminder-hour" as const,
     offset: (scheduledStart: Date) => addHours(scheduledStart, -1),
-    introLine: "This is your one-hour reminder for your upcoming booking with Clean Car Collective Christchurch.",
     actionLine: "We look forward to seeing you shortly."
   }
 ];
+
+function getReminderIntroLine(templateKey: EmailTemplateKey, shopName: string): string {
+  switch (templateKey) {
+    case "booking-reminder-week":
+      return `This is your one-week reminder for your upcoming booking with ${shopName}.`;
+    case "booking-reminder-day":
+      return `This is your one-day reminder for your upcoming booking with ${shopName}.`;
+    case "booking-reminder-hour":
+      return `This is your one-hour reminder for your upcoming booking with ${shopName}.`;
+    default:
+      return `A reminder about your upcoming booking with ${shopName}.`;
+  }
+}
 
 export async function createReminderJobsForBooking({
   shop,
@@ -155,7 +165,7 @@ export async function processScheduledReminderJobs() {
         shop,
         booking: bookingData,
         templateKey: claimedJob.template_key,
-        introLine: reminderDefinition.introLine,
+        introLine: getReminderIntroLine(claimedJob.template_key, shop.name),
         actionLine: reminderDefinition.actionLine
       });
 
