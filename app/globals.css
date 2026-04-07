@@ -446,6 +446,126 @@ textarea {
   text-align: right;
 }
 
+/* Inline editable row */
+.detailItemEdit {
+  align-items: center;
+}
+
+.detailInput {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed rgba(211, 205, 197, 0.45);
+  border-radius: 0;
+  padding: 2px 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: inherit;
+  text-align: right;
+  width: 100%;
+  max-width: 220px;
+  transition: border-color 0.15s;
+}
+
+.detailInput:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+  border-bottom-style: solid;
+}
+
+.detailInput[type="datetime-local"] {
+  max-width: 220px;
+  font-size: 13px;
+}
+
+/* Title as editable input */
+.detailTitleInput {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 2px 0;
+  margin: 6px 0 0;
+  font-size: clamp(24px, 4vw, 38px);
+  font-weight: 700;
+  font-family: inherit;
+  color: inherit;
+  width: 100%;
+  max-width: 520px;
+  line-height: 1.2;
+  transition: border-color 0.15s;
+}
+
+.detailTitleInput:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+/* Status dropdown styled like a badge */
+.statusSelect {
+  appearance: none;
+  border: none;
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.statusSelect[data-status="pending"]       { background: #fef3c7; color: #92400e; }
+.statusSelect[data-status="confirmed"]     { background: #d1fae5; color: #065f46; }
+.statusSelect[data-status="reminder_sent"] { background: #dbeafe; color: #1e40af; }
+.statusSelect[data-status="completed"]     { background: #e0e7ff; color: #3730a3; }
+.statusSelect[data-status="cancelled"]     { background: #fee2e2; color: #991b1b; }
+.statusSelect[data-status="no_show"]       { background: #f3f4f6; color: #374151; }
+
+/* Header layout for right side */
+.detailHeaderLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.detailHeaderRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.detailActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Notes textarea */
+.detailTextarea {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed rgba(211, 205, 197, 0.45);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: inherit;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.detailTextarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  border-style: solid;
+}
+
 .detailText,
 .payloadBox {
   margin: 0;
@@ -568,6 +688,18 @@ textarea {
     flex-direction: column;
   }
 
+  .detailHeaderRight {
+    align-items: flex-start;
+  }
+
+  .detailActions {
+    justify-content: flex-start;
+  }
+
+  .detailTitleInput {
+    max-width: 100%;
+  }
+
   .bookingMetaBlock {
     align-items: flex-start;
     text-align: left;
@@ -596,5 +728,16 @@ textarea {
 
   .calendarCard {
     min-height: 150px;
+  }
+
+  .detailItemEdit {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .detailInput {
+    text-align: left;
+    max-width: 100%;
   }
 }
