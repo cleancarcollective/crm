@@ -24,17 +24,20 @@ function replaceTokens(templateValue: string, context: BookingConfirmationEmailC
 
 export function appendBookingEmailFallbackDetails(body: string, context: BookingConfirmationEmailContext) {
   const addOnLine = context.add_ons && context.add_ons !== "None" ? `Add-ons: ${context.add_ons}` : "";
-  if (!addOnLine) {
+  const updateSummaryBlock = context.update_summary ? `Updated details:\n${context.update_summary}` : "";
+  const extras = [updateSummaryBlock, addOnLine].filter(Boolean).join("\n\n");
+
+  if (!extras) {
     return body;
   }
 
   if (body.includes("\nNotes:\n")) {
-    return body.replace("\nNotes:\n", `\n${addOnLine}\n\nNotes:\n`);
+    return body.replace("\nNotes:\n", `\n${extras}\n\nNotes:\n`);
   }
 
   if (body.includes("\nNotes:")) {
-    return body.replace("\nNotes:", `\n${addOnLine}\n\nNotes:`);
+    return body.replace("\nNotes:", `\n${extras}\n\nNotes:`);
   }
 
-  return `${body}\n\n${addOnLine}`;
+  return `${body}\n\n${extras}`;
 }

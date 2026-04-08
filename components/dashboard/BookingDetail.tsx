@@ -48,15 +48,15 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
   const [priceEstimate, setPriceEstimate] = useState(String(booking.price_estimate ?? ""));
   const [locationType, setLocationType] = useState(booking.location_type ?? "");
   const [notes, setNotes] = useState(booking.notes ?? "");
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState("");
   const addOns = getBookingAddOnsLabel(booking.raw_payload);
 
   const dayKey = getZonedDateKey(booking.scheduled_start, shop.timezone);
 
-  function handleSave() {
+  function handleSave(sendUpdateEmail = false) {
     setErrorMessage("");
-    setSavedAt(null);
+    setSavedMessage("");
     startTransition(async () => {
       const res = await fetch(`/api/bookings/${booking.id}`, {
         method: "PATCH",
@@ -69,13 +69,27 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
           price_estimate: priceEstimate ? Number(priceEstimate) : null,
           location_type: locationType || null,
           notes: notes || null,
+          send_update_email: sendUpdateEmail,
         }),
       });
       if (!res.ok) {
         setErrorMessage("Failed to save. Please try again.");
         return;
       }
-      setSavedAt(new Date());
+      const data = (await res.json()) as { update_email_status?: "sent" | "skipped" | "failed" | "not_requested" };
+      if (sendUpdateEmail) {
+        if (data.update_email_status === "sent") {
+          setSavedMessage("Saved + emailed ✓");
+        } else if (data.update_email_status === "skipped") {
+          setSavedMessage("Saved, no update email needed ✓");
+        } else if (data.update_email_status === "failed") {
+          setSavedMessage("Saved, but email failed");
+        } else {
+          setSavedMessage("Saved ✓");
+        }
+      } else {
+        setSavedMessage("Saved ✓");
+      }
       router.refresh();
     });
   }
@@ -127,12 +141,15 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
           </select>
 
           <div className="detailActions">
-            {savedAt && !isPending && <span className="editorSaved">Saved ✓</span>}
+            {savedMessage && !isPending && <span className="editorSaved">{savedMessage}</span>}
             {errorMessage && <span className="editorError">{errorMessage}</span>}
             <button className="buttonGhost" onClick={handleDelete} disabled={isPending}>
               Delete
             </button>
-            <button className="buttonPrimary" onClick={handleSave} disabled={isPending}>
+            <button className="buttonGhost buttonNeutral" onClick={() => handleSave(true)} disabled={isPending}>
+              {isPending ? "Saving…" : "Save + email update"}
+            </button>
+            <button className="buttonPrimary" onClick={() => handleSave(false)} disabled={isPending}>
               {isPending ? "Saving…" : "Save"}
             </button>
           </div>

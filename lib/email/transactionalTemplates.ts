@@ -77,6 +77,19 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     `
     : "";
 
+  const updateSummaryBlock = context.update_summary
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px; background: #f7f3ee; border-radius: 12px; border: 1px solid #e8e0d6;">
+        <tr>
+          <td style="padding: 18px 22px;">
+            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Updated details</p>
+            <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #5c5148;">${nl2br(context.update_summary)}</p>
+          </td>
+        </tr>
+      </table>
+    `
+    : "";
+
   return `
 <!doctype html>
 <html lang="en">
@@ -149,6 +162,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 </table>
                 ` : ""}
 
+                ${updateSummaryBlock}
                 ${addOnsBlock}
                 ${notesBlock}
 

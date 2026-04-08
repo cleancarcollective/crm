@@ -652,6 +652,10 @@ textarea {
   color: var(--danger);
 }
 
+.buttonNeutral {
+  color: var(--accent);
+}
+
 .buttonPrimary:disabled,
 .buttonGhost:disabled {
   opacity: 0.55;

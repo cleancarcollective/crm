@@ -41,6 +41,7 @@ type SendBookingEmailArgs = {
   firstName?: string | null;
   fullNameOverride?: string | null;
   includeCustomerDetails?: boolean;
+  updateSummary?: string;
 };
 
 function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
@@ -62,7 +63,8 @@ export async function sendBookingEmail({
   actionLine,
   firstName,
   fullNameOverride,
-  includeCustomerDetails = false
+  includeCustomerDetails = false,
+  updateSummary
 }: SendBookingEmailArgs) {
   if (!recipient) {
     console.info("Booking email skipped: missing recipient email", {
@@ -105,7 +107,8 @@ export async function sendBookingEmail({
     actionLine,
     firstName,
     fullNameOverride,
-    includeCustomerDetails
+    includeCustomerDetails,
+    updateSummary
   }));
 
   const messageRecord = await createQueuedEmailMessage({
@@ -175,7 +178,8 @@ function buildTemplateContext({
   actionLine,
   firstName,
   fullNameOverride,
-  includeCustomerDetails = false
+  includeCustomerDetails = false,
+  updateSummary
 }: {
   shop: ShopRecord;
   booking: BookingWithRelations;
@@ -184,6 +188,7 @@ function buildTemplateContext({
   firstName?: string | null;
   fullNameOverride?: string | null;
   includeCustomerDetails?: boolean;
+  updateSummary?: string;
 }): BookingConfirmationEmailContext {
   const shopDetails = SHOP_DETAILS[shop.slug] ?? DEFAULT_SHOP_DETAILS;
   const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
@@ -193,6 +198,7 @@ function buildTemplateContext({
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
     service_name: booking.service_name,
     add_ons: getBookingAddOnsLabel(booking.raw_payload),
+    update_summary: updateSummary,
     scheduled_date: formatInTimeZone(booking.scheduled_start, shop.timezone, "EEEE d MMMM yyyy"),
     scheduled_time: formatInTimeZone(booking.scheduled_start, shop.timezone, "h:mm a"),
     vehicle_label: getVehicleLabel(booking),
