@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
 import { formatCurrency, formatMinutes } from "@/lib/dashboard/format";
 import type { CalendarDaySummary } from "@/lib/dashboard/types";
 
@@ -36,36 +37,41 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
 
       <div className="calendarGrid">
         {days.map((day) => (
-          <Link
+          <div
             key={day.isoDate}
-            href={`/day/${day.isoDate}`}
             className={[
               "calendarCard",
               day.isCurrentMonth ? "" : "calendarCardMuted",
               day.isToday ? "calendarCardToday" : ""
             ].join(" ")}
           >
-            <div className="calendarCardTop">
-              <span className="calendarDayNumber">{Number(day.isoDate.slice(-2))}</span>
-              {day.bookingCount > 0 ? <span className="calendarBookingCount">{day.bookingCount}</span> : null}
-            </div>
-
-            {day.bookingCount > 0 ? (
-              <div className="calendarMetrics">
-                <strong>{formatCurrency(day.totalRevenue)}</strong>
-                <span>{formatMinutes(day.totalDurationMinutes)}</span>
+            <Link href={`/day/${day.isoDate}`} className="calendarCardPrimaryLink">
+              <div className="calendarCardTop">
+                <span className="calendarDayNumber">{Number(day.isoDate.slice(-2))}</span>
+                {day.bookingCount > 0 ? <span className="calendarBookingCount">{day.bookingCount}</span> : null}
               </div>
-            ) : (
-              <div className="calendarEmpty">No bookings</div>
-            )}
+
+              {day.bookingCount > 0 ? (
+                <div className="calendarMetrics">
+                  <strong>{formatCurrency(day.totalRevenue)}</strong>
+                  <span>{formatMinutes(day.totalDurationMinutes)}</span>
+                </div>
+              ) : (
+                <div className="calendarEmpty">No bookings</div>
+              )}
+            </Link>
 
             {day.bookings.slice(0, 3).map((booking) => (
               <div key={booking.id} className="calendarPreview">
                 <span>{booking.service_name}</span>
-                <span>{booking.contact?.full_name ?? booking.contact?.first_name ?? "Customer"}</span>
+                <ContactNameLink
+                  contactId={booking.contact?.id ?? booking.contact_id}
+                  name={booking.contact?.full_name ?? booking.contact?.first_name ?? "Customer"}
+                  className="profileNameLink"
+                />
               </div>
             ))}
-          </Link>
+          </div>
         ))}
       </div>
     </section>

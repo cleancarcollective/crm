@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime, formatMinutes } from "@/lib/dashboard/format";
@@ -18,7 +19,7 @@ export function BookingList({ bookings, timezone }: BookingListProps) {
   return (
     <div className="listPanel">
       {bookings.map((booking) => (
-        <Link key={booking.id} href={`/bookings/${booking.id}`} className="bookingRow">
+        <div key={booking.id} className="bookingRow">
           <div className="bookingRowMain">
             <div className="bookingTimeBlock">
               <strong>{formatDateTime(booking.scheduled_start, timezone, "h:mm a")}</strong>
@@ -27,10 +28,16 @@ export function BookingList({ bookings, timezone }: BookingListProps) {
 
             <div className="bookingSummaryBlock">
               <div className="bookingSummaryTop">
-                <strong>{booking.service_name}</strong>
+                <Link href={`/bookings/${booking.id}`} className="profilePrimaryLink">
+                  {booking.service_name}
+                </Link>
                 <StatusBadge status={booking.status} />
               </div>
-              <span>{getBookingDisplayName(booking)}</span>
+              <ContactNameLink
+                contactId={booking.contact?.id ?? booking.contact_id}
+                name={getBookingDisplayName(booking)}
+                className="profileNameLink"
+              />
               <span>{getVehicleLabel(booking)}</span>
             </div>
           </div>
@@ -38,8 +45,11 @@ export function BookingList({ bookings, timezone }: BookingListProps) {
           <div className="bookingMetaBlock">
             <strong>{formatCurrency(booking.price_estimate)}</strong>
             <span>{booking.location_type ?? "Location not set"}</span>
+            <Link href={`/bookings/${booking.id}`} className="profileMetaLink">
+              Open booking
+            </Link>
           </div>
-        </Link>
+        </div>
       ))}
     </div>
   );

@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type LeadDetails = {
   id: string;
+  contact_id: string | null;
   first_name: string;
   last_name: string | null;
   email: string;
@@ -165,7 +166,8 @@ export async function sendLeadTeamNotification({
     .from("email_messages")
     .insert({
       shop_id: shop.id,
-      contact_id: null,
+      contact_id: lead.contact_id,
+      lead_id: lead.id,
       booking_id: null,
       template_id: null,
       subject,

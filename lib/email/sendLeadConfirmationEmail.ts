@@ -9,6 +9,7 @@ type LeadConfirmationArgs = {
   vehicleLabel: string | null;
   serviceRequested: string | null;
   leadId: string;
+  contactId: string | null;
 };
 
 const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string }> = {
@@ -165,7 +166,8 @@ export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Pro
     .from("email_messages")
     .insert({
       shop_id: args.shop.id,
-      contact_id: null,
+      contact_id: args.contactId,
+      lead_id: args.leadId,
       booking_id: null,
       template_id: null,
       subject,

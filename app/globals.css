@@ -203,6 +203,14 @@ textarea {
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 
+.calendarCardPrimaryLink {
+  display: flex;
+  min-height: 92px;
+  flex-direction: column;
+  gap: 10px;
+  color: inherit;
+}
+
 .calendarCard:hover {
   transform: translateY(-2px);
   box-shadow: 0 16px 30px rgba(17, 17, 17, 0.12);
@@ -279,6 +287,158 @@ textarea {
 .calendarPreview span:first-child {
   font-weight: 700;
   color: var(--text);
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.profileStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profileCard,
+.commCard {
+  border: 1px solid rgba(211, 205, 197, 0.68);
+  border-radius: 18px;
+  background: rgba(247, 243, 238, 0.78);
+  padding: 16px 18px;
+}
+
+.profileCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profileCardTop,
+.commSummary,
+.commSummaryMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.profilePrimaryLink,
+.profileNameLink,
+.profileMetaLink {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.profilePrimaryLink {
+  font-weight: 700;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.profilePrimaryLink:hover,
+.profileNameLink:hover,
+.profileMetaLink:hover {
+  opacity: 0.72;
+}
+
+.profileNameLink {
+  font-weight: 600;
+}
+
+.profileMetaLink {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.profileNotes,
+.profileEmpty {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.commCard {
+  padding: 0;
+  overflow: hidden;
+}
+
+.commSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 18px;
+}
+
+.commSummary::-webkit-details-marker {
+  display: none;
+}
+
+.commSummaryMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commSummaryMain strong {
+  font-size: 16px;
+}
+
+.commSummaryMain span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.commSummaryMeta {
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.commBody {
+  border-top: 1px solid rgba(211, 205, 197, 0.68);
+  padding: 16px 18px 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.commBodyLinkRow {
+  margin: 0;
+}
+
+.commBodyFrame {
+  border-radius: 14px;
+  background: white;
+  border: 1px solid rgba(211, 205, 197, 0.68);
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.commEvents p {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.commEvents ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commEvents li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
 }
 
 .listPanel,
@@ -677,6 +837,7 @@ textarea {
 
 @media (max-width: 860px) {
   .summaryStrip,
+  .profileGrid,
   .detailGrid,
   .editorGrid,
   .calendarGrid,
@@ -708,6 +869,14 @@ textarea {
     align-items: flex-start;
     text-align: left;
   }
+
+  .commSummary,
+  .profileCardTop,
+  .commSummaryMeta,
+  .commEvents li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
@@ -723,6 +892,7 @@ textarea {
   }
 
   .summaryStrip,
+  .profileGrid,
   .detailGrid,
   .editorGrid,
   .calendarGrid,

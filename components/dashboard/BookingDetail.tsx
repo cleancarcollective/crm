@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
+import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 
@@ -122,7 +123,13 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
             onChange={(e) => setServiceName(e.target.value)}
             placeholder="Service name"
           />
-          <p className="detailSubtitle">{getBookingDisplayName(booking)}</p>
+          <p className="detailSubtitle">
+            <ContactNameLink
+              contactId={booking.contact?.id ?? booking.contact_id}
+              name={getBookingDisplayName(booking)}
+              className="profileNameLink"
+            />
+          </p>
         </div>
 
         <div className="detailHeaderRight">
@@ -212,7 +219,16 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
         {/* Contact panel */}
         <div className="detailPanel">
           <h2>Contact</h2>
-          <ReadItem label="Name" value={getBookingDisplayName(booking)} />
+          <div className="detailItem">
+            <span>Name</span>
+            <strong>
+              <ContactNameLink
+                contactId={booking.contact?.id ?? booking.contact_id}
+                name={getBookingDisplayName(booking)}
+                className="profileNameLink"
+              />
+            </strong>
+          </div>
           <ReadItem label="Email" value={booking.contact?.email ?? null} />
           <ReadItem label="Phone" value={booking.contact?.phone ?? null} />
 

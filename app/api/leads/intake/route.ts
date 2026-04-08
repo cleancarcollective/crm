@@ -291,6 +291,7 @@ export async function POST(request: Request) {
         vehicleLabel,
         serviceRequested: payload.service_requested ?? null,
         leadId,
+        contactId,
       });
     } catch (confirmError) {
       console.error("Lead confirmation email failed", confirmError);
@@ -301,6 +302,7 @@ export async function POST(request: Request) {
         shop,
         lead: {
           id: leadId,
+          contact_id: contactId,
           first_name: payload.first_name,
           last_name: payload.last_name ?? null,
           email: payload.email,
