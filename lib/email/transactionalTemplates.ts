@@ -64,6 +64,19 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     `
     : "";
 
+  const addOnsBlock = context.add_ons && context.add_ons !== "None"
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px; background: #f7f3ee; border-radius: 12px; border: 1px solid #e8e0d6;">
+        <tr>
+          <td style="padding: 18px 22px;">
+            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Add-ons</p>
+            <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #5c5148;">${escapeHtml(context.add_ons)}</p>
+          </td>
+        </tr>
+      </table>
+    `
+    : "";
+
   return `
 <!doctype html>
 <html lang="en">
@@ -120,6 +133,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 <p style="margin: 0 0 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Description</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
                   ${infoRow("Service", context.service_name)}
+                  ${context.add_ons && context.add_ons !== "None" ? infoRow("Add-ons", context.add_ons) : ""}
                   ${infoRow("Vehicle", context.vehicle_label)}
                   ${infoRow("Location type", context.location_type)}
                   ${context.price_estimate ? infoRow("Estimated price", context.price_estimate + " +GST") : ""}
@@ -135,6 +149,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 </table>
                 ` : ""}
 
+                ${addOnsBlock}
                 ${notesBlock}
 
                 <!-- Contact -->

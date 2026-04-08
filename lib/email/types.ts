@@ -35,6 +35,7 @@ export type BookingConfirmationEmailContext = {
   first_name: string;
   full_name: string;
   service_name: string;
+  add_ons: string;
   scheduled_date: string;
   scheduled_time: string;
   vehicle_label: string;

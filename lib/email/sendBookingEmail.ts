@@ -1,5 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 
+import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency } from "@/lib/dashboard/format";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
@@ -191,6 +192,7 @@ function buildTemplateContext({
     first_name: firstName ?? booking.contact?.first_name ?? "there",
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
     service_name: booking.service_name,
+    add_ons: getBookingAddOnsLabel(booking.raw_payload),
     scheduled_date: formatInTimeZone(booking.scheduled_start, shop.timezone, "EEEE d MMMM yyyy"),
     scheduled_time: formatInTimeZone(booking.scheduled_start, shop.timezone, "h:mm a"),
     vehicle_label: getVehicleLabel(booking),

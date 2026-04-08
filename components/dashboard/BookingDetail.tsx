@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 
@@ -49,6 +50,7 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
   const [notes, setNotes] = useState(booking.notes ?? "");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const addOns = getBookingAddOnsLabel(booking.raw_payload);
 
   const dayKey = getZonedDateKey(booking.scheduled_start, shop.timezone);
 
@@ -187,6 +189,7 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
 
           <ReadItem label="Source" value={booking.booking_source} />
           <ReadItem label="Service ID" value={booking.service_id} />
+          <ReadItem label="Add-ons" value={addOns} />
         </div>
 
         {/* Contact panel */}
