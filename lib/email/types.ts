@@ -48,6 +48,10 @@ export type BookingConfirmationEmailContext = {
   shop_map_link: string;
   shop_phone: string;
   shop_email: string;
+  // Optional — only populated for team-facing emails
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
 };
 
 export type RenderedEmail = {

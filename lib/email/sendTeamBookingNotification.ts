@@ -23,9 +23,10 @@ export async function sendTeamBookingNotification({
     booking,
     templateKey: "booking-team-notification",
     recipient: getRequiredEnv("TEAM_BOOKING_NOTIFICATION_EMAIL"),
-    introLine: "A new booking has been created in the CRM and needs team visibility.",
+    introLine: "A new booking has been created in the CRM.",
     actionLine: "Review this booking in the CRM calendar if any prep or follow-up is required.",
     firstName: "team",
-    fullNameOverride: "Clean Car Collective team"
+    fullNameOverride: "Clean Car Collective team",
+    includeCustomerDetails: true
   });
 }

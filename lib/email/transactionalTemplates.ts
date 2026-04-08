@@ -83,7 +83,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
             <!-- Header -->
             <tr>
               <td style="background: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
-                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #a89e96;">Clean Car Collective</p>
+                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #E5E4E2;">Clean Car Collective</p>
                 <h1 style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">${escapeHtml(heading)}</h1>
               </td>
             </tr>
@@ -122,8 +122,18 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                   ${infoRow("Service", context.service_name)}
                   ${infoRow("Vehicle", context.vehicle_label)}
                   ${infoRow("Location type", context.location_type)}
-                  ${infoRow("Estimated price", context.price_estimate)}
+                  ${context.price_estimate ? infoRow("Estimated price", context.price_estimate + " +GST") : ""}
                 </table>
+
+                ${context.customer_name || context.customer_email || context.customer_phone ? `
+                <!-- Customer details (team emails only) -->
+                <p style="margin: 0 0 4px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Customer</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
+                  ${context.customer_name ? infoRow("Name", context.customer_name) : ""}
+                  ${context.customer_email ? infoRow("Email", context.customer_email) : ""}
+                  ${context.customer_phone ? infoRow("Phone", context.customer_phone) : ""}
+                </table>
+                ` : ""}
 
                 ${notesBlock}
 

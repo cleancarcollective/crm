@@ -39,6 +39,7 @@ type SendBookingEmailArgs = {
   actionLine: string;
   firstName?: string | null;
   fullNameOverride?: string | null;
+  includeCustomerDetails?: boolean;
 };
 
 function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
@@ -59,7 +60,8 @@ export async function sendBookingEmail({
   introLine,
   actionLine,
   firstName,
-  fullNameOverride
+  fullNameOverride,
+  includeCustomerDetails = false
 }: SendBookingEmailArgs) {
   if (!recipient) {
     console.info("Booking email skipped: missing recipient email", {
@@ -101,7 +103,8 @@ export async function sendBookingEmail({
     introLine,
     actionLine,
     firstName,
-    fullNameOverride
+    fullNameOverride,
+    includeCustomerDetails
   }));
 
   const messageRecord = await createQueuedEmailMessage({
@@ -170,7 +173,8 @@ function buildTemplateContext({
   introLine,
   actionLine,
   firstName,
-  fullNameOverride
+  fullNameOverride,
+  includeCustomerDetails = false
 }: {
   shop: ShopRecord;
   booking: BookingWithRelations;
@@ -178,6 +182,7 @@ function buildTemplateContext({
   actionLine: string;
   firstName?: string | null;
   fullNameOverride?: string | null;
+  includeCustomerDetails?: boolean;
 }): BookingConfirmationEmailContext {
   const shopDetails = SHOP_DETAILS[shop.slug] ?? DEFAULT_SHOP_DETAILS;
   const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
@@ -198,7 +203,12 @@ function buildTemplateContext({
     shop_address: isMobile ? "Mobile — our team will come to you" : shopDetails.address,
     shop_map_link: isMobile ? "" : shopDetails.mapLink,
     shop_phone: shopDetails.phone,
-    shop_email: shopDetails.email
+    shop_email: shopDetails.email,
+    ...(includeCustomerDetails && {
+      customer_name: getBookingDisplayName(booking),
+      customer_email: booking.contact?.email ?? undefined,
+      customer_phone: booking.contact?.phone ?? undefined,
+    })
   };
 }
 

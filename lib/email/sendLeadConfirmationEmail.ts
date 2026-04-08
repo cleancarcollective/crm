@@ -58,7 +58,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
             <!-- Header -->
             <tr>
               <td style="background: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
-                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #a89e96;">Clean Car Collective</p>
+                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #E5E4E2;">Clean Car Collective</p>
                 <h1 style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">We've Got Your Enquiry</h1>
               </td>
             </tr>
