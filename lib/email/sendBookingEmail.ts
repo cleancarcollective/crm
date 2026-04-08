@@ -13,8 +13,8 @@ const SHOP_DETAILS: Record<string, { address: string; mapLink: string; phone: st
   christchurch: {
     address: "20 Southwark Street, Christchurch, Central City, 8011",
     mapLink: "https://maps.app.goo.gl/jAb6JhCgXV8Nafc49",
-    phone: "0800 476 667",
-    email: "hello@cleancarcollective.co.nz"
+    phone: "0221537335",
+    email: "info@cleancarcollective.co.nz"
   },
   wellington: {
     address: "8 Ebor Street, Te Aro, Wellington 6011",
