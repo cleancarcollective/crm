@@ -12,7 +12,7 @@ type LeadConfirmationArgs = {
 };
 
 const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string }> = {
-  christchurch: { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz" },
+  christchurch: { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz" },
   wellington: { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz" },
 };
 
