@@ -12,12 +12,12 @@ type LeadConfirmationArgs = {
   contactId: string | null;
 };
 
-const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string }> = {
-  christchurch: { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz" },
-  wellington: { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz" },
+const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string; website: string }> = {
+  christchurch: { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz", website: "https://cleancarcollective.co.nz/christchurch" },
+  wellington: { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz", website: "https://cleancarcollective.co.nz" },
 };
 
-const DEFAULT_SHOP_DETAILS = { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz" };
+const DEFAULT_SHOP_DETAILS = { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz", website: "https://cleancarcollective.co.nz/christchurch" };
 
 function escapeHtml(value: string) {
   return value
@@ -40,7 +40,7 @@ function detailRow(label: string, value: string | null): string {
   `;
 }
 
-function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; replyEmail: string }): string {
+function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; replyEmail: string; website: string }): string {
   return `
 <!doctype html>
 <html lang="en">
@@ -95,7 +95,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
 
                 <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #9e9189;">
                   In the meantime, feel free to browse our services at
-                  <a href="https://cleancarcollective.co.nz" style="color: #5c5148;">cleancarcollective.co.nz</a>.
+                  <a href="${escapeHtml(shopDetails.website)}" style="color: #5c5148;">${escapeHtml(shopDetails.website.replace("https://", ""))}</a>.
                 </p>
 
               </td>
@@ -111,7 +111,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
                       <p style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(args.shop.name)}</p>
                     </td>
                     <td align="right" style="vertical-align: middle;">
-                      <a href="https://cleancarcollective.co.nz" style="font-size: 12px; color: #7a6f68; text-decoration: none;">cleancarcollective.co.nz</a>
+                      <a href="${escapeHtml(shopDetails.website)}" style="font-size: 12px; color: #7a6f68; text-decoration: none;">${escapeHtml(shopDetails.website.replace("https://", ""))}</a>
                     </td>
                   </tr>
                 </table>
@@ -128,7 +128,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
   `.trim();
 }
 
-function renderText(args: LeadConfirmationArgs, shopDetails: { phone: string; replyEmail: string }): string {
+function renderText(args: LeadConfirmationArgs, shopDetails: { phone: string; replyEmail: string; website: string }): string {
   const lines = [
     `Hi ${args.firstName},`,
     ``,

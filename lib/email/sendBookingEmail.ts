@@ -9,18 +9,20 @@ import { renderTemplate } from "@/lib/email/templateRenderer";
 import type { BookingConfirmationEmailContext, EmailTemplateKey, EmailTemplateRecord } from "@/lib/email/types";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-const SHOP_DETAILS: Record<string, { address: string; mapLink: string; phone: string; email: string }> = {
+const SHOP_DETAILS: Record<string, { address: string; mapLink: string; phone: string; email: string; website: string }> = {
   christchurch: {
     address: "20 Southwark Street, Christchurch, Central City, 8011",
     mapLink: "https://maps.app.goo.gl/jAb6JhCgXV8Nafc49",
     phone: "0221537335",
-    email: "info@cleancarcollective.co.nz"
+    email: "info@cleancarcollective.co.nz",
+    website: "https://cleancarcollective.co.nz/christchurch",
   },
   wellington: {
     address: "8 Ebor Street, Te Aro, Wellington 6011",
     mapLink: "https://maps.app.goo.gl/7SKjCH5gcAffkfEi7",
     phone: "0800 476 667",
-    email: "hello@cleancarcollective.co.nz"
+    email: "hello@cleancarcollective.co.nz",
+    website: "https://cleancarcollective.co.nz",
   }
 };
 
@@ -28,7 +30,8 @@ const DEFAULT_SHOP_DETAILS = {
   address: "New Zealand",
   mapLink: "https://cleancarcollective.co.nz",
   phone: "0221537335",
-  email: "info@cleancarcollective.co.nz"
+  email: "info@cleancarcollective.co.nz",
+  website: "https://cleancarcollective.co.nz/christchurch",
 };
 
 type SendBookingEmailArgs = {
@@ -212,6 +215,7 @@ function buildTemplateContext({
     shop_map_link: isMobile ? "" : shopDetails.mapLink,
     shop_phone: shopDetails.phone,
     shop_email: shopDetails.email,
+    shop_website: shopDetails.website,
     ...(includeCustomerDetails && {
       customer_name: getBookingDisplayName(booking),
       customer_email: booking.contact?.email ?? undefined,

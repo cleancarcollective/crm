@@ -232,12 +232,15 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
           </EditItem>
 
           <EditItem label="Location">
-            <input
+            <select
               className="detailInput"
               value={locationType}
               onChange={(e) => setLocationType(e.target.value)}
-              placeholder="—"
-            />
+            >
+              <option value="">— Not set —</option>
+              <option value="shop">Shop</option>
+              <option value="mobile">Mobile</option>
+            </select>
           </EditItem>
 
           <ReadItem label="Source" value={booking.booking_source} />

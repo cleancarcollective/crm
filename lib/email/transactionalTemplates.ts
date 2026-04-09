@@ -189,7 +189,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                       <p style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(context.shop_address)}</p>
                     </td>
                     <td align="right" style="vertical-align: middle;">
-                      <a href="https://cleancarcollective.co.nz" style="font-size: 12px; color: #7a6f68; text-decoration: none;">cleancarcollective.co.nz</a>
+                      <a href="${escapeHtml(context.shop_website)}" style="font-size: 12px; color: #7a6f68; text-decoration: none;">${escapeHtml(context.shop_website.replace("https://", ""))}</a>
                     </td>
                   </tr>
                 </table>

@@ -21,16 +21,18 @@ type PickupEmailArgs = {
   contactId: string | null;
 };
 
-const SHOP_DETAILS: Record<string, { address: string; phone: string; email: string }> = {
+const SHOP_DETAILS: Record<string, { address: string; phone: string; email: string; website: string }> = {
   christchurch: {
     address: "20 Southwark Street, Christchurch Central, 8011",
     phone: "0221537335",
     email: "info@cleancarcollective.co.nz",
+    website: "https://cleancarcollective.co.nz/christchurch",
   },
   wellington: {
     address: "8 Ebor Street, Te Aro, Wellington 6011",
     phone: "0800 476 667",
     email: "hello@cleancarcollective.co.nz",
+    website: "https://cleancarcollective.co.nz",
   },
 };
 
@@ -38,6 +40,7 @@ const DEFAULT_SHOP_DETAILS = {
   address: "New Zealand",
   phone: "0221537335",
   email: "info@cleancarcollective.co.nz",
+  website: "https://cleancarcollective.co.nz/christchurch",
 };
 
 function escapeHtml(v: string) {
@@ -128,7 +131,7 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
                     <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)}</p>
                   </td>
                   <td align="right" style="vertical-align:middle;">
-                    <a href="https://cleancarcollective.co.nz" style="font-size:12px;color:#7a6f68;text-decoration:none;">cleancarcollective.co.nz</a>
+                    <a href="${escapeHtml(shopDetails.website)}" style="font-size:12px;color:#7a6f68;text-decoration:none;">${escapeHtml(shopDetails.website.replace("https://", ""))}</a>
                   </td>
                 </tr>
               </table>

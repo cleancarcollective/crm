@@ -118,7 +118,7 @@ function renderLeadNotificationHtml(shop: ShopRecord, lead: LeadDetails): string
                       <p style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)}</p>
                     </td>
                     <td align="right" style="vertical-align: middle;">
-                      <a href="https://cleancarcollective.co.nz" style="font-size: 12px; color: #7a6f68; text-decoration: none;">cleancarcollective.co.nz</a>
+                      <a href="${escapeHtml(getShopContacts(shop).website)}" style="font-size: 12px; color: #7a6f68; text-decoration: none;">${escapeHtml(getShopContacts(shop).website.replace("https://", ""))}</a>
                     </td>
                   </tr>
                 </table>
