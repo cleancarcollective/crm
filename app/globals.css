@@ -1543,16 +1543,22 @@ textarea {
 /* ── iOS PWA safe areas ─────────────────────────────────── */
 
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  body {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
+  /* Fix nav: fixed so it sits flush against top of screen, covers status bar */
   .globalNav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     padding-left: max(24px, env(safe-area-inset-left));
     padding-right: max(24px, env(safe-area-inset-right));
-    /* Extend nav behind the iOS status bar when in standalone mode */
+    /* Extend nav background behind the iOS status bar */
     padding-top: env(safe-area-inset-top);
     height: calc(56px + env(safe-area-inset-top));
+  }
+
+  /* Push page content down so it starts below the fixed nav */
+  body {
+    padding-top: calc(56px + env(safe-area-inset-top));
   }
 
   .pageShell {
