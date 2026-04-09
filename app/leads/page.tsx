@@ -13,11 +13,10 @@ export default async function LeadsPage({
 }: {
   searchParams?: Promise<{ q?: string; status?: string }>;
 }) {
-  const { shop, entries } = await getLeadDirectory();
+  const { shop, entries, stats } = await getLeadDirectory();
   const params = searchParams ? await searchParams : undefined;
   const query = (params?.q ?? "").trim().toLowerCase();
   const status = (params?.status ?? "").trim().toLowerCase();
-  const hasFilters = query.length > 0 || status.length > 0;
 
   const filteredEntries = entries.filter((entry) => {
     if (status && entry.latestLead.status !== status) {
@@ -41,6 +40,7 @@ export default async function LeadsPage({
       entry.latestLead.service_requested,
       entry.latestLead.source,
       entry.latestLead.source_detail,
+      entry.latestLead.won_source,
       vehicleLabel,
     ]
       .map((value) => toSearchableText(value))
@@ -72,16 +72,20 @@ export default async function LeadsPage({
 
       <div className="summaryStrip">
         <div className="summaryCard">
-          <span>Open leads</span>
-          <strong>{filteredEntries.length}</strong>
+          <span>Total leads</span>
+          <strong>{stats.totalLeads}</strong>
         </div>
         <div className="summaryCard">
-          <span>{hasFilters ? "Showing" : "Definition"}</span>
-          <strong>{hasFilters ? `${filteredEntries.length} of ${entries.length}` : "Contacted, not booked"}</strong>
+          <span>Open</span>
+          <strong>{stats.openLeads}</strong>
         </div>
         <div className="summaryCard">
-          <span>Timezone</span>
-          <strong>{shop.timezone}</strong>
+          <span>Won</span>
+          <strong>{stats.wonLeads}</strong>
+        </div>
+        <div className="summaryCard summaryCardHighlight">
+          <span>Conversion rate</span>
+          <strong>{stats.conversionRate}%</strong>
         </div>
       </div>
 
@@ -90,11 +94,13 @@ export default async function LeadsPage({
         query={query}
         status={status}
         statusOptions={[
-          { label: "All statuses", value: "" },
+          { label: "All leads", value: "" },
           { label: "New", value: "new" },
           { label: "Contacted", value: "contacted" },
           { label: "Quoted", value: "quoted" },
           { label: "Clicked", value: "clicked" },
+          { label: "Won", value: "won" },
+          { label: "Lost", value: "lost" },
         ]}
       />
 

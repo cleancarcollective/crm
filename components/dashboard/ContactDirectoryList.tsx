@@ -33,7 +33,7 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
   if (props.entries.length === 0) {
     return (
       <div className="emptyState">
-        {props.mode === "leads" ? "No open leads without bookings right now." : "No client bookings recorded yet."}
+        {props.mode === "leads" ? "No leads found." : "No client bookings recorded yet."}
       </div>
     );
   }
@@ -65,7 +65,7 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
                     <span>{entry.latestLead.source_detail ?? entry.latestLead.source}</span>
                     <span>{entry.leadCount} open {entry.leadCount === 1 ? "lead" : "leads"}</span>
                   </div>
-                  <LeadStatusActions leadId={entry.latestLead.id} currentStatus={entry.latestLead.status} />
+                  <LeadStatusActions leadId={entry.latestLead.id} currentStatus={entry.latestLead.status} wonSource={entry.latestLead.won_source} />
                 </div>
                 <div className="directoryAside">
                   <span>Last activity</span>

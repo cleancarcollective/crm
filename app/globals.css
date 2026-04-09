@@ -177,11 +177,108 @@ textarea {
   font-weight: 600;
 }
 
+.buttonWon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+  border: none;
+  background: #1a7a3f;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(26,122,63,0.25);
+}
+
+.buttonWon:hover:not(:disabled) {
+  background: #155c2f;
+  transform: translateY(-1px);
+}
+
+.buttonWon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wonPicker {
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wonPickerLabel {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wonPickerOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wonPickerOption {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.wonPickerOption:hover {
+  border-color: #1a7a3f;
+  color: #1a7a3f;
+}
+
+.wonPickerOptionSelected {
+  background: #1a7a3f;
+  border-color: #1a7a3f;
+  color: #ffffff;
+}
+
+.wonPickerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.leadWonSource {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a7a3f;
+  padding: 6px 12px;
+  background: rgba(26,122,63,0.08);
+  border-radius: 999px;
+}
+
 .summaryStrip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
+}
+
+.summaryCardHighlight {
+  background: linear-gradient(180deg, #1a7a3f, #155c2f);
+  border-color: #1a7a3f;
+}
+
+.summaryCardHighlight span,
+.summaryCardHighlight strong {
+  color: #ffffff;
 }
 
 .summaryCard {

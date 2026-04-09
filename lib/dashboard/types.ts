@@ -62,6 +62,7 @@ export type LeadRecord = {
   service_requested: string | null;
   notes: string | null;
   status: string;
+  won_source: string | null;
   created_at: string;
   updated_at: string;
   booked_at: string | null;

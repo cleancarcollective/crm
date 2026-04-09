@@ -59,50 +59,43 @@ export async function getContactProfileById(id: string) {
 
 export async function getLeadDirectory(shopSlug = "christchurch") {
   const shop = await getShopBySlug(shopSlug);
-  const [contacts, leads, bookings] = await Promise.all([
+  const [contacts, leads] = await Promise.all([
     getContactsForShop(shop.id),
     getLeadsForShop(shop.id),
-    getBookingsForShop(shop.id),
   ]);
 
-  const bookingCountByContact = new Map<string, number>();
-  for (const booking of bookings) {
-    if (!booking.contact_id) {
-      continue;
-    }
-
-    bookingCountByContact.set(booking.contact_id, (bookingCountByContact.get(booking.contact_id) ?? 0) + 1);
-  }
-
-  const openLeadsByContact = new Map<string, LeadWithVehicle[]>();
+  // Group all leads by contact
+  const leadsByContact = new Map<string, LeadWithVehicle[]>();
   for (const lead of leads) {
-    if (!lead.contact_id || !OPEN_LEAD_STATUSES.has(lead.status)) {
-      continue;
-    }
-
-    const existing = openLeadsByContact.get(lead.contact_id) ?? [];
+    if (!lead.contact_id) continue;
+    const existing = leadsByContact.get(lead.contact_id) ?? [];
     existing.push(lead);
-    openLeadsByContact.set(lead.contact_id, existing);
+    leadsByContact.set(lead.contact_id, existing);
   }
 
+  // Build entries for any contact that has at least one lead
   const entries = contacts
     .map((contact) => {
-      const openLeads = openLeadsByContact.get(contact.id) ?? [];
-
-      if (openLeads.length === 0 || (bookingCountByContact.get(contact.id) ?? 0) > 0) {
-        return null;
-      }
-
+      const contactLeads = leadsByContact.get(contact.id) ?? [];
+      if (contactLeads.length === 0) return null;
+      // Show most recently updated lead first
+      const sorted = [...contactLeads].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       return {
         contact,
-        latestLead: openLeads[0],
-        leadCount: openLeads.length,
+        latestLead: sorted[0],
+        leadCount: contactLeads.length,
       } satisfies LeadDirectoryEntry;
     })
     .filter((entry): entry is LeadDirectoryEntry => entry !== null)
     .sort((a, b) => b.latestLead.updated_at.localeCompare(a.latestLead.updated_at));
 
-  return { shop, entries };
+  // Conversion stats
+  const totalLeads = leads.length;
+  const wonLeads = leads.filter((l) => l.status === "won").length;
+  const openLeads = leads.filter((l) => OPEN_LEAD_STATUSES.has(l.status)).length;
+  const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
+
+  return { shop, entries, stats: { totalLeads, wonLeads, openLeads, conversionRate } };
 }
 
 export async function getClientDirectory(shopSlug = "christchurch") {
