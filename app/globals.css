@@ -1155,6 +1155,125 @@ textarea {
   white-space: nowrap;
 }
 
+.globalNavRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.globalNavUser {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.globalNavLogout {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.globalNavLogout:hover {
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+/* ── Login page ─────────────────────────────────────────── */
+
+.loginShell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.loginCard {
+  background: var(--panel);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 40px 40px 36px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.loginBrand {
+  margin-bottom: 28px;
+}
+
+.loginEyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.loginTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loginField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loginField label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.loginInput {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  background: var(--panel);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.loginInput:focus {
+  border-color: var(--accent);
+}
+
+.loginError {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+  background: rgba(160, 67, 51, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.loginSubmit {
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
 /* ── Modal ─────────────────────────────────────────────── */
 
 .modalOverlay {

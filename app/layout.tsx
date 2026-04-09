@@ -1,8 +1,12 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
+import { LogoutButton } from "@/components/dashboard/LogoutButton";
+import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +14,21 @@ export const metadata: Metadata = {
   description: "Internal CRM booking intake"
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const user = sessionId ? await verifySession(sessionId) : null;
+
+  // Login page renders without the nav shell
+  // (middleware handles redirect for non-login pages with no session)
+  if (!user) {
+    return (
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    );
+  }
+
   return (
     <html lang="en">
       <body>
@@ -23,7 +41,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/leads" className="globalNavLink">Leads</Link>
             <Link href="/clients" className="globalNavLink">Clients</Link>
           </div>
-          <NewBookingButton className="buttonPrimary globalNavCta" />
+          <div className="globalNavRight">
+            <NewBookingButton className="buttonPrimary globalNavCta" />
+            <span className="globalNavUser">{user.name}</span>
+            <LogoutButton />
+          </div>
         </nav>
         {children}
       </body>
