@@ -1080,14 +1080,63 @@ textarea {
   .summaryStrip,
   .profileGrid,
   .detailGrid,
-  .editorGrid,
-  .calendarGrid,
-  .weekHeader {
+  .editorGrid {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Mobile calendar: keep 7-column grid, compact cells */
+  .calendarGrid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .weekHeader {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    font-size: 11px;
+    padding: 0;
+  }
+
   .calendarCard {
-    min-height: 150px;
+    min-height: 52px;
+    padding: 6px 4px;
+    border-radius: 10px;
+    gap: 4px;
+    box-shadow: none;
+  }
+
+  .calendarCardPrimaryLink {
+    min-height: unset;
+    gap: 4px;
+  }
+
+  .calendarCardTop {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .calendarDayNumber {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .calendarBookingCount {
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  .calendarMetrics {
+    display: none;
+  }
+
+  .calendarPreview {
+    display: none;
+  }
+
+  .calendarEmpty {
+    display: none;
   }
 
   .detailItemEdit {
