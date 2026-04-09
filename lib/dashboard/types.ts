@@ -63,6 +63,17 @@ export type LeadRecord = {
   notes: string | null;
   status: string;
   won_source: string | null;
+  // Auto-respond fields
+  template_key: string | null;
+  suggested_size: string | null;
+  confidence: string | null;
+  reason_code: string | null;
+  canonical_key: string | null;
+  quote_subject: string | null;
+  quote_body: string | null;
+  quote_html: string | null;
+  internal_notes: string | null;
+  approved_size: string | null;
   created_at: string;
   updated_at: string;
   booked_at: string | null;

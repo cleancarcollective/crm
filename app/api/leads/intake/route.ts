@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { sendLeadConfirmationEmail } from "@/lib/email/sendLeadConfirmationEmail";
 import { sendLeadTeamNotification } from "@/lib/email/sendLeadTeamNotification";
-import { sendEstimateAutomationBridge } from "@/lib/leads/sendEstimateAutomationBridge";
 import { parseLeadVehicleInput } from "@/lib/leads/parseVehicleInput";
+import { processLeadAutoRespond } from "@/lib/autorespond/processLead";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type LeadIntakePayload = {
@@ -318,23 +318,29 @@ export async function POST(request: Request) {
       console.error("Lead team notification failed", emailError);
     }
 
+    // ── 5. Auto-respond (if enabled for this shop) ─────────────────────────
     try {
-      await sendEstimateAutomationBridge({
-        shop,
-        lead: {
-          full_name: fullName,
+      const supabaseInner = getSupabaseAdminClient();
+      const { data: settings } = await supabaseInner
+        .from("shop_settings")
+        .select("auto_respond_enabled")
+        .eq("shop_id", shop.id)
+        .maybeSingle();
+
+      if (settings?.auto_respond_enabled) {
+        await processLeadAutoRespond({
+          leadId,
+          shopId: shop.id,
+          firstName: payload.first_name,
           email: payload.email,
-          phone: payload.phone ?? null,
-          service_requested: payload.service_requested ?? null,
+          makeRaw: parsedVehicle.make,
+          modelRaw: parsedVehicle.model,
+          serviceRequested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
-          source: payload.source ?? "website-lead-form",
-          vehicle_year: parsedVehicle.year,
-          vehicle_make: parsedVehicle.make,
-          vehicle_model: parsedVehicle.model,
-        },
-      });
-    } catch (bridgeError) {
-      console.error("Estimate automation bridge failed", bridgeError);
+        });
+      }
+    } catch (autoRespondError) {
+      console.error("Auto-respond processing failed", autoRespondError);
     }
 
     return withCors(NextResponse.json({

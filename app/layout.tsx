@@ -64,6 +64,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Link href="/" className="globalNavLink">Calendar</Link>
             <Link href="/leads" className="globalNavLink">Leads</Link>
             <Link href="/clients" className="globalNavLink">Clients</Link>
+            <a href="/settings" className="globalNavLink">Settings</a>
           </div>
           <div className="globalNavRight">
             <NewBookingButton className="buttonPrimary globalNavCta" />

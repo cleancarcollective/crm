@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
 import type { ContactProfile as ContactProfileData } from "@/lib/dashboard/types";
@@ -109,6 +110,15 @@ export function ContactProfile({ profile }: ContactProfileProps) {
                 <span>{lead.source_detail ?? lead.source}</span>
                 <span>{formatDateTime(lead.updated_at, shop.timezone, "EEE d MMM yyyy, h:mm a")}</span>
                 {lead.notes ? <p className="profileNotes">{lead.notes}</p> : null}
+                <LeadEstimatePanel
+                  leadId={lead.id}
+                  currentStatus={lead.status}
+                  draftSubject={lead.quote_subject ?? null}
+                  draftBody={lead.quote_body ?? null}
+                  internalNote={lead.internal_notes ?? null}
+                  confidence={lead.confidence ?? null}
+                  suggestedSize={lead.suggested_size ?? null}
+                />
               </div>
             ))}
           </div>
