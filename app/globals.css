@@ -973,6 +973,21 @@ textarea {
   color: var(--accent);
 }
 
+.buttonPickup {
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #1a7a3f;
+  background: #1a7a3f;
+  color: white;
+}
+
+.buttonPickup:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .buttonPrimary:disabled,
 .buttonGhost:disabled {
   opacity: 0.55;

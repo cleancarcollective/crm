@@ -51,6 +51,8 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
   const [notes, setNotes] = useState(booking.notes ?? "");
   const [savedMessage, setSavedMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [pickupPending, setPickupPending] = useState(false);
+  const [pickupMessage, setPickupMessage] = useState<string>("");
   const addOns = getBookingAddOnsLabel(booking.raw_payload);
 
   const dayKey = getZonedDateKey(booking.scheduled_start, shop.timezone);
@@ -93,6 +95,29 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
       }
       router.refresh();
     });
+  }
+
+  function handlePickupReady() {
+    if (!window.confirm("Mark this job as pick-up ready? This will email and text the customer and set the booking to Completed.")) return;
+    setPickupMessage("");
+    setPickupPending(true);
+    fetch(`/api/bookings/${booking.id}/pickup`, { method: "POST" })
+      .then(async (res) => {
+        const data = (await res.json()) as { success: boolean; emailSent: boolean; smsSent: boolean; afterHours: boolean; smsError?: string };
+        if (!res.ok || !data.success) {
+          setPickupMessage("Failed to send pick-up notification.");
+          return;
+        }
+        const parts: string[] = [];
+        if (data.emailSent) parts.push("email sent");
+        if (data.smsSent) parts.push("SMS sent");
+        if (!data.emailSent && !data.smsSent) parts.push("no contact info on file");
+        setPickupMessage(`Pick-up ready! (${parts.join(", ")})${data.afterHours ? " — after-hours variant" : ""}`);
+        setStatus("completed");
+        router.refresh();
+      })
+      .catch(() => setPickupMessage("Failed to send pick-up notification."))
+      .finally(() => setPickupPending(false));
   }
 
   function handleDelete() {
@@ -149,15 +174,19 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
 
           <div className="detailActions">
             {savedMessage && !isPending && <span className="editorSaved">{savedMessage}</span>}
+            {pickupMessage && !pickupPending && <span className="editorSaved">{pickupMessage}</span>}
             {errorMessage && <span className="editorError">{errorMessage}</span>}
-            <button className="buttonGhost" onClick={handleDelete} disabled={isPending}>
+            <button className="buttonGhost" onClick={handleDelete} disabled={isPending || pickupPending}>
               Delete
             </button>
-            <button className="buttonGhost buttonNeutral" onClick={() => handleSave(true)} disabled={isPending}>
+            <button className="buttonGhost buttonNeutral" onClick={() => handleSave(true)} disabled={isPending || pickupPending}>
               {isPending ? "Saving…" : "Save + email update"}
             </button>
-            <button className="buttonPrimary" onClick={() => handleSave(false)} disabled={isPending}>
+            <button className="buttonPrimary" onClick={() => handleSave(false)} disabled={isPending || pickupPending}>
               {isPending ? "Saving…" : "Save"}
+            </button>
+            <button className="buttonPickup" onClick={handlePickupReady} disabled={isPending || pickupPending}>
+              {pickupPending ? "Sending…" : "🚗 Pick-up Ready"}
             </button>
           </div>
         </div>

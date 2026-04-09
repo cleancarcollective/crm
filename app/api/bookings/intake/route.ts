@@ -1,3 +1,4 @@
+import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 
 import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
@@ -7,6 +8,7 @@ import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
+import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type ShopRow = {
@@ -193,6 +195,19 @@ export async function POST(request: Request) {
       });
     } catch (teamEmailError) {
       console.error("Team booking notification failed", teamEmailError);
+    }
+
+    // Send booking confirmation SMS to customer
+    if (contact.phone) {
+      try {
+        const firstName = contact.first_name ?? contact.full_name?.split(" ")[0] ?? "there";
+        const dateLabel = formatInTimeZone(booking.scheduled_start, (shop as ShopRow).timezone, "EEE d MMM 'at' h:mm a");
+        const smsMessage = `Hi ${firstName}, your booking is confirmed for ${dateLabel}. See you soon! - Clean Car Collective`;
+        const smsResult = await sendTnzSms(contact.phone, smsMessage);
+        console.info("Booking confirmation SMS result", { bookingId: booking.id, smsResult });
+      } catch (smsError) {
+        console.error("Booking confirmation SMS failed", smsError);
+      }
     }
 
     return withCors(NextResponse.json({
