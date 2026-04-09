@@ -1,15 +1,6 @@
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 import { sendBookingEmail } from "@/lib/email/sendBookingEmail";
-
-function getRequiredEnv(name: "TEAM_BOOKING_NOTIFICATION_EMAIL") {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
-  return value;
-}
+import { getShopContacts } from "@/lib/email/shopContacts";
 
 export async function sendTeamBookingNotification({
   shop,
@@ -18,11 +9,13 @@ export async function sendTeamBookingNotification({
   shop: ShopRecord;
   booking: BookingWithRelations;
 }) {
+  const { team_email } = getShopContacts(shop);
+
   return sendBookingEmail({
     shop,
     booking,
     templateKey: "booking-team-notification",
-    recipient: getRequiredEnv("TEAM_BOOKING_NOTIFICATION_EMAIL"),
+    recipient: team_email,
     introLine: "A new booking has been created in the CRM.",
     actionLine: "Review this booking in the CRM calendar if any prep or follow-up is required.",
     firstName: "team",

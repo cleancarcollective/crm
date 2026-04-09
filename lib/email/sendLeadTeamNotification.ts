@@ -1,5 +1,6 @@
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type LeadDetails = {
@@ -16,7 +17,7 @@ type LeadDetails = {
   notes: string | null;
 };
 
-function getRequiredEnv(name: "TEAM_BOOKING_NOTIFICATION_EMAIL" | "POSTMARK_FROM_EMAIL") {
+function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
@@ -140,7 +141,7 @@ export async function sendLeadTeamNotification({
   shop: ShopRecord;
   lead: LeadDetails;
 }) {
-  const recipient = getRequiredEnv("TEAM_BOOKING_NOTIFICATION_EMAIL");
+  const { team_email: recipient } = getShopContacts(shop);
   const from = getRequiredEnv("POSTMARK_FROM_EMAIL");
 
   const vehicleLabel = [lead.vehicle_year, lead.vehicle_make, lead.vehicle_model].filter(Boolean).join(" ");
