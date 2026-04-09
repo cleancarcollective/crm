@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getBookingWithRelationsById, getShopById, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { sendPickupReadyEmail } from "@/lib/email/sendPickupReadyEmail";
+import { scheduleReviewSms } from "@/lib/sms/scheduledSmsJobs";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -77,6 +78,21 @@ export async function POST(
     .from("bookings")
     .update({ status: "completed" })
     .eq("id", id);
+
+  // Schedule review SMS for 23 hours later
+  if (customerPhone) {
+    try {
+      await scheduleReviewSms({
+        bookingId: id,
+        contactId: bookingRecord.contact_id ?? null,
+        shopId: bookingRecord.shop_id,
+        phone: customerPhone,
+        firstName,
+      });
+    } catch (err) {
+      console.error("Failed to schedule review SMS", { bookingId: id, err });
+    }
+  }
 
   console.info("Pick-up ready triggered", { bookingId: id, emailSent: emailResult.sent, smsSent: smsResult.sent, afterHours: emailResult.afterHours });
 
