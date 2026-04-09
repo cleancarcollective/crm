@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format, parse } from "date-fns";
 
 import { BookingList } from "@/components/dashboard/BookingList";
+import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { getBookingsForDay } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatMinutes } from "@/lib/dashboard/format";
 
@@ -27,6 +28,7 @@ export default async function DayPage({
           </Link>
           <h1 className="pageTitle">{format(parsedDay, "EEEE d MMMM yyyy")}</h1>
         </div>
+        <NewBookingButton defaultDate={day} label="+ New Booking" className="buttonPrimary" />
       </div>
 
       <div className="summaryStrip">

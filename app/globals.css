@@ -1101,3 +1101,322 @@ textarea {
     max-width: 100%;
   }
 }
+
+/* ── Global nav ────────────────────────────────────────── */
+
+.globalNav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.globalNavBrand {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: 8px;
+}
+
+.globalNavLinks {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.globalNavLink {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.globalNavLink:hover {
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.globalNavCta {
+  padding: 8px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ── Modal ─────────────────────────────────────────────── */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+.modalPanel {
+  background: var(--panel);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(17, 17, 17, 0.18);
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+  flex-shrink: 0;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.modalClose:hover {
+  background: var(--panel-soft);
+}
+
+.modalBody {
+  overflow-y: auto;
+  padding: 0 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.modalSection {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.modalSection:last-of-type {
+  border-bottom: none;
+}
+
+.modalSection h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.modalOptional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.modalRequired {
+  color: var(--danger);
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.modalField label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.modalRow2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modalRow3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 80px 100px 100px;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Contact search */
+.contactSearch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contactDropdown {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.1);
+}
+
+.contactDropdownItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.contactDropdownItem:hover {
+  background: var(--panel-soft);
+}
+
+.contactDropdownItem strong {
+  font-size: 14px;
+}
+
+.contactDropdownItem span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.contactSearchHint {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.contactSelected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel-soft);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.contactSelected div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.contactSelected span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.newContactFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inlineLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Notification checkboxes */
+.modalCheckboxRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modalCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.modalCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Modal footer */
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+.modalError {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 600px) {
+  .modalOverlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modalPanel {
+    max-height: calc(100vh - 24px);
+    border-radius: 24px 24px 0 0;
+  }
+
+  .modalRow2,
+  .modalRow3 {
+    grid-template-columns: 1fr;
+  }
+
+  .globalNavLinks {
+    display: none;
+  }
+}
