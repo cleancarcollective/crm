@@ -75,9 +75,106 @@ textarea {
 .topbarMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   color: var(--muted);
   font-size: 14px;
+}
+
+.directoryNav {
+  justify-content: flex-end;
+}
+
+.directoryNavActive {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.filterBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(180px, 0.8fr) auto;
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(211, 205, 197, 0.82);
+  box-shadow: var(--shadow);
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterField span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.filterInput,
+.filterSelect,
+.filterButton {
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  background: white;
+  padding: 0 14px;
+}
+
+.filterInput:focus,
+.filterSelect:focus {
+  outline: 2px solid rgba(17, 17, 17, 0.14);
+  outline-offset: 1px;
+}
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2d2d2d, #111111);
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.16);
+}
+
+.leadActionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.leadActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.leadActionButton {
+  padding: 9px 12px;
+  min-height: 38px;
+  font-size: 13px;
+  box-shadow: none;
+}
+
+.leadActionError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .summaryStrip {
@@ -444,6 +541,66 @@ textarea {
 .listPanel,
 .detailShell {
   padding: 14px;
+}
+
+.directoryList {
+  display: flex;
+  flex-direction: column;
+}
+
+.directoryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+}
+
+.directoryRow + .directoryRow {
+  border-top: 1px solid rgba(211, 205, 197, 0.65);
+}
+
+.directoryRow:hover {
+  background: rgba(17, 17, 17, 0.03);
+  border-color: rgba(17, 17, 17, 0.08);
+}
+
+.directoryMain {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.directoryTop,
+.directoryMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.directoryMeta {
+  color: var(--muted);
+}
+
+.directoryAside {
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: right;
+}
+
+.directoryAside span {
+  color: var(--muted);
+}
+
+.directoryAside strong {
+  font-size: 16px;
 }
 
 .bookingRow {
@@ -849,8 +1006,17 @@ textarea {
   .pageTopbar,
   .detailHeader,
   .bookingRow,
-  .bookingRowMain {
+  .bookingRowMain,
+  .directoryRow {
     flex-direction: column;
+  }
+
+  .filterBar {
+    grid-template-columns: 1fr;
+  }
+
+  .filterActions {
+    justify-content: space-between;
   }
 
   .detailHeaderRight {
@@ -867,6 +1033,11 @@ textarea {
 
   .bookingMetaBlock {
     align-items: flex-start;
+    text-align: left;
+  }
+
+  .directoryAside {
+    min-width: 0;
     text-align: left;
   }
 

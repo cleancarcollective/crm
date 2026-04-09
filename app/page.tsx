@@ -22,7 +22,13 @@ export default async function HomePage({
           <p className="eyebrow">Clean Car Collective CRM</p>
           <h1 className="pageTitle">{shop.name}</h1>
         </div>
-        <div className="topbarMeta">
+        <div className="topbarMeta directoryNav">
+          <Link href="/leads" className="textLink">
+            Leads
+          </Link>
+          <Link href="/clients" className="textLink">
+            Clients
+          </Link>
           <Link href="/?month" className="textLink">
             Current month
           </Link>

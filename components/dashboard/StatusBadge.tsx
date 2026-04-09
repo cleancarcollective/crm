@@ -3,6 +3,12 @@ type StatusBadgeProps = {
 };
 
 const STATUS_CLASS_MAP: Record<string, string> = {
+  new: "statusBadge statusPending",
+  contacted: "statusBadge statusInfo",
+  quoted: "statusBadge statusInfo",
+  clicked: "statusBadge statusInfo",
+  booked: "statusBadge statusConfirmed",
+  lost: "statusBadge statusCancelled",
   confirmed: "statusBadge statusConfirmed",
   pending: "statusBadge statusPending",
   completed: "statusBadge statusCompleted",

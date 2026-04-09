@@ -2,16 +2,20 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type {
   BookingRecord,
   BookingWithRelations,
+  ClientDirectoryEntry,
   ContactProfile,
   ContactRecord,
   EmailEventRecord,
   EmailMessageRecord,
   EmailMessageWithEvents,
+  LeadDirectoryEntry,
   LeadRecord,
   LeadWithVehicle,
   VehicleRecord,
 } from "@/lib/dashboard/types";
-import { getShopById } from "@/lib/dashboard/bookings";
+import { getShopById, getShopBySlug } from "@/lib/dashboard/bookings";
+
+const OPEN_LEAD_STATUSES = new Set(["new", "contacted", "quoted", "clicked"]);
 
 export async function getContactProfileById(id: string) {
   const supabase = getSupabaseAdminClient();
@@ -53,6 +57,90 @@ export async function getContactProfileById(id: string) {
   } satisfies ContactProfile;
 }
 
+export async function getLeadDirectory(shopSlug = "christchurch") {
+  const shop = await getShopBySlug(shopSlug);
+  const [contacts, leads, bookings] = await Promise.all([
+    getContactsForShop(shop.id),
+    getLeadsForShop(shop.id),
+    getBookingsForShop(shop.id),
+  ]);
+
+  const bookingCountByContact = new Map<string, number>();
+  for (const booking of bookings) {
+    if (!booking.contact_id) {
+      continue;
+    }
+
+    bookingCountByContact.set(booking.contact_id, (bookingCountByContact.get(booking.contact_id) ?? 0) + 1);
+  }
+
+  const openLeadsByContact = new Map<string, LeadWithVehicle[]>();
+  for (const lead of leads) {
+    if (!lead.contact_id || !OPEN_LEAD_STATUSES.has(lead.status)) {
+      continue;
+    }
+
+    const existing = openLeadsByContact.get(lead.contact_id) ?? [];
+    existing.push(lead);
+    openLeadsByContact.set(lead.contact_id, existing);
+  }
+
+  const entries = contacts
+    .map((contact) => {
+      const openLeads = openLeadsByContact.get(contact.id) ?? [];
+
+      if (openLeads.length === 0 || (bookingCountByContact.get(contact.id) ?? 0) > 0) {
+        return null;
+      }
+
+      return {
+        contact,
+        latestLead: openLeads[0],
+        leadCount: openLeads.length,
+      } satisfies LeadDirectoryEntry;
+    })
+    .filter((entry): entry is LeadDirectoryEntry => entry !== null)
+    .sort((a, b) => b.latestLead.updated_at.localeCompare(a.latestLead.updated_at));
+
+  return { shop, entries };
+}
+
+export async function getClientDirectory(shopSlug = "christchurch") {
+  const shop = await getShopBySlug(shopSlug);
+  const [contacts, bookings] = await Promise.all([getContactsForShop(shop.id), getBookingsForShop(shop.id)]);
+
+  const bookingsByContact = new Map<string, BookingWithRelations[]>();
+  for (const booking of bookings) {
+    if (!booking.contact_id) {
+      continue;
+    }
+
+    const existing = bookingsByContact.get(booking.contact_id) ?? [];
+    existing.push(booking);
+    bookingsByContact.set(booking.contact_id, existing);
+  }
+
+  const entries = contacts
+    .map((contact) => {
+      const contactBookings = bookingsByContact.get(contact.id) ?? [];
+
+      if (contactBookings.length === 0) {
+        return null;
+      }
+
+      return {
+        contact,
+        latestBooking: contactBookings[0],
+        bookingCount: contactBookings.length,
+        totalRevenue: contactBookings.reduce((sum, booking) => sum + (booking.price_estimate ?? 0), 0),
+      } satisfies ClientDirectoryEntry;
+    })
+    .filter((entry): entry is ClientDirectoryEntry => entry !== null)
+    .sort((a, b) => b.latestBooking.scheduled_start.localeCompare(a.latestBooking.scheduled_start));
+
+  return { shop, entries };
+}
+
 async function getVehiclesForContact(contactId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
@@ -68,12 +156,50 @@ async function getVehiclesForContact(contactId: string) {
   return (data ?? []) as VehicleRecord[];
 }
 
+async function getContactsForShop(shopId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
+    .eq("shop_id", shopId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as ContactRecord[];
+}
+
 async function getLeadsForContact(contactId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
     .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, created_at, updated_at, booked_at")
     .eq("contact_id", contactId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const leads = (data ?? []) as LeadRecord[];
+  const vehicleIds = [...new Set(leads.map((lead) => lead.vehicle_id).filter(Boolean))] as string[];
+  const vehicles = await getVehiclesByIds(vehicleIds);
+  const vehicleMap = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+
+  return leads.map((lead) => ({
+    ...lead,
+    vehicle: lead.vehicle_id ? vehicleMap.get(lead.vehicle_id) ?? null : null,
+  })) satisfies LeadWithVehicle[];
+}
+
+async function getLeadsForShop(shopId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, created_at, updated_at, booked_at")
+    .eq("shop_id", shopId)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -113,6 +239,51 @@ async function getBookingsForContact(contact: ContactRecord) {
     contact,
     vehicle: booking.vehicle_id ? vehicleMap.get(booking.vehicle_id) ?? null : null,
   })) satisfies BookingWithRelations[];
+}
+
+async function getBookingsForShop(shopId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("shop_id", shopId)
+    .order("scheduled_start", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const bookings = (data ?? []) as BookingRecord[];
+  const contactIds = [...new Set(bookings.map((booking) => booking.contact_id).filter(Boolean))] as string[];
+  const vehicleIds = [...new Set(bookings.map((booking) => booking.vehicle_id).filter(Boolean))] as string[];
+
+  const [contacts, vehicles] = await Promise.all([getContactsByIds(contactIds), getVehiclesByIds(vehicleIds)]);
+  const contactMap = new Map(contacts.map((contact) => [contact.id, contact]));
+  const vehicleMap = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+
+  return bookings.map((booking) => ({
+    ...booking,
+    contact: booking.contact_id ? contactMap.get(booking.contact_id) ?? null : null,
+    vehicle: booking.vehicle_id ? vehicleMap.get(booking.vehicle_id) ?? null : null,
+  })) satisfies BookingWithRelations[];
+}
+
+async function getContactsByIds(ids: string[]) {
+  if (ids.length === 0) {
+    return [] as ContactRecord[];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
+    .in("id", ids);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as ContactRecord[];
 }
 
 async function getVehiclesByIds(ids: string[]) {

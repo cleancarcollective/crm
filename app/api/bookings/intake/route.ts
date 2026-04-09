@@ -16,6 +16,13 @@ type ShopRow = {
   timezone: string;
 };
 
+type LeadMatchRow = {
+  id: string;
+  status: string;
+};
+
+const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
+
 function withCors(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -95,6 +102,7 @@ export async function POST(request: Request) {
 
     const contact = await upsertContact(supabase, shop.id, normalized.data.contact);
     const vehicle = await upsertVehicle(supabase, shop.id, contact.id, normalized.data.vehicle);
+    const existingLead = await getLatestOpenLeadForContact(supabase, shop.id, contact.id);
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
@@ -102,7 +110,7 @@ export async function POST(request: Request) {
         shop_id: shop.id,
         contact_id: contact.id,
         vehicle_id: vehicle.id,
-        lead_id: null,
+        lead_id: existingLead?.id ?? null,
         booking_source: normalized.data.booking.bookingSource,
         service_name: normalized.data.booking.serviceName,
         service_details: normalized.data.booking.serviceDetails,
@@ -121,6 +129,21 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       throw bookingError;
+    }
+
+    if (existingLead) {
+      const { error: leadUpdateError } = await supabase
+        .from("leads")
+        .update({
+          status: "booked",
+          booked_at: booking.created_at,
+          vehicle_id: vehicle.id,
+        })
+        .eq("id", existingLead.id);
+
+      if (leadUpdateError) {
+        throw leadUpdateError;
+      }
     }
 
     try {
@@ -190,4 +213,26 @@ export async function POST(request: Request) {
       { status: 500 }
     ));
   }
+}
+
+async function getLatestOpenLeadForContact(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  shopId: string,
+  contactId: string
+) {
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, status")
+    .eq("shop_id", shopId)
+    .eq("contact_id", contactId)
+    .in("status", OPEN_LEAD_STATUSES)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as LeadMatchRow | null;
 }

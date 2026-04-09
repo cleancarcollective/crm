@@ -108,6 +108,19 @@ export type ContactProfile = {
   emails: EmailMessageWithEvents[];
 };
 
+export type LeadDirectoryEntry = {
+  contact: ContactRecord;
+  latestLead: LeadWithVehicle;
+  leadCount: number;
+};
+
+export type ClientDirectoryEntry = {
+  contact: ContactRecord;
+  latestBooking: BookingWithRelations;
+  bookingCount: number;
+  totalRevenue: number;
+};
+
 export type CalendarDaySummary = {
   isoDate: string;
   isCurrentMonth: boolean;

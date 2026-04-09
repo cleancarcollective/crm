@@ -28,7 +28,7 @@ export function ContactProfile({ profile }: ContactProfileProps) {
     <main className="pageShell">
       <div className="pageTopbar">
         <div>
-          <p className="eyebrow">Lead profile</p>
+          <p className="eyebrow">Contact profile</p>
           <h1 className="pageTitle">{displayName}</h1>
           <p className="detailSubtitle">{shop.name}</p>
         </div>
