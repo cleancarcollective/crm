@@ -27,8 +27,8 @@ const SHOP_DETAILS: Record<string, { address: string; mapLink: string; phone: st
 const DEFAULT_SHOP_DETAILS = {
   address: "New Zealand",
   mapLink: "https://cleancarcollective.co.nz",
-  phone: "0800 476 667",
-  email: "hello@cleancarcollective.co.nz"
+  phone: "0221537335",
+  email: "info@cleancarcollective.co.nz"
 };
 
 type SendBookingEmailArgs = {

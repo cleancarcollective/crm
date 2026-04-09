@@ -24,8 +24,8 @@ type PickupEmailArgs = {
 const SHOP_DETAILS: Record<string, { address: string; phone: string; email: string }> = {
   christchurch: {
     address: "20 Southwark Street, Christchurch Central, 8011",
-    phone: "0800 476 667",
-    email: "hello@cleancarcollective.co.nz",
+    phone: "0221537335",
+    email: "info@cleancarcollective.co.nz",
   },
   wellington: {
     address: "8 Ebor Street, Te Aro, Wellington 6011",
@@ -36,8 +36,8 @@ const SHOP_DETAILS: Record<string, { address: string; phone: string; email: stri
 
 const DEFAULT_SHOP_DETAILS = {
   address: "New Zealand",
-  phone: "0800 476 667",
-  email: "hello@cleancarcollective.co.nz",
+  phone: "0221537335",
+  email: "info@cleancarcollective.co.nz",
 };
 
 function escapeHtml(v: string) {

@@ -17,7 +17,7 @@ const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string }> = {
   wellington: { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz" },
 };
 
-const DEFAULT_SHOP_DETAILS = { phone: "0800 476 667", replyEmail: "hello@cleancarcollective.co.nz" };
+const DEFAULT_SHOP_DETAILS = { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz" };
 
 function escapeHtml(value: string) {
   return value
