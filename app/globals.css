@@ -1539,3 +1539,23 @@ textarea {
     display: none;
   }
 }
+
+/* ── iOS PWA safe areas ─────────────────────────────────── */
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .globalNav {
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+    /* Extend nav behind the iOS status bar when in standalone mode */
+    padding-top: env(safe-area-inset-top);
+    height: calc(56px + env(safe-area-inset-top));
+  }
+
+  .pageShell {
+    padding-bottom: max(48px, calc(env(safe-area-inset-bottom) + 24px));
+  }
+}

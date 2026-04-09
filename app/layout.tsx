@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
@@ -11,7 +10,34 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "Clean Car Collective CRM",
-  description: "Internal CRM booking intake"
+  description: "Internal CRM for Clean Car Collective staff",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "CCC CRM",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: [
+      { url: "/icons/apple-touch-icon-180.png", sizes: "180x180" },
+      { url: "/icons/apple-touch-icon-167.png", sizes: "167x167" },
+      { url: "/icons/apple-touch-icon-152.png", sizes: "152x152" },
+      { url: "/icons/apple-touch-icon-120.png", sizes: "120x120" },
+    ],
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1a1713",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -19,8 +45,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
   const user = sessionId ? await verifySession(sessionId) : null;
 
-  // Login page renders without the nav shell
-  // (middleware handles redirect for non-login pages with no session)
   if (!user) {
     return (
       <html lang="en">
