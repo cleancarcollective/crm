@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextResponse } from "next/server";
 
 import { sendLeadConfirmationEmail } from "@/lib/email/sendLeadConfirmationEmail";
@@ -280,12 +279,9 @@ export async function POST(request: Request) {
 
     const vehicleLabel = [parsedVehicle.year, parsedVehicle.make, parsedVehicle.model].filter(Boolean).join(" ") || null;
 
-    // ── 4. Emails (non-blocking) ────────────────────────────────────────────
-    // Always send customer confirmation and team notification — even on re-enquiries,
-    // as the customer expects a receipt and the team needs to know.
-
-    try {
-      await sendLeadConfirmationEmail({
+    // ── 4. Emails + auto-respond (all in parallel to stay within timeout) ──
+    await Promise.allSettled([
+      sendLeadConfirmationEmail({
         shop,
         firstName: payload.first_name,
         email: payload.email,
@@ -293,13 +289,9 @@ export async function POST(request: Request) {
         serviceRequested: payload.service_requested ?? null,
         leadId,
         contactId,
-      });
-    } catch (confirmError) {
-      console.error("Lead confirmation email failed", confirmError);
-    }
+      }).catch((e) => console.error("Lead confirmation email failed", e)),
 
-    try {
-      await sendLeadTeamNotification({
+      sendLeadTeamNotification({
         shop,
         lead: {
           id: leadId,
@@ -314,25 +306,16 @@ export async function POST(request: Request) {
           service_requested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
         },
-      });
-    } catch (emailError) {
-      console.error("Lead team notification failed", emailError);
-    }
+      }).catch((e) => console.error("Lead team notification failed", e)),
 
-    // ── 5. Auto-respond (runs after response is sent to avoid timeout) ────
-    after(async () => {
-      try {
+      // Auto-respond (check setting, then process if enabled)
+      (async () => {
         const supabaseInner = getSupabaseAdminClient();
-        const { data: settings, error: settingsError } = await supabaseInner
+        const { data: settings } = await supabaseInner
           .from("shop_settings")
           .select("auto_respond_enabled")
           .eq("shop_id", shop.id)
           .maybeSingle();
-
-        if (settingsError) {
-          console.error("Auto-respond settings query failed:", settingsError.message);
-          return;
-        }
 
         if (!settings?.auto_respond_enabled) return;
 
@@ -346,10 +329,8 @@ export async function POST(request: Request) {
           serviceRequested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
         });
-      } catch (autoRespondError) {
-        console.error("Auto-respond processing failed", autoRespondError);
-      }
-    });
+      })().catch((e) => console.error("Auto-respond processing failed", e)),
+    ]);
 
     return withCors(NextResponse.json({
       success: true,
