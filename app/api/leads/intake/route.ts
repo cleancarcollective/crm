@@ -280,7 +280,7 @@ export async function POST(request: Request) {
     const vehicleLabel = [parsedVehicle.year, parsedVehicle.make, parsedVehicle.model].filter(Boolean).join(" ") || null;
 
     // ── 4. Emails + auto-respond (all in parallel to stay within timeout) ──
-    await Promise.allSettled([
+    const results = await Promise.allSettled([
       sendLeadConfirmationEmail({
         shop,
         firstName: payload.first_name,
@@ -289,7 +289,7 @@ export async function POST(request: Request) {
         serviceRequested: payload.service_requested ?? null,
         leadId,
         contactId,
-      }).catch((e) => console.error("Lead confirmation email failed", e)),
+      }),
 
       sendLeadTeamNotification({
         shop,
@@ -306,7 +306,7 @@ export async function POST(request: Request) {
           service_requested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
         },
-      }).catch((e) => console.error("Lead team notification failed", e)),
+      }),
 
       // Auto-respond (check setting, then process if enabled)
       (async () => {
@@ -329,8 +329,25 @@ export async function POST(request: Request) {
           serviceRequested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
         });
-      })().catch((e) => console.error("Auto-respond processing failed", e)),
+      })(),
     ]);
+
+    // Log any failures
+    const labels = ["confirmation_email", "team_notification", "auto_respond"];
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === "rejected") {
+        console.error(`${labels[i]} failed:`, (results[i] as PromiseRejectedResult).reason);
+      }
+    }
+
+    // Collect errors for debugging (temporary)
+    const errors: Record<string, string> = {};
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === "rejected") {
+        const reason = (results[i] as PromiseRejectedResult).reason;
+        errors[labels[i]] = reason instanceof Error ? reason.message : String(reason);
+      }
+    }
 
     return withCors(NextResponse.json({
       success: true,
@@ -338,6 +355,7 @@ export async function POST(request: Request) {
       contact_id: contactId,
       is_new_contact: isNewContact,
       is_new_lead: isNewLead,
+      ...(Object.keys(errors).length > 0 ? { _debug_errors: errors } : {}),
     }));
 
   } catch (error) {
