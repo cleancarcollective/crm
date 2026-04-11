@@ -155,6 +155,7 @@ async function getContactsForShop(shopId: string) {
     .from("contacts")
     .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
     .eq("shop_id", shopId)
+    .not("archived", "eq", true)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -168,8 +169,9 @@ async function getLeadsForContact(contactId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, created_at, updated_at, booked_at")
+    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, quote_subject, quote_body, quote_html, template_key, suggested_size, confidence, reason_code, internal_notes, approved_size, created_at, updated_at, booked_at")
     .eq("contact_id", contactId)
+    .not("archived", "eq", true)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -191,8 +193,9 @@ async function getLeadsForShop(shopId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, created_at, updated_at, booked_at")
+    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, quote_subject, quote_body, quote_html, template_key, suggested_size, confidence, reason_code, internal_notes, approved_size, created_at, updated_at, booked_at")
     .eq("shop_id", shopId)
+    .not("archived", "eq", true)
     .order("updated_at", { ascending: false });
 
   if (error) {

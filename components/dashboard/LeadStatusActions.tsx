@@ -23,7 +23,6 @@ const PIPELINE_ACTIONS = [
   { label: "New", status: "new" },
   { label: "Contacted", status: "contacted" },
   { label: "Quoted", status: "quoted" },
-  { label: "Clicked", status: "clicked" },
 ];
 
 export function LeadStatusActions({ leadId, currentStatus, wonSource }: LeadStatusActionsProps) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
 import { LeadStatusActions } from "@/components/dashboard/LeadStatusActions";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
@@ -66,6 +67,7 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
                     <span>{entry.leadCount} open {entry.leadCount === 1 ? "lead" : "leads"}</span>
                   </div>
                   <LeadStatusActions leadId={entry.latestLead.id} currentStatus={entry.latestLead.status} wonSource={entry.latestLead.won_source} />
+                  <ArchiveButton type="lead" id={entry.latestLead.id} />
                 </div>
                 <div className="directoryAside">
                   <span>Last activity</span>
@@ -103,6 +105,7 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
                       Open latest booking
                     </Link>
                   </div>
+                  <ArchiveButton type="contact" id={entry.contact.id} />
                 </div>
                 <div className="directoryAside">
                   <span>Latest appointment</span>

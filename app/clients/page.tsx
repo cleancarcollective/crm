@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
@@ -106,6 +107,8 @@ export default async function ClientsPage({
           { label: "No show", value: "no_show" },
         ]}
       />
+
+      <ImportExportBar mode="clients" exportParams={query ? `?q=${query}` : ""} />
 
       <ContactDirectoryList mode="clients" entries={filteredEntries} timezone={shop.timezone} />
     </main>

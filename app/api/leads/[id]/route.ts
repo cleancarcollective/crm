@@ -7,24 +7,29 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { status, won_source } = body as { status?: string; won_source?: string };
+  const { status, won_source, notes } = body as { status?: string; won_source?: string; notes?: string };
+
+  const supabase = getSupabaseAdminClient();
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  // Notes-only update
+  if (notes !== undefined && !status) {
+    updates.notes = notes;
+    const { error } = await supabase.from("leads").update(updates).eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
 
   if (!status) {
     return NextResponse.json({ error: "status required" }, { status: 400 });
   }
 
-  const VALID_STATUSES = ["new", "contacted", "quoted", "clicked", "won", "lost"];
+  const VALID_STATUSES = ["new", "contacted", "quoted", "clicked", "won", "lost", "needs_approval", "sent"];
   if (!VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "invalid status" }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdminClient();
-
-  const updates: Record<string, unknown> = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
-
+  updates.status = status;
   if (status === "won") {
     updates.won_source = won_source ?? null;
     updates.booked_at = new Date().toISOString();

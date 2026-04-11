@@ -2004,3 +2004,140 @@ textarea {
   font-size: 14px;
   font-weight: 600;
 }
+
+/* ── Lead notes editor ───────────────────────────────────── */
+
+.leadNotesBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.leadNotesLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.leadNotesView {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leadNotesText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.leadNotesEmpty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.leadNotesEdit {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  width: fit-content;
+}
+
+.leadNotesTextarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.leadNotesActions {
+  display: flex;
+  gap: 8px;
+}
+
+.leadNotesError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* ── Archive button ──────────────────────────────────────── */
+
+.buttonArchive {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.buttonArchive:hover {
+  color: var(--danger);
+}
+
+.archiveConfirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.archiveConfirmText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.archiveError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* ── Import / Export bar ─────────────────────────────────── */
+
+.importExportBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.importExportBtn {
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
+.importExportMsg {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a7a3f;
+}
+
+.importExportError {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}

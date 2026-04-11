@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
+import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
 import { getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
 import type { ContactProfile as ContactProfileData } from "@/lib/dashboard/types";
@@ -37,6 +39,7 @@ export function ContactProfile({ profile }: ContactProfileProps) {
           <Link href="/" className="textLink">
             Back to calendar
           </Link>
+          <ArchiveButton type="contact" id={contact.id} redirectAfter="/clients" />
         </div>
       </div>
 
@@ -109,7 +112,7 @@ export function ContactProfile({ profile }: ContactProfileProps) {
                 <span>{lead.vehicle ? [lead.vehicle.year, lead.vehicle.make, lead.vehicle.model].filter(Boolean).join(" ") : "Vehicle not linked"}</span>
                 <span>{lead.source_detail ?? lead.source}</span>
                 <span>{formatDateTime(lead.updated_at, shop.timezone, "EEE d MMM yyyy, h:mm a")}</span>
-                {lead.notes ? <p className="profileNotes">{lead.notes}</p> : null}
+                <LeadNotesEditor leadId={lead.id} initialNotes={lead.notes ?? null} />
                 <LeadEstimatePanel
                   leadId={lead.id}
                   currentStatus={lead.status}
