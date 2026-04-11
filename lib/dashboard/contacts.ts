@@ -21,7 +21,7 @@ export async function getContactProfileById(id: string) {
   const supabase = getSupabaseAdminClient();
   const { data: contact, error } = await supabase
     .from("contacts")
-    .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
+    .select("id, shop_id, first_name, last_name, full_name, email, phone, notes, created_at, updated_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -153,7 +153,7 @@ async function getContactsForShop(shopId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("contacts")
-    .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
+    .select("id, shop_id, first_name, last_name, full_name, email, phone, notes, created_at, updated_at")
     .eq("shop_id", shopId)
     .not("archived", "eq", true)
     .order("updated_at", { ascending: false });

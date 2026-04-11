@@ -2,8 +2,10 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
+import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
+import { LeadSourceEditor } from "@/components/dashboard/LeadSourceEditor";
 import { getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
 import type { ContactProfile as ContactProfileData } from "@/lib/dashboard/types";
@@ -58,6 +60,8 @@ export function ContactProfile({ profile }: ContactProfileProps) {
         </div>
       </div>
 
+      <ContactNotesEditor contactId={contact.id} initialNotes={contact.notes ?? null} />
+
       <div className="profileGrid">
         <section className="detailPanel">
           <h2>Contact</h2>
@@ -110,7 +114,7 @@ export function ContactProfile({ profile }: ContactProfileProps) {
                   <StatusBadge status={lead.status} />
                 </div>
                 <span>{lead.vehicle ? [lead.vehicle.year, lead.vehicle.make, lead.vehicle.model].filter(Boolean).join(" ") : "Vehicle not linked"}</span>
-                <span>{lead.source_detail ?? lead.source}</span>
+                <LeadSourceEditor leadId={lead.id} currentSource={lead.source_detail ?? lead.source} />
                 <span>{formatDateTime(lead.updated_at, shop.timezone, "EEE d MMM yyyy, h:mm a")}</span>
                 <LeadNotesEditor leadId={lead.id} initialNotes={lead.notes ?? null} />
                 <LeadEstimatePanel

@@ -7,21 +7,21 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { status, won_source, notes } = body as { status?: string; won_source?: string; notes?: string };
+  const { status, won_source, notes, source } = body as { status?: string; won_source?: string; notes?: string; source?: string };
 
   const supabase = getSupabaseAdminClient();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-  // Notes-only update
-  if (notes !== undefined && !status) {
-    updates.notes = notes;
+  // Field-only updates (no status change)
+  if (!status) {
+    if (notes !== undefined) updates.notes = notes;
+    if (source !== undefined) updates.source = source;
+    if (Object.keys(updates).length <= 1) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
     const { error } = await supabase.from("leads").update(updates).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
-  }
-
-  if (!status) {
-    return NextResponse.json({ error: "status required" }, { status: 400 });
   }
 
   const VALID_STATUSES = ["new", "contacted", "quoted", "clicked", "won", "lost", "needs_approval", "sent"];

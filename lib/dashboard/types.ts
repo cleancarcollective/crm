@@ -34,6 +34,7 @@ export type ContactRecord = {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  notes: string | null;
   created_at?: string;
   updated_at?: string;
 };
