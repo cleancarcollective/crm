@@ -321,11 +321,17 @@ export async function POST(request: Request) {
     // ── 5. Auto-respond (if enabled for this shop) ─────────────────────────
     try {
       const supabaseInner = getSupabaseAdminClient();
-      const { data: settings } = await supabaseInner
+      const { data: settings, error: settingsError } = await supabaseInner
         .from("shop_settings")
         .select("auto_respond_enabled")
         .eq("shop_id", shop.id)
         .maybeSingle();
+
+      if (settingsError) {
+        console.error("Auto-respond settings query failed:", settingsError.message);
+      }
+
+      console.log(`Auto-respond check: shop=${shop.id}, settings=${JSON.stringify(settings)}, enabled=${settings?.auto_respond_enabled}`);
 
       if (settings?.auto_respond_enabled) {
         await processLeadAutoRespond({

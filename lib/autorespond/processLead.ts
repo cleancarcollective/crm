@@ -134,6 +134,8 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   }
 
   // Decision logic
+  console.log(`Auto-respond decision: lead=${leadId}, template=${templateKey}, needsSize=${needsSize}, suggestedSize=${suggestedSize}, confidence=${confidence} (${Math.round(confNumeric * 100)}%), hasNotes=${hasNotes}, draftError=${draftError || "none"}`);
+
   let newStatus = "needs_approval";
   let internalNote = "";
   let emailSent = false;
