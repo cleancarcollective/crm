@@ -327,11 +327,13 @@ export async function POST(request: Request) {
         .eq("shop_id", shop.id)
         .maybeSingle();
 
-      if (settingsError) {
-        console.error("Auto-respond settings query failed:", settingsError.message);
-      }
+      const debugInfo = `settings_error=${settingsError?.message ?? "none"}, settings=${JSON.stringify(settings)}, enabled=${settings?.auto_respond_enabled}`;
+      console.log(`Auto-respond check: shop=${shop.id}, ${debugInfo}`);
 
-      console.log(`Auto-respond check: shop=${shop.id}, settings=${JSON.stringify(settings)}, enabled=${settings?.auto_respond_enabled}`);
+      // Write debug info to the lead so we can inspect it
+      await supabaseInner.from("leads").update({
+        internal_notes: `[auto-respond-debug] ${debugInfo}`,
+      }).eq("id", leadId);
 
       if (settings?.auto_respond_enabled) {
         await processLeadAutoRespond({
@@ -346,7 +348,15 @@ export async function POST(request: Request) {
         });
       }
     } catch (autoRespondError) {
+      // Write error to the lead for debugging
+      const errMsg = autoRespondError instanceof Error ? autoRespondError.message : String(autoRespondError);
       console.error("Auto-respond processing failed", autoRespondError);
+      const supabaseErr = getSupabaseAdminClient();
+      try {
+        await supabaseErr.from("leads").update({
+          internal_notes: `[auto-respond-error] ${errMsg}`,
+        }).eq("id", leadId);
+      } catch { /* ignore */ }
     }
 
     return withCors(NextResponse.json({
