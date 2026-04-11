@@ -166,7 +166,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   }
 
   // Update lead record
-  await supabase.from("leads").update({
+  const { error: updateError } = await supabase.from("leads").update({
     status: newStatus,
     template_key: templateKey,
     suggested_size: suggestedSize,
@@ -180,6 +180,10 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     ...(emailSent ? { booked_at: null } : {}), // don't set booked_at on send
     updated_at: new Date().toISOString(),
   }).eq("id", leadId);
+
+  if (updateError) {
+    throw new Error(`Lead update failed: ${updateError.message} (code: ${updateError.code})`);
+  }
 
   console.info("Auto-respond processed", {
     leadId,
