@@ -1,5 +1,9 @@
 import { formatInTimeZone } from "date-fns-tz";
 
+function capitalise(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency } from "@/lib/dashboard/format";
@@ -197,7 +201,7 @@ function buildTemplateContext({
   const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
 
   return {
-    first_name: firstName ?? booking.contact?.first_name ?? "there",
+    first_name: capitalise(firstName ?? booking.contact?.first_name ?? "there"),
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
     service_name: booking.service_name,
     add_ons: getBookingAddOnsLabel(booking.raw_payload),

@@ -1,5 +1,9 @@
 import type { BookingConfirmationEmailContext } from "@/lib/email/types";
 
+function capitalise(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -118,7 +122,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
             <tr>
               <td style="background: #ffffff; padding: 36px 36px 32px; border-left: 1px solid #e8e0d6; border-right: 1px solid #e8e0d6;">
 
-                <p style="margin: 0 0 6px; font-size: 17px; font-weight: 600; color: #1a1713;">Hi ${escapeHtml(context.first_name)},</p>
+                <p style="margin: 0 0 6px; font-size: 17px; font-weight: 600; color: #1a1713;">Hi ${escapeHtml(capitalise(context.first_name))},</p>
                 <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: #5c5148;">${escapeHtml(context.intro_line)}</p>
 
                 <!-- Time -->

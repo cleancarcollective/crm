@@ -43,6 +43,10 @@ const DEFAULT_SHOP_DETAILS = {
   website: "https://cleancarcollective.co.nz/christchurch",
 };
 
+function capitalise(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 function escapeHtml(v: string) {
   return v
     .replaceAll("&", "&amp;")
@@ -89,7 +93,7 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
           <!-- Body -->
           <tr>
             <td style="background:#ffffff;padding:36px 36px 32px;border-left:1px solid #e8e0d6;border-right:1px solid #e8e0d6;">
-              <p style="margin:0 0 6px;font-size:17px;font-weight:600;color:#1a1713;">Hi ${escapeHtml(args.firstName)},</p>
+              <p style="margin:0 0 6px;font-size:17px;font-weight:600;color:#1a1713;">Hi ${escapeHtml(capitalise(args.firstName))},</p>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.75;color:#5c5148;">${bodyMessage}</p>
 
               <!-- Address block -->
@@ -148,9 +152,9 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
 function renderPickupText(args: PickupEmailArgs, afterHours: boolean, shopDetails: typeof DEFAULT_SHOP_DETAILS): string {
   const vehicle = args.vehicleLabel ?? "your vehicle";
   if (afterHours) {
-    return `Hi ${args.firstName},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nWe close at 5:00 pm — if you'll be more than 30 minutes away please let us know your ETA so we can arrange accordingly.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
+    return `Hi ${capitalise(args.firstName)},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nWe close at 5:00 pm — if you'll be more than 30 minutes away please let us know your ETA so we can arrange accordingly.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
   }
-  return `Hi ${args.firstName},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nIf you'll be more than 30 minutes away, please let us know.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
+  return `Hi ${capitalise(args.firstName)},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nIf you'll be more than 30 minutes away, please let us know.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
 }
 
 export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sent: boolean; afterHours: boolean }> {

@@ -19,6 +19,10 @@ const SHOP_DETAILS: Record<string, { phone: string; replyEmail: string; website:
 
 const DEFAULT_SHOP_DETAILS = { phone: "0221537335", replyEmail: "info@cleancarcollective.co.nz", website: "https://cleancarcollective.co.nz/christchurch" };
 
+function capitalise(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -68,7 +72,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
             <tr>
               <td style="background: #ffffff; padding: 36px 36px 32px; border-left: 1px solid #e8e0d6; border-right: 1px solid #e8e0d6;">
 
-                <p style="margin: 0 0 6px; font-size: 17px; font-weight: 600; color: #1a1713;">Hi ${escapeHtml(args.firstName)},</p>
+                <p style="margin: 0 0 6px; font-size: 17px; font-weight: 600; color: #1a1713;">Hi ${escapeHtml(capitalise(args.firstName))},</p>
                 <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: #5c5148;">
                   Thanks for reaching out to ${escapeHtml(args.shop.name)}. We've received your enquiry and one of our team will be in touch shortly with a quote.
                 </p>
@@ -130,7 +134,7 @@ function renderHtml(args: LeadConfirmationArgs, shopDetails: { phone: string; re
 
 function renderText(args: LeadConfirmationArgs, shopDetails: { phone: string; replyEmail: string; website: string }): string {
   const lines = [
-    `Hi ${args.firstName},`,
+    `Hi ${capitalise(args.firstName)},`,
     ``,
     `Thanks for reaching out to ${args.shop.name}. We've received your enquiry and one of our team will be in touch shortly with a quote.`,
     ``,
