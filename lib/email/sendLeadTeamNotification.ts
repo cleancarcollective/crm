@@ -55,8 +55,8 @@ function renderLeadNotificationHtml(shop: ShopRecord, lead: LeadDetails): string
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>New Lead</title>
   </head>
-  <body style="margin: 0; padding: 0; background-color: #f0ebe4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0ebe4; padding: 32px 16px;">
+  <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #E5E4E2; padding: 32px 16px;">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">

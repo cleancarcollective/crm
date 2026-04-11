@@ -99,9 +99,9 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>${escapeHtml(heading)}</title>
   </head>
-  <body style="margin: 0; padding: 0; background-color: #f0ebe4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
 
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0ebe4; padding: 32px 16px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #E5E4E2; padding: 32px 16px;">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
