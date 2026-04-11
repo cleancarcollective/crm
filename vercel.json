@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/sms/process-review",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
