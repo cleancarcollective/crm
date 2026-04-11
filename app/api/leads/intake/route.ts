@@ -311,13 +311,15 @@ export async function POST(request: Request) {
       // Auto-respond (check setting, then process if enabled)
       (async () => {
         const supabaseInner = getSupabaseAdminClient();
-        const { data: settings } = await supabaseInner
+        const { data: settings, error: settingsError } = await supabaseInner
           .from("shop_settings")
           .select("auto_respond_enabled")
           .eq("shop_id", shop.id)
           .maybeSingle();
 
-        if (!settings?.auto_respond_enabled) return;
+        if (settingsError) throw new Error(`settings query: ${settingsError.message}`);
+        if (!settings) throw new Error(`no shop_settings row for shop ${shop.id}`);
+        if (!settings.auto_respond_enabled) throw new Error("auto_respond_enabled=false");
 
         await processLeadAutoRespond({
           leadId,
