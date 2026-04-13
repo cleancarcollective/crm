@@ -219,11 +219,13 @@ export async function POST(request: Request) {
     }));
   } catch (error) {
     console.error("Booking intake failed", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
 
     return withCors(NextResponse.json(
       {
         success: false,
-        error: "Internal server error."
+        error: "Internal server error.",
+        _debug: errMsg
       },
       { status: 500 }
     ));
