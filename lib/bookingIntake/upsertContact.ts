@@ -27,6 +27,8 @@ export async function upsertContact(
       .select("*")
       .eq("shop_id", shopId)
       .ilike("email", contact.normalizedEmail)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -42,6 +44,8 @@ export async function upsertContact(
       .select("*")
       .eq("shop_id", shopId)
       .eq("phone", contact.normalizedPhone)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {

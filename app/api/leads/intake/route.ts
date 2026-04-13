@@ -75,6 +75,8 @@ export async function POST(request: Request) {
       .select("id")
       .eq("shop_id", shop.id)
       .eq("email", payload.email)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (contactByEmail) {
@@ -97,6 +99,8 @@ export async function POST(request: Request) {
         .select("id")
         .eq("shop_id", shop.id)
         .eq("phone", payload.phone)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (contactByPhone) {
