@@ -106,6 +106,28 @@ export async function POST(request: Request) {
     const vehicle = await upsertVehicle(supabase, shop.id, contact.id, normalized.data.vehicle);
     const existingLead = await getLatestOpenLeadForContact(supabase, shop.id, contact.id);
 
+    // Deduplication: reject if an identical booking was created in the last 5 minutes
+    const { data: recentDupe } = await supabase
+      .from("bookings")
+      .select("id, contact_id")
+      .eq("shop_id", shop.id)
+      .eq("contact_id", contact.id)
+      .eq("service_name", normalized.data.booking.serviceName)
+      .eq("scheduled_start", normalized.data.booking.scheduledStart)
+      .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (recentDupe) {
+      return withCors(NextResponse.json({
+        success: true,
+        booking_id: recentDupe.id,
+        contact_id: contact.id,
+        vehicle_id: vehicle.id,
+        deduplicated: true,
+      }));
+    }
+
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
