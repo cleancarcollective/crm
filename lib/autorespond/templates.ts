@@ -82,12 +82,18 @@ const CTA = `If you'd like to make a booking, you can do so here: ${BOOKING_URL}
 
 export function pickTemplateKey(servicesRaw: string): TemplateKey {
   const s = (servicesRaw || "").toLowerCase().trim();
+  // Full detail packages (inside + out)
   if (s.includes("inside") && s.includes("out")) return "inside_out";
   if (s === "inside and out package options") return "inside_out";
-  if (s === "interior only" || s === "interior") return "interior_only";
-  if (s === "exterior only" || s === "exterior") return "exterior_only";
-  if (s.includes("ceramic")) return "ceramic";
-  if (s.includes("paint correction")) return "paint_correction";
+  if (s.includes("full detail") || s.includes("premium detail") || s.includes("deluxe detail")) return "inside_out";
+  // Interior
+  if (s.includes("interior")) return "interior_only";
+  if (s.includes("mold") || s.includes("mould") || s.includes("smoke")) return "interior_only";
+  // Exterior
+  if (s.includes("exterior") || s.includes("hand wash")) return "exterior_only";
+  // Specialist
+  if (s.includes("ceramic") || s.includes("coating")) return "ceramic";
+  if (s.includes("paint correction") || s.includes("correction") || s.includes("polish")) return "paint_correction";
   return "other";
 }
 

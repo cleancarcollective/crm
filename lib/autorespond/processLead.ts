@@ -61,8 +61,8 @@ async function sendEstimateEmail(
   textBody: string,
   htmlBody: string
 ) {
-  const postmarkToken = process.env.POSTMARK_API_TOKEN;
-  if (!postmarkToken) throw new Error("POSTMARK_API_TOKEN not set");
+  const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
+  if (!postmarkToken) throw new Error("POSTMARK_SERVER_TOKEN not set");
 
   const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
