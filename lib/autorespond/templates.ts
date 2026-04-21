@@ -67,13 +67,18 @@ function htmlBody(plain: string): string {
   return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap;">${html}</div>`;
 }
 
-function getPrice(pricing: PricingMap, serviceName: string, size: string): number {
+function getPrice(pricing: PricingMap, serviceName: string, size: string): number | null {
   const key = `${serviceName}|${size}`;
   const price = pricing.get(key);
   if (price === undefined) {
-    throw new Error(`Missing pricing for: ${serviceName} / ${size}`);
+    return null;
   }
   return price;
+}
+
+function fmtPrice(price: number | null): string {
+  if (price === null) return "price on request";
+  return `$${price} + GST`;
 }
 
 const CTA = `If you'd like to make a booking, you can do so here: ${BOOKING_URL}`;
@@ -124,14 +129,14 @@ export function buildEstimateDraft(
 Thanks for reaching out for a detailing estimate for your ${vehicle}.
 We offer two main interior & exterior packages designed to suit different levels of cleaning and restoration:
 
-Deluxe Detail -- $${deluxePrice} + GST (approx. 3.5-4 hours)
+Deluxe Detail -- ${fmtPrice(deluxePrice)} (approx. 3.5-4 hours)
 - Exterior hand wash & dry
 - Wheel faces, barrels & tires cleaned
 - Interior vacuum and plastics detailed
 - Door jamb & window cleaning
 - 3-month paint sealant applied for protection
 
-Premium Detail -- $${premiumPrice} + GST (approx. 5.5-6.5 hours)
+Premium Detail -- ${fmtPrice(premiumPrice)} (approx. 5.5-6.5 hours)
 - Includes everything in the Deluxe Detail, plus:
 - Full interior shampoo (carpets, seats, mats)
 - Clay bar treatment for paint decontamination
@@ -160,13 +165,13 @@ Max`;
 Thanks for your inquiry about an interior detail for your ${vehicle}.
 Here are our two main interior packages:
 
-Deluxe Interior -- $${deluxePrice} + GST (approx. 2.5-3 hours)
+Deluxe Interior -- ${fmtPrice(deluxePrice)} (approx. 2.5-3 hours)
 - Full interior vacuum (carpets, mats, seats)
 - Crevice detail for all surfaces
 - Interior plastics cleaned & protected
 - Door jambs & interior windows cleaned
 
-Premium Interior -- $${premiumPrice} + GST (approx. 3.5-4.5 hours)
+Premium Interior -- ${fmtPrice(premiumPrice)} (approx. 3.5-4.5 hours)
 - Includes everything in the Deluxe Interior, plus:
 - Shampoo & extraction of all seats, carpets, and mats
 - Double vacuum & stain extraction
@@ -193,13 +198,13 @@ Max`;
 Thanks for getting in touch about an exterior clean for your ${vehicle}.
 We offer two main exterior hand wash services:
 
-Deluxe Exterior -- $${deluxePrice} + GST (approx. 1.5-2 hours)
+Deluxe Exterior -- ${fmtPrice(deluxePrice)} (approx. 1.5-2 hours)
 - Exterior hand wash & dry
 - Wheel faces, barrels & tires cleaned
 - Windows & mirrors cleaned
 - Wax/paint sealant applied for 3 months of protection
 
-Premium Exterior -- $${premiumPrice} + GST (approx. 2.5-3 hours)
+Premium Exterior -- ${fmtPrice(premiumPrice)} (approx. 2.5-3 hours)
 - Includes everything in Deluxe, plus:
 - Clay bar treatment to remove bonded contaminants
 - Full paint decontamination for a smoother, glossier finish
@@ -226,15 +231,15 @@ Thanks for reaching out about ceramic coating protection for your ${vehicle}.
 
 We are CarPro authorized installers and offer three levels of coating to suit different vehicles and budgets:
 
-Bronze Package -- $${bronze} + GST
+Bronze Package -- ${fmtPrice(bronze)}
 - 1-year protection
 - Gloss enhancement & strong hydrophobic properties
 
-Silver Package -- $${silver} + GST
+Silver Package -- ${fmtPrice(silver)}
 - 3-year protection
 - Added chemical resistance & easy-clean surface
 
-Gold Package -- $${gold} + GST
+Gold Package -- ${fmtPrice(gold)}
 - 5-year protection (backed by our company warranty)
 - Maximum gloss retention, hardness improvement & top-tier hydrophobic performance
 
@@ -259,11 +264,11 @@ Thanks for reaching out about paint correction for your ${vehicle}.
 
 Paint correction removes light swirls, oxidation, and scratches, dramatically improving gloss and depth.
 
-1-Step Correction -- $${one} + GST
+1-Step Correction -- ${fmtPrice(one)}
 - Removes up to 90% of light swirls & micro-marring
 - Great for most daily drivers
 
-2-Step Correction -- $${two} + GST
+2-Step Correction -- ${fmtPrice(two)}
 - Removes deeper scratches and watermarks
 - Maximises clarity and reflection for high-end results
 
