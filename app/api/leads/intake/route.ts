@@ -321,9 +321,12 @@ export async function POST(request: Request) {
           .eq("shop_id", shop.id)
           .maybeSingle();
 
-        if (settingsError) throw new Error(`settings query: ${settingsError.message}`);
-        if (!settings) throw new Error(`no shop_settings row for shop ${shop.id}`);
-        if (!settings.auto_respond_enabled) throw new Error("auto_respond_enabled=false");
+        if (settingsError) {
+          console.error("Auto-respond settings query failed:", settingsError.message);
+          return;
+        }
+
+        if (!settings?.auto_respond_enabled) return;
 
         await processLeadAutoRespond({
           leadId,
@@ -346,22 +349,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Collect errors for debugging (temporary)
-    const errors: Record<string, string> = {};
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status === "rejected") {
-        const reason = (results[i] as PromiseRejectedResult).reason;
-        errors[labels[i]] = reason instanceof Error ? reason.message : String(reason);
-      }
-    }
-
     return withCors(NextResponse.json({
       success: true,
       lead_id: leadId,
       contact_id: contactId,
       is_new_contact: isNewContact,
       is_new_lead: isNewLead,
-      ...(Object.keys(errors).length > 0 ? { _debug_errors: errors } : {}),
     }));
 
   } catch (error) {
