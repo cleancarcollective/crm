@@ -21,9 +21,15 @@ type ShopRow = {
 type LeadMatchRow = {
   id: string;
   status: string;
+  template_id: string | null;
+  template_key: string | null;
+  template_variant: string | null;
 };
 
-const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
+// Any lead that hasn't been explicitly won/lost is still "open" — so when a
+// booking comes in we can attribute it back, including leads that got an
+// auto-respond estimate (status: 'sent') or were waiting for approval.
+const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked", "sent", "needs_approval"];
 
 function withCors(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
@@ -156,10 +162,18 @@ export async function POST(request: Request) {
     }
 
     if (existingLead) {
+      // Attribute the conversion back to the original lead source.
+      // - If the lead received an auto-respond estimate (template_id present),
+      //   the booking is attributed to that template → won_source='auto_email'
+      // - Otherwise the customer booked without an estimate email → 'direct_booking'
+      //   (e.g. they called, or the lead was still in 'new'/'needs_approval').
+      const wonSource = existingLead.template_id ? "auto_email" : "direct_booking";
+
       const { error: leadUpdateError } = await supabase
         .from("leads")
         .update({
-          status: "booked",
+          status: "won",
+          won_source: wonSource,
           booked_at: booking.created_at,
           vehicle_id: vehicle.id,
         })
@@ -261,7 +275,7 @@ async function getLatestOpenLeadForContact(
 ) {
   const { data, error } = await supabase
     .from("leads")
-    .select("id, status")
+    .select("id, status, template_id, template_key, template_variant")
     .eq("shop_id", shopId)
     .eq("contact_id", contactId)
     .in("status", OPEN_LEAD_STATUSES)

@@ -6,7 +6,6 @@
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { TEMPLATE_DEFAULTS } from "@/lib/autorespond/templateDefaults";
 
 const DEFAULT_SHOP_SLUG = "christchurch";
 
@@ -32,25 +31,30 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Build 30-day performance stats per template_id
+  // Build 30-day performance stats per template_id.
+  // Engagement (opened/clicked) comes from denorm columns updated by the
+  // Postmark webhook; conversion comes from the lead's terminal status.
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: statRows } = await supabase
     .from("leads")
-    .select("template_id, status")
+    .select("template_id, status, email_opened_at, email_clicked_at")
     .eq("shop_id", shop.id)
     .not("template_id", "is", null)
     .gte("created_at", thirtyDaysAgo);
 
-  const perf: Record<string, { sent: number; clicked: number; won: number; lost: number; needs_approval: number }> = {};
+  type Perf = { sent: number; opened: number; clicked: number; won: number; lost: number; needs_approval: number };
+  const empty: Perf = { sent: 0, opened: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
+  const perf: Record<string, Perf> = {};
+
   for (const row of statRows ?? []) {
     const id = row.template_id as string | null;
     if (!id) continue;
-    if (!perf[id]) perf[id] = { sent: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
-    // A lead counts as "sent" if it reached any downstream state; treat sent/clicked/won as sent buckets
+    if (!perf[id]) perf[id] = { ...empty };
     if (row.status === "sent" || row.status === "clicked" || row.status === "won" || row.status === "lost") {
       perf[id].sent += 1;
     }
-    if (row.status === "clicked") perf[id].clicked += 1;
+    if (row.email_opened_at) perf[id].opened += 1;
+    if (row.email_clicked_at) perf[id].clicked += 1;
     if (row.status === "won") perf[id].won += 1;
     if (row.status === "lost") perf[id].lost += 1;
     if (row.status === "needs_approval") perf[id].needs_approval += 1;
@@ -58,7 +62,7 @@ export async function GET() {
 
   const withPerf = (templates ?? []).map((t) => ({
     ...t,
-    performance: perf[t.id] ?? { sent: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 },
+    performance: perf[t.id] ?? { ...empty },
   }));
 
   return NextResponse.json({ templates: withPerf });

@@ -26,6 +26,7 @@ import type { VehicleSize } from "./vehicleSizing";
 type ProcessLeadInput = {
   leadId: string;
   shopId: string;
+  contactId: string | null;
   firstName: string;
   email: string;
   makeRaw: string | null;
@@ -58,15 +59,57 @@ async function loadPricing(shopId: string): Promise<PricingMap> {
   return map;
 }
 
-async function sendEstimateEmail(
-  email: string,
-  subject: string,
-  textBody: string,
-  htmlBody: string
-) {
+type SendEstimateArgs = {
+  to: string;
+  subject: string;
+  textBody: string;
+  htmlBody: string;
+  shopId: string;
+  leadId: string;
+  contactId: string | null;
+  templateId: string | null;
+  templateKey: string;
+  templateVariant: string;
+};
+
+/**
+ * Send the auto-respond estimate email with full tracking + attribution.
+ *
+ * Creates an `email_messages` row BEFORE sending, so we have a stable ID to
+ * pass to Postmark as Metadata. Postmark click/open webhooks reference this
+ * ID back to the lead.
+ *
+ * Enables TrackLinks (reliable) + TrackOpens (noisy due to Apple MPP but
+ * still useful as a weak signal).
+ */
+async function sendEstimateEmail(args: SendEstimateArgs) {
   const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
   if (!postmarkToken) throw new Error("POSTMARK_SERVER_TOKEN not set");
 
+  const supabase = getSupabaseAdminClient();
+
+  // 1. Record email in email_messages (status: queued) so click/open events can
+  //    be attributed back via the stable id.
+  const { data: messageRecord, error: insertError } = await supabase
+    .from("email_messages")
+    .insert({
+      shop_id: args.shopId,
+      contact_id: args.contactId,
+      lead_id: args.leadId,
+      booking_id: null,
+      template_id: null, // legacy booking templates live in this column; ours is in Metadata
+      subject: args.subject,
+      body_rendered: args.htmlBody,
+      status: "queued",
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !messageRecord) {
+    throw new Error(`email_messages insert failed: ${insertError?.message ?? "no row returned"}`);
+  }
+
+  // 2. Send via Postmark with full tracking + attribution metadata.
   const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
     headers: {
@@ -76,23 +119,46 @@ async function sendEstimateEmail(
     },
     body: JSON.stringify({
       From: "Max from Clean Car Collective <max@cleancarcollective.co.nz>",
-      To: email,
-      Subject: subject,
-      TextBody: textBody,
-      HtmlBody: htmlBody,
+      To: args.to,
+      Subject: args.subject,
+      TextBody: args.textBody,
+      HtmlBody: args.htmlBody,
       MessageStream: "booking-emails",
+      TrackOpens: true,
+      TrackLinks: "HtmlAndText",
+      Metadata: {
+        email_message_id: messageRecord.id,
+        shop_id: args.shopId,
+        lead_id: args.leadId,
+        template_key: args.templateKey,
+        template_variant: args.templateVariant,
+        auto_template_id: args.templateId ?? "none",
+      },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
+    await supabase.from("email_messages").update({ status: "failed" }).eq("id", messageRecord.id);
     throw new Error(`Postmark send failed ${res.status}: ${text.slice(0, 200)}`);
   }
+
+  const response = (await res.json()) as { MessageID?: string };
+
+  // 3. Mark email_messages as sent + record provider id
+  await supabase
+    .from("email_messages")
+    .update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      provider_message_id: response.MessageID ?? null,
+    })
+    .eq("id", messageRecord.id);
 }
 
 export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<void> {
   const supabase = getSupabaseAdminClient();
-  const { leadId, shopId, firstName, email, makeRaw, modelRaw, serviceRequested, notes } = input;
+  const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes } = input;
 
   const cleanedNotes = cleanNotes(notes);
   const hasNotes = cleanedNotes.length > 0;
@@ -160,7 +226,18 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   } else if (confidence === "high") {
     // Auto send
     try {
-      await sendEstimateEmail(email, draftSubject, draftBody, draftHtml);
+      await sendEstimateEmail({
+        to: email,
+        subject: draftSubject,
+        textBody: draftBody,
+        htmlBody: draftHtml,
+        shopId,
+        leadId,
+        contactId,
+        templateId,
+        templateKey,
+        templateVariant,
+      });
       newStatus = "sent";
       internalNote = "";
       emailSent = true;

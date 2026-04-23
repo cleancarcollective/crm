@@ -7,7 +7,14 @@ import { TemplatesSeedButton } from "@/components/dashboard/TemplatesSeedButton"
 
 const DEFAULT_SHOP_SLUG = "christchurch";
 
-type Perf = { sent: number; clicked: number; won: number; lost: number; needs_approval: number };
+type Perf = {
+  sent: number;
+  opened: number;
+  clicked: number;
+  won: number;
+  lost: number;
+  needs_approval: number;
+};
 
 export default async function TemplatesIndexPage() {
   const supabase = getSupabaseAdminClient();
@@ -27,11 +34,13 @@ export default async function TemplatesIndexPage() {
     .order("template_key")
     .order("variant");
 
-  // 30-day performance per template_id
+  // 30-day performance per template_id — now backed by the engagement
+  // denorm columns populated by the Postmark webhook. A lead counts as
+  // "sent" if any downstream status was reached (sent/clicked/won/lost).
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: statRows } = await supabase
     .from("leads")
-    .select("template_id, status")
+    .select("template_id, status, email_opened_at, email_clicked_at")
     .eq("shop_id", shop.id)
     .not("template_id", "is", null)
     .gte("created_at", thirtyDaysAgo);
@@ -40,11 +49,13 @@ export default async function TemplatesIndexPage() {
   for (const row of statRows ?? []) {
     const id = row.template_id as string | null;
     if (!id) continue;
-    if (!perf[id]) perf[id] = { sent: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
+    if (!perf[id]) perf[id] = { sent: 0, opened: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
+
     if (row.status === "sent" || row.status === "clicked" || row.status === "won" || row.status === "lost") {
       perf[id].sent += 1;
     }
-    if (row.status === "clicked") perf[id].clicked += 1;
+    if (row.email_opened_at) perf[id].opened += 1;
+    if (row.email_clicked_at) perf[id].clicked += 1;
     if (row.status === "won") perf[id].won += 1;
     if (row.status === "lost") perf[id].lost += 1;
     if (row.status === "needs_approval") perf[id].needs_approval += 1;
@@ -71,6 +82,12 @@ export default async function TemplatesIndexPage() {
           These are the auto-respond estimate emails sent when a new lead comes in.
           Edit subject lines and body copy here — changes apply immediately to new leads.
           Performance stats show the last 30 days.
+          <br />
+          <span className="settingsDescriptionMuted">
+            * Open rate is inflated by Apple Mail Privacy Protection (which pre-fetches
+            tracking pixels whether the email is actually opened or not). Click rate and
+            conversion are reliable — trust those.
+          </span>
         </p>
 
         {isEmpty ? (
@@ -81,9 +98,10 @@ export default async function TemplatesIndexPage() {
         ) : (
           <div className="templatesList">
             {rows.map((t) => {
-              const p: Perf = perf[t.id] ?? { sent: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
+              const p: Perf = perf[t.id] ?? { sent: 0, opened: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
               const conv = p.sent > 0 ? Math.round((p.won / p.sent) * 100) : 0;
               const ctr = p.sent > 0 ? Math.round((p.clicked / p.sent) * 100) : 0;
+              const openRate = p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0;
               return (
                 <Link key={t.id} href={`/settings/templates/${t.id}`} className="templateCard">
                   <div className="templateCardHeader">
@@ -103,13 +121,17 @@ export default async function TemplatesIndexPage() {
                       <span className="templateStatValue">{p.sent}</span>
                       <span className="templateStatLabel">sent</span>
                     </div>
-                    <div className="templateStat">
-                      <span className="templateStatValue">{p.clicked}</span>
-                      <span className="templateStatLabel">clicked ({ctr}%)</span>
+                    <div className="templateStat" title="Open rate is inflated by Apple Mail Privacy Protection — treat as a weak signal">
+                      <span className="templateStatValue">{openRate}%</span>
+                      <span className="templateStatLabel">opened* ({p.opened})</span>
                     </div>
                     <div className="templateStat">
-                      <span className="templateStatValue">{p.won}</span>
-                      <span className="templateStatLabel">won ({conv}%)</span>
+                      <span className="templateStatValue">{ctr}%</span>
+                      <span className="templateStatLabel">clicked ({p.clicked})</span>
+                    </div>
+                    <div className="templateStat">
+                      <span className="templateStatValue">{conv}%</span>
+                      <span className="templateStatLabel">won ({p.won})</span>
                     </div>
                     <div className="templateStat">
                       <span className="templateStatValue">{p.needs_approval}</span>

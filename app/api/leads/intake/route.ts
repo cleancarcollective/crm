@@ -331,6 +331,7 @@ export async function POST(request: Request) {
         await processLeadAutoRespond({
           leadId,
           shopId: shop.id,
+          contactId,
           firstName: payload.first_name,
           email: payload.email,
           makeRaw: parsedVehicle.make,
