@@ -1,3 +1,13 @@
+/**
+ * Manually send the approved estimate for a lead that hit 'needs_approval'.
+ *
+ * Mirrors the auto-respond send path (processLead.sendEstimateEmail):
+ *   - Creates an email_messages row for tracking
+ *   - Sends via Postmark with Metadata so click/open webhooks attribute back
+ *   - Enables TrackLinks + TrackOpens
+ *   - Advances lead status to 'sent'
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -20,7 +30,7 @@ export async function POST(
 
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, contact_id, contacts(email, first_name)")
+    .select("id, shop_id, contact_id, template_id, template_key, template_variant, contacts(email, first_name)")
     .eq("id", id)
     .maybeSingle();
 
@@ -31,19 +41,37 @@ export async function POST(
     return NextResponse.json({ error: "Contact has no email" }, { status: 400 });
   }
 
-  function buildHtml(plain: string): string {
-    const bookingUrl = "https://cleancarcollective.co.nz/make-a-booking/";
-    let html = plain.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    html = html.replace(
-      bookingUrl.replace(/&/g, "&amp;"),
-      `<a href="${bookingUrl}" style="color:#1a73e8;text-decoration:underline;">make a booking here</a>`
-    );
-    return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap;">${html}</div>`;
+  const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
+  if (!postmarkToken) {
+    return NextResponse.json({ error: "POSTMARK_SERVER_TOKEN not set" }, { status: 500 });
   }
 
-  const postmarkToken = process.env.POSTMARK_API_TOKEN;
-  if (!postmarkToken) return NextResponse.json({ error: "POSTMARK_API_TOKEN not set" }, { status: 500 });
+  const htmlBody = buildHtml(textBody);
 
+  // 1. Record the outbound email with full attribution
+  const { data: messageRecord, error: insertError } = await supabase
+    .from("email_messages")
+    .insert({
+      shop_id: lead.shop_id,
+      contact_id: lead.contact_id,
+      lead_id: lead.id,
+      booking_id: null,
+      template_id: null, // booking templates live here; ours is in Metadata
+      subject,
+      body_rendered: htmlBody,
+      status: "queued",
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !messageRecord) {
+    return NextResponse.json(
+      { error: `email_messages insert failed: ${insertError?.message ?? "no row"}` },
+      { status: 500 }
+    );
+  }
+
+  // 2. Send via Postmark with tracking + metadata
   const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
     headers: {
@@ -56,23 +84,70 @@ export async function POST(
       To: contact.email,
       Subject: subject,
       TextBody: textBody,
-      HtmlBody: buildHtml(textBody),
+      HtmlBody: htmlBody,
       MessageStream: "booking-emails",
+      TrackOpens: true,
+      TrackLinks: "HtmlAndText",
+      Metadata: {
+        email_message_id: messageRecord.id,
+        shop_id: lead.shop_id,
+        lead_id: lead.id,
+        template_key: lead.template_key ?? "manual_send",
+        template_variant: lead.template_variant ?? "A",
+        auto_template_id: lead.template_id ?? "none",
+        send_mode: "manual_approval",
+      },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    return NextResponse.json({ error: `Email send failed: ${text.slice(0, 200)}` }, { status: 500 });
+    await supabase.from("email_messages").update({ status: "failed" }).eq("id", messageRecord.id);
+    return NextResponse.json(
+      { error: `Email send failed: ${text.slice(0, 200)}` },
+      { status: 500 }
+    );
   }
 
-  await supabase.from("leads").update({
-    status: "sent",
-    quote_subject: subject,
-    quote_body: textBody,
-    internal_notes: "",
-    updated_at: new Date().toISOString(),
-  }).eq("id", id);
+  const response = (await res.json()) as { MessageID?: string };
+
+  // 3. Mark email as sent
+  await supabase
+    .from("email_messages")
+    .update({
+      provider_message_id: response.MessageID ?? null,
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    })
+    .eq("id", messageRecord.id);
+
+  // 4. Advance lead status
+  await supabase
+    .from("leads")
+    .update({
+      status: "sent",
+      quote_subject: subject,
+      quote_body: textBody,
+      quote_html: htmlBody,
+      internal_notes: "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
 
   return NextResponse.json({ ok: true });
+}
+
+function buildHtml(plain: string): string {
+  const bookingUrl = "https://cleancarcollective.co.nz/make-a-booking/";
+  let html = plain
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+  html = html.replace(
+    bookingUrl.replace(/&/g, "&amp;"),
+    `<a href="${bookingUrl}" style="color:#1a73e8;text-decoration:underline;">make a booking here</a>`
+  );
+  return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap;">${html}</div>`;
 }
