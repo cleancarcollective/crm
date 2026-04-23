@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
 import { classifyVehicle } from "./vehicleSizing";
 import {
   pickTemplateKey,
@@ -213,6 +214,8 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let newStatus = "needs_approval";
   let internalNote = "";
   let emailSent = false;
+  let approvalReason: ApprovalReason = "other";
+  let approvalReasonDetail: string | null = null;
 
   // Size-independent templates (ceramic, paint_correction, other) use the
   // vehicle name only as a display string — they don't need size confidence.
@@ -227,12 +230,16 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   if (draftError) {
     newStatus = "needs_approval";
     internalNote = `Draft error: ${draftError}`;
+    approvalReason = "draft_error";
+    approvalReasonDetail = draftError;
   } else if (hasNotes) {
     newStatus = "needs_approval";
     internalNote = "Needs approval: notes present.";
+    approvalReason = "notes_present";
   } else if (needsSize && !suggestedSize) {
     newStatus = "needs_approval";
     internalNote = "Needs approval: vehicle size unknown.";
+    approvalReason = "vehicle_size_unknown";
   } else if (shouldAutoSend) {
     // Auto send
     try {
@@ -253,11 +260,15 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       emailSent = true;
     } catch (e) {
       newStatus = "needs_approval";
-      internalNote = `Send failed: ${e instanceof Error ? e.message : String(e)}`;
+      const errMsg = e instanceof Error ? e.message : String(e);
+      internalNote = `Send failed: ${errMsg}`;
+      approvalReason = "send_failed";
+      approvalReasonDetail = errMsg;
     }
   } else {
     newStatus = "needs_approval";
     internalNote = `Needs approval: confidence ${confidence} (${Math.round(confNumeric * 100)}%, reason: ${reasonCode}).`;
+    approvalReason = "low_confidence";
   }
 
   // Update lead record
@@ -288,5 +299,114 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     confidence,
     reasonCode,
     emailSent,
+  });
+
+  // If the lead needs human approval, email the team with the draft + a
+  // direct link to review and send it from the CRM. Failures here are
+  // logged but don't bubble up — the lead is safely saved already.
+  if (newStatus === "needs_approval") {
+    try {
+      await sendApprovalEmailForLead({
+        leadId,
+        shopId,
+        contactId,
+        firstName,
+        email,
+        makeRaw,
+        modelRaw,
+        serviceRequested,
+        customerNotes: notes,
+        reason: approvalReason,
+        reasonDetail: approvalReasonDetail,
+        estimate: { subject: draftSubject, body: draftBody },
+      });
+    } catch (err) {
+      console.error("Approval request email failed (non-fatal)", { leadId, err });
+    }
+  }
+}
+
+/**
+ * Helper: fetch the shop + contact records needed for the approval email,
+ * then send it. Kept here so processLeadAutoRespond's signature doesn't
+ * need to balloon to carry all the customer/shop details.
+ */
+async function sendApprovalEmailForLead(args: {
+  leadId: string;
+  shopId: string;
+  contactId: string | null;
+  firstName: string;
+  email: string;
+  makeRaw: string | null;
+  modelRaw: string | null;
+  serviceRequested: string | null;
+  customerNotes: string | null;
+  reason: ApprovalReason;
+  reasonDetail: string | null;
+  estimate: { subject: string; body: string };
+}) {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: shop } = await supabase
+    .from("shops")
+    .select("id, name, slug, timezone")
+    .eq("id", args.shopId)
+    .maybeSingle();
+
+  if (!shop) {
+    console.warn("Approval email skipped — shop not found", { shopId: args.shopId });
+    return;
+  }
+
+  // Optional enrichment from the contact row (last_name, phone).
+  let lastName: string | null = null;
+  let phone: string | null = null;
+  if (args.contactId) {
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("last_name, phone")
+      .eq("id", args.contactId)
+      .maybeSingle();
+    lastName = contact?.last_name ?? null;
+    phone = contact?.phone ?? null;
+  }
+
+  // Vehicle year — not passed through the auto-respond input, so fetch from
+  // the lead's vehicle link. Non-blocking: if missing we just omit it.
+  let vehicleYear: string | null = null;
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("vehicle_id")
+    .eq("id", args.leadId)
+    .maybeSingle();
+  if (lead?.vehicle_id) {
+    const { data: vehicle } = await supabase
+      .from("vehicles")
+      .select("year")
+      .eq("id", lead.vehicle_id)
+      .maybeSingle();
+    vehicleYear = vehicle?.year ? String(vehicle.year) : null;
+  }
+
+  await sendApprovalRequestEmail({
+    shop: shop as { id: string; name: string; slug: string; timezone: string },
+    leadId: args.leadId,
+    contactId: args.contactId,
+    customer: {
+      firstName: args.firstName,
+      lastName,
+      email: args.email,
+      phone,
+    },
+    vehicle: {
+      year: vehicleYear,
+      make: args.makeRaw,
+      model: args.modelRaw,
+    },
+    serviceRequested: args.serviceRequested,
+    customerNotes: args.customerNotes,
+    reason: args.reason,
+    reasonDetail: args.reasonDetail,
+    estimate: args.estimate,
   });
 }
