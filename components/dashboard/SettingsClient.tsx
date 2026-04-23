@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 type PricingRow = {
@@ -113,6 +114,23 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
           ) : (
             <span className="settingsHintMuted">No emails will be auto-sent. All new leads appear as "new" for you to action manually.</span>
           )}
+        </div>
+      </section>
+
+      {/* ── Email templates link ─────────────────────────────────── */}
+      <section className="detailPanel settingsSection">
+        <div className="settingsPricingHeader">
+          <div>
+            <h2>Email templates</h2>
+            <p className="settingsDescription">
+              Edit auto-respond estimate email copy, subject lines, and track performance per template.
+            </p>
+          </div>
+          <div className="settingsPricingActions">
+            <Link href="/settings/templates" className="buttonPrimary">
+              Manage templates →
+            </Link>
+          </div>
         </div>
       </section>
 

@@ -13,11 +13,14 @@
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { classifyVehicle } from "./vehicleSizing";
 import {
-  buildEstimateDraft,
   pickTemplateKey,
   templateNeedsSize,
-  type PricingMap,
 } from "./templates";
+import {
+  buildTemplateContext,
+  loadAndRenderTemplate,
+  type PricingMap,
+} from "./templateRenderer";
 import type { VehicleSize } from "./vehicleSizing";
 
 type ProcessLeadInput = {
@@ -113,11 +116,13 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let draftBody = "";
   let draftHtml = "";
   let draftError = "";
+  let templateId: string | null = null;
+  let templateVariant: string = "A";
 
   try {
     const pricing = await loadPricing(shopId);
     const sizeForTemplate: VehicleSize | null = needsSize ? suggestedSize : null;
-    const draft = buildEstimateDraft(
+    const ctx = buildTemplateContext(
       templateKey,
       firstName,
       makeRaw ?? "",
@@ -125,9 +130,12 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       sizeForTemplate,
       pricing
     );
-    draftSubject = draft.subject;
-    draftBody = draft.textBody;
-    draftHtml = draft.htmlBody;
+    const rendered = await loadAndRenderTemplate(shopId, templateKey, ctx, "A");
+    draftSubject = rendered.subject;
+    draftBody = rendered.textBody;
+    draftHtml = rendered.htmlBody;
+    templateId = rendered.templateId;
+    templateVariant = rendered.variant;
   } catch (e) {
     draftError = e instanceof Error ? e.message : String(e);
     console.error("Auto-respond draft error:", draftError);
@@ -169,6 +177,8 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   const { error: updateError } = await supabase.from("leads").update({
     status: newStatus,
     template_key: templateKey,
+    template_id: templateId,
+    template_variant: templateVariant,
     suggested_size: suggestedSize,
     confidence,
     reason_code: reasonCode,

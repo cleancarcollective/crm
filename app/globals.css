@@ -2270,3 +2270,302 @@ textarea {
 .leadSourceCancel:hover {
   color: var(--danger);
 }
+
+/* ── Email template manager ──────────────────────────────────────────── */
+
+.eyebrowLink {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrowLink:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.templatesEmptyState {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.templatesSeedRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.templatesList {
+  display: grid;
+  gap: 12px;
+}
+
+.templateCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--card, #fff);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.templateCard:hover {
+  border-color: var(--foreground);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.templateCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.templateCardKey {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+}
+
+.templateCardName {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.templateCardSubject {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--foreground);
+  opacity: 0.85;
+}
+
+.templateCardChevron {
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.templateCardStats {
+  display: flex;
+  gap: 24px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  flex-wrap: wrap;
+}
+
+.templateStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 70px;
+}
+
+.templateStatValue {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.templateStatLabel {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.templateVariantChip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: #f0ebe4;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.templateInactiveChip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: #fbeaea;
+  color: #a33;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Editor page */
+
+.templateEditorPanel {
+  padding: 24px 28px;
+}
+
+.templateEditorGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+}
+
+@media (max-width: 960px) {
+  .templateEditorGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.templateEditorCol {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.templateEditorField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.templateEditorLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.templateEditorInput {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.templateEditorTextarea {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.55;
+  background: #fff;
+  resize: vertical;
+  min-height: 320px;
+}
+
+.templateEditorInput:focus,
+.templateEditorTextarea:focus {
+  outline: none;
+  border-color: var(--foreground);
+}
+
+.templateEditorToggleRow {
+  padding-top: 4px;
+}
+
+.templateEditorCheckboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.templateEditorActions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.templateEditorSide {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.templateEditorSideHeading {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.templateEditorSideHint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.templateEditorVarsBox,
+.templateEditorPreviewBox {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafaf8;
+}
+
+.templateEditorVarList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.templateEditorVarChip {
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.templateEditorVarChip:hover {
+  background: var(--foreground);
+  color: #fff;
+  border-color: var(--foreground);
+}
+
+.templatePreviewSubject {
+  font-size: 14px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.templatePreviewLabel {
+  font-weight: 600;
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.templatePreviewBody {
+  margin: 0;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 500px;
+  overflow-y: auto;
+}
