@@ -214,6 +214,16 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let internalNote = "";
   let emailSent = false;
 
+  // Size-independent templates (ceramic, paint_correction, other) use the
+  // vehicle name only as a display string — they don't need size confidence.
+  // So for those, we can auto-send even with low confidence.
+  const canAutoSendDespiteLowConfidence = !needsSize;
+  const shouldAutoSend =
+    !draftError &&
+    !hasNotes &&
+    !(needsSize && !suggestedSize) &&
+    (confidence === "high" || canAutoSendDespiteLowConfidence);
+
   if (draftError) {
     newStatus = "needs_approval";
     internalNote = `Draft error: ${draftError}`;
@@ -223,7 +233,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   } else if (needsSize && !suggestedSize) {
     newStatus = "needs_approval";
     internalNote = "Needs approval: vehicle size unknown.";
-  } else if (confidence === "high") {
+  } else if (shouldAutoSend) {
     // Auto send
     try {
       await sendEstimateEmail({

@@ -41,6 +41,25 @@ const MAKE_ALIASES: Record<string, string> = {
   landrover: "land-rover",
   alfa: "alfa romeo",
   "alfa romeo": "alfa romeo",
+  // Common misspellings customers submit
+  izuzu: "isuzu",
+  isuza: "isuzu",
+  izusu: "isuzu",
+  huyndai: "hyundai",
+  hundai: "hyundai",
+  hyndai: "hyundai",
+  mitsibishi: "mitsubishi",
+  mitsubushi: "mitsubishi",
+  subara: "subaru",
+  suburu: "subaru",
+  chevorlet: "chevrolet",
+  chevy: "chevrolet",
+  porshe: "porsche",
+  porche: "porsche",
+  mazada: "mazda",
+  tyota: "toyota",
+  toyata: "toyota",
+  holdan: "holden",
 };
 
 export function normalizeMake(makeRaw: string): string {
