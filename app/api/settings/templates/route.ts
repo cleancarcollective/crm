@@ -21,7 +21,7 @@ export async function GET() {
   if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   const { data: templates, error } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("id, template_key, variant, name, subject, body_text, is_active, created_at, updated_at")
     .eq("shop_id", shop.id)
     .order("template_key")

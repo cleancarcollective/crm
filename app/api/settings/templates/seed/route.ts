@@ -25,7 +25,7 @@ export async function POST() {
 
   // Load existing to avoid overwriting customised rows
   const { data: existing } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("template_key, variant")
     .eq("shop_id", shop.id);
 
@@ -47,7 +47,7 @@ export async function POST() {
     return NextResponse.json({ ok: true, inserted: 0, message: "All defaults already present." });
   }
 
-  const { error } = await supabase.from("email_templates").insert(toInsert);
+  const { error } = await supabase.from("lead_email_templates").insert(toInsert);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

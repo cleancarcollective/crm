@@ -25,7 +25,7 @@ export default async function TemplateEditPage({
   if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
 
   const { data: template } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("*")
     .eq("id", id)
     .maybeSingle();

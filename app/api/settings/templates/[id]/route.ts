@@ -17,7 +17,7 @@ export async function GET(
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("*")
     .eq("id", id)
     .maybeSingle();
@@ -49,7 +49,7 @@ export async function PATCH(
   }
 
   const { data, error } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .update(allowed)
     .eq("id", id)
     .select("*")

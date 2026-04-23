@@ -2,7 +2,7 @@
  * DB-backed email template renderer for auto-respond estimates.
  *
  * Flow:
- *   1. loadTemplate(shopId, key) — fetch from email_templates table.
+ *   1. loadTemplate(shopId, key) — fetch from lead_email_templates table.
  *      Falls back to TEMPLATE_DEFAULTS if no DB row exists (during migration).
  *   2. buildTemplateContext(...) — assembles the {name, vehicle, *_price} map.
  *   3. renderTemplate(template, ctx) — substitutes {{vars}} + returns
@@ -180,7 +180,7 @@ export async function loadTemplate(
 ): Promise<TemplateRecord> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("id, shop_id, template_key, variant, name, subject, body_text, is_active")
     .eq("shop_id", shopId)
     .eq("template_key", templateKey)

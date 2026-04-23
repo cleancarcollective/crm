@@ -28,7 +28,7 @@ export default async function TemplatesIndexPage() {
   if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
 
   const { data: templates } = await supabase
-    .from("email_templates")
+    .from("lead_email_templates")
     .select("id, template_key, variant, name, subject, is_active, updated_at")
     .eq("shop_id", shop.id)
     .order("template_key")
