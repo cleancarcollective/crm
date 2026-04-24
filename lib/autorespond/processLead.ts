@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getShopContactsById } from "@/lib/email/shopContacts";
 import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
 import { scheduleLeadJob } from "@/lib/scheduling/leadJobs";
 import { classifyVehicle } from "./vehicleSizing";
@@ -119,6 +120,9 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
     throw new Error(`email_messages insert failed: ${insertError?.message ?? "no row returned"}`);
   }
 
+  // Resolve the per-shop sender name (Christchurch = Ben, Wellington = Max).
+  const shopContacts = await getShopContactsById(args.shopId);
+
   // 2. Send via Postmark with full tracking + attribution metadata.
   const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
@@ -128,7 +132,7 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
       "X-Postmark-Server-Token": postmarkToken,
     },
     body: JSON.stringify({
-      From: "Max from Clean Car Collective <max@cleancarcollective.co.nz>",
+      From: shopContacts.from_line,
       To: args.to,
       Subject: args.subject,
       TextBody: args.textBody,

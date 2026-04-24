@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getShopContactsById } from "@/lib/email/shopContacts";
 import { cancelLeadJobs, scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -72,7 +73,8 @@ export async function POST(
     );
   }
 
-  // 2. Send via Postmark with tracking + metadata
+  // 2. Resolve per-shop sender + send via Postmark with tracking + metadata
+  const shopContacts = await getShopContactsById(lead.shop_id);
   const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
     headers: {
@@ -81,7 +83,7 @@ export async function POST(
       "X-Postmark-Server-Token": postmarkToken,
     },
     body: JSON.stringify({
-      From: "Max from Clean Car Collective <max@cleancarcollective.co.nz>",
+      From: shopContacts.from_line,
       To: contact.email,
       Subject: subject,
       TextBody: textBody,

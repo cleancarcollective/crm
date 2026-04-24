@@ -241,8 +241,55 @@ async function handleLeadFollowup(job: ScheduledJob) {
 
   // Load contact + vehicle for rendering
   const { data: contact } = job.contact_id
-    ? await supabase.from("contacts").select("first_name, email").eq("id", job.contact_id).maybeSingle()
+    ? await supabase.from("contacts").select("first_name, email, phone").eq("id", job.contact_id).maybeSingle()
     : { data: null };
+
+  // Defensive: if attribution failed (customer booked with different email)
+  // but this same email OR phone has a recent confirmed booking for this shop,
+  // skip the follow-up. Looks beyond contact_id, which is the only match key
+  // the booking intake currently uses.
+  if (contact && (contact.email || contact.phone)) {
+    const { data: matchingContacts } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("shop_id", job.shop_id)
+      .or(
+        [
+          contact.email ? `email.eq.${contact.email}` : null,
+          contact.phone ? `phone.eq.${contact.phone}` : null,
+        ]
+          .filter(Boolean)
+          .join(",")
+      );
+
+    const contactIds = (matchingContacts ?? []).map((c) => c.id as string);
+    if (contactIds.length > 0) {
+      const { count: recentBookings } = await supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", job.shop_id)
+        .in("contact_id", contactIds)
+        .in("status", ["pending", "confirmed", "completed"])
+        .gte("scheduled_start", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      if ((recentBookings ?? 0) > 0) {
+        console.info(
+          `${job.job_type}: skipping — contact has a recent booking despite lead.status=sent`,
+          { leadId: job.lead_id, email: contact.email, phone: contact.phone }
+        );
+        // Also back-fix the lead so the funnel reflects reality
+        await supabase
+          .from("leads")
+          .update({
+            status: "won",
+            won_source: lead.template_id ? "auto_email" : "direct_booking",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.lead_id);
+        return;
+      }
+    }
+  }
 
   const { data: leadWithVehicle } = await supabase
     .from("leads")
