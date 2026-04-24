@@ -206,7 +206,8 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       sizeForTemplate,
       pricing
     );
-    const rendered = await loadAndRenderTemplate(shopId, templateKey, ctx, "A");
+    // No variant passed — picker will weighted-random pick across active A/B variants
+    const rendered = await loadAndRenderTemplate(shopId, templateKey, ctx);
     draftSubject = rendered.subject;
     draftBody = rendered.textBody;
     draftHtml = rendered.htmlBody;

@@ -265,7 +265,7 @@ async function handleLeadFollowup(job: ScheduledJob) {
     null,
     new Map() // no pricing needed for follow-ups
   );
-  const rendered = await loadAndRenderTemplate(job.shop_id, templateKey, ctx, "A");
+  const rendered = await loadAndRenderTemplate(job.shop_id, templateKey, ctx);
 
   // Use the existing send helper — writes email_messages, posts to Postmark
   await sendEstimateEmail({

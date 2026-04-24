@@ -11,23 +11,34 @@ type Template = {
   subject: string;
   body_text: string;
   is_active: boolean;
+  weight: number;
 };
 
 type Variable = { key: string; label: string };
 
+type SiblingVariant = {
+  id: string;
+  variant: string;
+  weight: number;
+  is_active: boolean;
+};
+
 type TemplateEditorProps = {
   template: Template;
   variables: Variable[];
+  siblings: SiblingVariant[]; // other variants of the same template_key
 };
 
-export function TemplateEditor({ template, variables }: TemplateEditorProps) {
+export function TemplateEditor({ template, variables, siblings }: TemplateEditorProps) {
   const router = useRouter();
   const [name, setName] = useState(template.name);
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body_text);
   const [isActive, setIsActive] = useState(template.is_active);
+  const [weight, setWeight] = useState(template.weight);
   const [preview, setPreview] = useState<{ subject: string; body_text: string } | null>(null);
   const [saveMsg, setSaveMsg] = useState("");
+  const [actionMsg, setActionMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // Live preview: debounce subject/body changes
@@ -60,7 +71,7 @@ export function TemplateEditor({ template, variables }: TemplateEditorProps) {
       const res = await fetch(`/api/settings/templates/${template.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, subject, body_text: body, is_active: isActive }),
+        body: JSON.stringify({ name, subject, body_text: body, is_active: isActive, weight }),
       });
       if (res.ok) {
         setSaveMsg("Saved.");
@@ -68,6 +79,38 @@ export function TemplateEditor({ template, variables }: TemplateEditorProps) {
       } else {
         const data = await res.json().catch(() => ({}));
         setSaveMsg(`Failed: ${data.error ?? "unknown error"}`);
+      }
+    });
+  }
+
+  function handleDuplicate() {
+    setActionMsg("");
+    startTransition(async () => {
+      const res = await fetch(`/api/settings/templates/${template.id}/duplicate`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.template?.id) {
+        setActionMsg("Variant created. Redirecting…");
+        router.push(`/settings/templates/${data.template.id}` as never);
+      } else {
+        setActionMsg(`Failed: ${data.error ?? "unknown error"}`);
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!confirm(`Delete variant ${template.variant}? This cannot be undone.`)) return;
+    setActionMsg("");
+    startTransition(async () => {
+      const res = await fetch(`/api/settings/templates/${template.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        router.push("/settings/templates");
+      } else {
+        setActionMsg(`Failed: ${data.error ?? "unknown error"}`);
       }
     });
   }
@@ -139,6 +182,54 @@ export function TemplateEditor({ template, variables }: TemplateEditorProps) {
             </label>
           </div>
 
+          {/* Variant / A-B control */}
+          <div className="templateVariantControlBox">
+            <div className="templateVariantControlHeader">
+              <h3 className="templateEditorSideHeading">Variant {template.variant}</h3>
+              <span className="templateEditorSideHint">
+                {siblings.length === 0
+                  ? "This is the only variant for this template. Duplicate to start an A/B test."
+                  : `Part of an A/B test — ${siblings.length + 1} total variants sharing traffic by weight.`}
+              </span>
+            </div>
+
+            <label className="templateEditorField">
+              <span className="templateEditorLabel">
+                Traffic weight
+                {siblings.length > 0 ? (
+                  <span className="templateVariantSplitNote">
+                    {" "}— current split: {computeSplit(template, siblings, weight)}
+                  </span>
+                ) : null}
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                value={weight}
+                onChange={(e) => setWeight(Math.max(0, parseInt(e.target.value) || 0))}
+                className="templateEditorInput"
+                style={{ maxWidth: 200 }}
+              />
+              <span className="templateEditorSideHint">
+                Relative weight (0 = paused, higher = more traffic). The picker does a
+                weighted random draw across all active variants.
+              </span>
+            </label>
+
+            <div className="templateEditorActions" style={{ marginTop: 4 }}>
+              <button type="button" onClick={handleDuplicate} disabled={isPending} className="buttonSecondary">
+                {isPending ? "Working…" : `Duplicate as Variant ${nextVariantLetter(template, siblings)}`}
+              </button>
+              {siblings.length > 0 ? (
+                <button type="button" onClick={handleDelete} disabled={isPending} className="buttonDanger">
+                  Delete variant {template.variant}
+                </button>
+              ) : null}
+              {actionMsg ? <span className="settingsSaveMsg">{actionMsg}</span> : null}
+            </div>
+          </div>
+
           <div className="templateEditorActions">
             <button
               type="button"
@@ -189,4 +280,24 @@ export function TemplateEditor({ template, variables }: TemplateEditorProps) {
       </div>
     </section>
   );
+}
+
+const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+
+function nextVariantLetter(current: Template, siblings: SiblingVariant[]): string {
+  const taken = new Set([current.variant, ...siblings.map((s) => s.variant)]);
+  return LETTERS.find((l) => !taken.has(l)) ?? "?";
+}
+
+function computeSplit(current: Template, siblings: SiblingVariant[], liveWeight: number): string {
+  const all = [
+    { variant: current.variant, weight: liveWeight, is_active: true },
+    ...siblings.map((s) => ({ variant: s.variant, weight: s.weight, is_active: s.is_active })),
+  ].filter((v) => v.is_active);
+
+  const total = all.reduce((sum, v) => sum + v.weight, 0);
+  if (total === 0) return "all paused";
+  return all
+    .map((v) => `${v.variant}: ${Math.round((v.weight / total) * 100)}%`)
+    .join(" · ");
 }

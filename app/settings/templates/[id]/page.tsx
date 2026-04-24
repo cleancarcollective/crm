@@ -35,6 +35,22 @@ export default async function TemplateEditPage({
   const key = template.template_key as TemplateKey;
   const variables = TEMPLATE_VARIABLES[key] ?? [];
 
+  // Sibling variants of the same template_key (for A/B test UI)
+  const { data: siblingRows } = await supabase
+    .from("lead_email_templates")
+    .select("id, variant, weight, is_active")
+    .eq("shop_id", shop.id)
+    .eq("template_key", template.template_key)
+    .neq("id", template.id)
+    .order("variant");
+
+  const siblings = (siblingRows ?? []).map((s) => ({
+    id: s.id as string,
+    variant: s.variant as string,
+    weight: (s.weight ?? 100) as number,
+    is_active: (s.is_active ?? true) as boolean,
+  }));
+
   return (
     <main className="pageShell">
       <div className="pageTopbar">
@@ -56,8 +72,10 @@ export default async function TemplateEditPage({
           subject: template.subject,
           body_text: template.body_text,
           is_active: template.is_active,
+          weight: template.weight ?? 100,
         }}
         variables={variables}
+        siblings={siblings}
       />
     </main>
   );

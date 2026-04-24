@@ -25,7 +25,24 @@ export type TemplateRecord = {
   subject: string;
   body_text: string;
   is_active: boolean;
+  weight?: number; // relative weight for A/B distribution (default 100)
 };
+
+/**
+ * Pick one variant using weighted random selection.
+ * Variants with weight 0 are skipped. If all weights are 0, returns the first.
+ */
+function pickWeightedVariant(variants: TemplateRecord[]): TemplateRecord {
+  const withWeights = variants.map((v) => ({ ...v, _w: Math.max(0, v.weight ?? 100) }));
+  const total = withWeights.reduce((sum, v) => sum + v._w, 0);
+  if (total === 0) return variants[0];
+  let roll = Math.random() * total;
+  for (const v of withWeights) {
+    roll -= v._w;
+    if (roll <= 0) return v;
+  }
+  return variants[variants.length - 1];
+}
 
 export type RenderedTemplate = {
   subject: string;
@@ -171,37 +188,67 @@ function substitute(template: string, ctx: Record<string, string>): string {
 // ── DB load + fallback ─────────────────────────────────────────────────────
 
 /**
- * Load the active template for a given shop + key. Falls back to the default
- * seed in code if no DB row exists (so auto-respond still works during the
- * initial migration before templates are seeded).
+ * Load the active template for a given shop + key. If multiple active variants
+ * exist (A/B test), picks one by weighted random.
+ *
+ * If `variant` is explicitly specified (e.g. from a lead's historical record),
+ * returns that specific variant. Otherwise does a weighted random pick.
+ *
+ * Falls back to TEMPLATE_DEFAULTS if no DB row exists.
  */
 export async function loadTemplate(
   shopId: string,
   templateKey: TemplateKey,
-  variant: string = "A"
+  variant?: string
 ): Promise<TemplateRecord> {
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("lead_email_templates")
-    .select("id, shop_id, template_key, variant, name, subject, body_text, is_active")
-    .eq("shop_id", shopId)
-    .eq("template_key", templateKey)
-    .eq("variant", variant)
-    .eq("is_active", true)
-    .maybeSingle();
 
-  if (error) {
-    console.error("loadTemplate DB error, falling back to default:", error.message);
-  }
+  if (variant) {
+    // Specific variant requested — exact load
+    const { data, error } = await supabase
+      .from("lead_email_templates")
+      .select("id, shop_id, template_key, variant, name, subject, body_text, is_active, weight")
+      .eq("shop_id", shopId)
+      .eq("template_key", templateKey)
+      .eq("variant", variant)
+      .eq("is_active", true)
+      .maybeSingle();
 
-  if (data) {
-    return data as TemplateRecord;
+    if (error) {
+      console.error("loadTemplate DB error:", error.message);
+    }
+    if (data) return data as TemplateRecord;
+  } else {
+    // No variant specified — pick by weighted random over all active variants
+    const { data, error } = await supabase
+      .from("lead_email_templates")
+      .select("id, shop_id, template_key, variant, name, subject, body_text, is_active, weight")
+      .eq("shop_id", shopId)
+      .eq("template_key", templateKey)
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("loadTemplate DB error:", error.message);
+    }
+
+    const variants = (data ?? []) as TemplateRecord[];
+    if (variants.length === 1) return variants[0];
+    if (variants.length > 1) {
+      const picked = pickWeightedVariant(variants);
+      console.info("A/B pick:", {
+        templateKey,
+        chosen: picked.variant,
+        available: variants.map((v) => ({ variant: v.variant, weight: v.weight })),
+      });
+      return picked;
+    }
   }
 
   // Fallback to code default
-  const def = TEMPLATE_DEFAULTS.find((t) => t.template_key === templateKey && t.variant === variant)
-    ?? TEMPLATE_DEFAULTS.find((t) => t.template_key === templateKey)
-    ?? TEMPLATE_DEFAULTS.find((t) => t.template_key === "other")!;
+  const def =
+    TEMPLATE_DEFAULTS.find((t) => t.template_key === templateKey && t.variant === (variant ?? "A")) ??
+    TEMPLATE_DEFAULTS.find((t) => t.template_key === templateKey) ??
+    TEMPLATE_DEFAULTS.find((t) => t.template_key === "other")!;
 
   return {
     id: null,
@@ -233,12 +280,15 @@ export function renderTemplate(template: TemplateRecord, ctx: Record<string, str
 
 /**
  * One-shot convenience: load + render.
+ * If `variant` is omitted, loadTemplate picks one by weighted random
+ * over all active variants (A/B testing). Pass a specific variant when
+ * you need to re-render a historical message.
  */
 export async function loadAndRenderTemplate(
   shopId: string,
   templateKey: TemplateKey,
   ctx: Record<string, string>,
-  variant: string = "A"
+  variant?: string
 ): Promise<RenderedTemplate> {
   const template = await loadTemplate(shopId, templateKey, variant);
   return renderTemplate(template, ctx);

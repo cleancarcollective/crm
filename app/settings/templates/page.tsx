@@ -29,7 +29,7 @@ export default async function TemplatesIndexPage() {
 
   const { data: templates } = await supabase
     .from("lead_email_templates")
-    .select("id, template_key, variant, name, subject, is_active, updated_at")
+    .select("id, template_key, variant, name, subject, is_active, weight, updated_at")
     .eq("shop_id", shop.id)
     .order("template_key")
     .order("variant");
@@ -99,48 +99,73 @@ export default async function TemplatesIndexPage() {
           </div>
         ) : (
           <div className="templatesList">
-            {rows.map((t) => {
-              const p: Perf = perf[t.id] ?? { sent: 0, opened: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
-              const conv = p.sent > 0 ? Math.round((p.won / p.sent) * 100) : 0;
-              const ctr = p.sent > 0 ? Math.round((p.clicked / p.sent) * 100) : 0;
-              const openRate = p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0;
+            {groupByKey(rows).map(({ key, variants }) => {
+              // Aggregate stats across variants, plus each variant's slice
+              const totalWeight = variants.reduce((sum, v) => sum + (v.weight ?? 100), 0);
+              const isMultiVariant = variants.length > 1;
+
               return (
-                <Link key={t.id} href={`/settings/templates/${t.id}`} className="templateCard">
-                  <div className="templateCardHeader">
-                    <div>
-                      <div className="templateCardKey">
-                        {TEMPLATE_KEY_LABELS[t.template_key as TemplateKey] ?? t.template_key}
-                        {t.variant !== "A" ? <span className="templateVariantChip"> Variant {t.variant}</span> : null}
-                        {!t.is_active ? <span className="templateInactiveChip">Paused</span> : null}
-                      </div>
-                      <div className="templateCardName">{t.name}</div>
-                    </div>
-                    <span className="templateCardChevron">→</span>
+                <div key={key} className="templateGroup">
+                  <div className="templateGroupHeader">
+                    <h3 className="templateGroupTitle">
+                      {TEMPLATE_KEY_LABELS[key as TemplateKey] ?? key}
+                    </h3>
+                    {isMultiVariant ? (
+                      <span className="templateGroupMeta">
+                        A/B test · {variants.length} variants
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="templateCardSubject">{t.subject}</div>
-                  <div className="templateCardStats">
-                    <div className="templateStat">
-                      <span className="templateStatValue">{p.sent}</span>
-                      <span className="templateStatLabel">sent</span>
-                    </div>
-                    <div className="templateStat" title="Open rate is inflated by Apple Mail Privacy Protection — treat as a weak signal">
-                      <span className="templateStatValue">{openRate}%</span>
-                      <span className="templateStatLabel">opened* ({p.opened})</span>
-                    </div>
-                    <div className="templateStat">
-                      <span className="templateStatValue">{ctr}%</span>
-                      <span className="templateStatLabel">clicked ({p.clicked})</span>
-                    </div>
-                    <div className="templateStat">
-                      <span className="templateStatValue">{conv}%</span>
-                      <span className="templateStatLabel">won ({p.won})</span>
-                    </div>
-                    <div className="templateStat">
-                      <span className="templateStatValue">{p.needs_approval}</span>
-                      <span className="templateStatLabel">needs approval</span>
-                    </div>
-                  </div>
-                </Link>
+
+                  {variants.map((t) => {
+                    const p: Perf = perf[t.id] ?? { sent: 0, opened: 0, clicked: 0, won: 0, lost: 0, needs_approval: 0 };
+                    const conv = p.sent > 0 ? Math.round((p.won / p.sent) * 100) : 0;
+                    const ctr = p.sent > 0 ? Math.round((p.clicked / p.sent) * 100) : 0;
+                    const openRate = p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0;
+                    const trafficPct = totalWeight > 0 ? Math.round(((t.weight ?? 100) / totalWeight) * 100) : 0;
+
+                    return (
+                      <Link key={t.id} href={`/settings/templates/${t.id}`} className="templateCard">
+                        <div className="templateCardHeader">
+                          <div>
+                            <div className="templateCardKey">
+                              <span className="templateVariantLetter">Variant {t.variant}</span>
+                              {isMultiVariant ? (
+                                <span className="templateTrafficChip">{trafficPct}% traffic</span>
+                              ) : null}
+                              {!t.is_active ? <span className="templateInactiveChip">Paused</span> : null}
+                            </div>
+                            <div className="templateCardName">{t.name}</div>
+                          </div>
+                          <span className="templateCardChevron">→</span>
+                        </div>
+                        <div className="templateCardSubject">{t.subject}</div>
+                        <div className="templateCardStats">
+                          <div className="templateStat">
+                            <span className="templateStatValue">{p.sent}</span>
+                            <span className="templateStatLabel">sent</span>
+                          </div>
+                          <div className="templateStat" title="Open rate is inflated by Apple Mail Privacy Protection — treat as a weak signal">
+                            <span className="templateStatValue">{openRate}%</span>
+                            <span className="templateStatLabel">opened* ({p.opened})</span>
+                          </div>
+                          <div className="templateStat">
+                            <span className="templateStatValue">{ctr}%</span>
+                            <span className="templateStatLabel">clicked ({p.clicked})</span>
+                          </div>
+                          <div className="templateStat">
+                            <span className="templateStatValue">{conv}%</span>
+                            <span className="templateStatLabel">won ({p.won})</span>
+                          </div>
+                          <div className="templateStat">
+                            <span className="templateStatValue">{p.needs_approval}</span>
+                            <span className="templateStatLabel">needs approval</span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               );
             })}
 
@@ -156,4 +181,27 @@ export default async function TemplatesIndexPage() {
       </section>
     </main>
   );
+}
+
+type TemplateRow = {
+  id: string;
+  template_key: string;
+  variant: string;
+  name: string;
+  subject: string;
+  is_active: boolean;
+  weight: number | null;
+};
+
+function groupByKey(rows: TemplateRow[]): { key: string; variants: TemplateRow[] }[] {
+  const map = new Map<string, TemplateRow[]>();
+  for (const r of rows) {
+    const arr = map.get(r.template_key) ?? [];
+    arr.push(r);
+    map.set(r.template_key, arr);
+  }
+  return Array.from(map.entries()).map(([key, variants]) => ({
+    key,
+    variants: variants.sort((a, b) => a.variant.localeCompare(b.variant)),
+  }));
 }
