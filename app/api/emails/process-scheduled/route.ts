@@ -24,6 +24,7 @@ import {
 import type { TemplateKey } from "@/lib/autorespond/templates";
 import { processScheduledReminderJobs } from "@/lib/email/scheduledReminderJobs";
 import { scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
+import { processScheduledSmsJobs } from "@/lib/sms/scheduledSmsJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 function isAuthorized(request: Request) {
@@ -137,11 +138,21 @@ async function handle(request: Request) {
     console.error("Booking reminder processor failed:", e);
   }
 
+  // SMS jobs (booking reminders, review SMS) — same scheduler pattern,
+  // runs every minute via pg_cron now rather than daily via Vercel cron.
+  let smsResults: unknown[] = [];
+  try {
+    smsResults = await processScheduledSmsJobs();
+  } catch (e) {
+    console.error("SMS job processor failed:", e);
+  }
+
   return NextResponse.json({
     success: true,
     leadJobsProcessed: results.length,
     leadResults: results,
     bookingRemindersProcessed: bookingResults.length,
+    smsJobsProcessed: smsResults.length,
   });
 }
 

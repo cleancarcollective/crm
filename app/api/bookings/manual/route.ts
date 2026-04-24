@@ -6,6 +6,7 @@ import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs"
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
+import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { formatInTimeZone } from "date-fns-tz";
@@ -212,7 +213,7 @@ export async function POST(request: Request) {
     console.error("Manual booking lead attribution failed (non-fatal)", err);
   }
 
-  // ── 4. Reminder jobs ─────────────────────────────────────────────────
+  // ── 4. Reminder jobs (email + SMS) ───────────────────────────────────
   try {
     await createReminderJobsForBooking({
       shop,
@@ -222,6 +223,22 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("Failed to schedule reminder jobs", err);
+  }
+
+  if (contactPhone) {
+    try {
+      await scheduleBookingReminderSms({
+        bookingId: booking.id,
+        contactId,
+        shopId: shop.id,
+        phone: contactPhone,
+        firstName: contactFirstName ?? "there",
+        scheduledStart: booking.scheduled_start,
+        timezone: shop.timezone,
+      });
+    } catch (err) {
+      console.error("Failed to schedule booking reminder SMS", err);
+    }
   }
 
   // ── 5. Confirmation email ─────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs"
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
+import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -206,6 +207,25 @@ export async function POST(request: Request) {
       });
     } catch (reminderError) {
       console.error("Failed to create scheduled reminder jobs", reminderError);
+    }
+
+    // Schedule T-1day SMS reminder — only if we have a phone number
+    if (contact.phone) {
+      try {
+        const smsFirstName =
+          contact.first_name ?? contact.full_name?.split(" ")[0] ?? "there";
+        await scheduleBookingReminderSms({
+          bookingId: booking.id,
+          contactId: contact.id,
+          shopId: shop.id,
+          phone: contact.phone,
+          firstName: smsFirstName,
+          scheduledStart: booking.scheduled_start,
+          timezone: (shop as ShopRow).timezone,
+        });
+      } catch (smsReminderError) {
+        console.error("Failed to schedule booking reminder SMS", smsReminderError);
+      }
     }
 
     try {
