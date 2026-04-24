@@ -5,9 +5,20 @@ import { getShopBySlug } from "@/lib/dashboard/bookings";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
+import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { formatInTimeZone } from "date-fns-tz";
+
+const OPEN_LEAD_STATUSES = [
+  "new",
+  "contacted",
+  "quoted",
+  "clicked",
+  "sent",
+  "needs_approval",
+  "scheduled",
+];
 
 type NewContact = {
   first_name?: string;
@@ -161,6 +172,44 @@ export async function POST(request: Request) {
   if (bookingError || !booking) {
     console.error("Manual booking insert failed", bookingError);
     return NextResponse.json({ success: false, error: "Failed to create booking." }, { status: 500 });
+  }
+
+  // ── 3b. Attribute to an open lead (if any) and cancel follow-ups ─────
+  // This is the same logic as /api/bookings/intake, so manually-created
+  // bookings (phone, walk-in, etc.) still close the loop on the lead
+  // funnel. Otherwise the customer would keep getting follow-up emails
+  // after they've already booked.
+  try {
+    const { data: openLead } = await supabase
+      .from("leads")
+      .select("id, template_id")
+      .eq("shop_id", shop.id)
+      .eq("contact_id", contactId)
+      .in("status", OPEN_LEAD_STATUSES)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (openLead) {
+      const wonSource = openLead.template_id ? "auto_email" : "direct_booking";
+      await supabase
+        .from("leads")
+        .update({
+          status: "won",
+          won_source: wonSource,
+          booked_at: booking.created_at,
+          vehicle_id: vehicleId,
+        })
+        .eq("id", openLead.id);
+
+      await cancelLeadJobs(openLead.id, [
+        "lead_auto_estimate",
+        "lead_followup_3day",
+        "lead_followup_7day",
+      ]);
+    }
+  } catch (err) {
+    console.error("Manual booking lead attribution failed (non-fatal)", err);
   }
 
   // ── 4. Reminder jobs ─────────────────────────────────────────────────
