@@ -27,12 +27,33 @@ export default async function TemplatesIndexPage() {
 
   if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
 
-  const { data: templates } = await supabase
+  const { data: templates, error: templatesError } = await supabase
     .from("lead_email_templates")
     .select("id, template_key, variant, name, subject, is_active, weight, updated_at")
     .eq("shop_id", shop.id)
     .order("template_key")
     .order("variant");
+
+  if (templatesError) {
+    console.error("Templates query failed:", templatesError);
+    return (
+      <main className="pageShell">
+        <div className="pageTopbar">
+          <h1 className="pageTitle">Email templates</h1>
+        </div>
+        <section className="detailPanel settingsSection">
+          <p style={{ color: "#b23434" }}>
+            <strong>Templates failed to load:</strong> {templatesError.message}
+          </p>
+          <p style={{ color: "var(--muted)", fontSize: 14 }}>
+            This usually means a pending database migration hasn&apos;t been run.
+            Check the last SQL I gave you and make sure it was executed in
+            Supabase&apos;s SQL Editor.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   // 30-day performance per template_id — now backed by the engagement
   // denorm columns populated by the Postmark webhook. A lead counts as
