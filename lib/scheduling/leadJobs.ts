@@ -10,6 +10,7 @@
  *   lead_followup_7day   — 7 days after estimate sent, final check-in
  */
 
+import { scheduleLeadFollowupSms } from "@/lib/sms/scheduledSmsJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type LeadJobType =
@@ -77,6 +78,7 @@ export async function scheduleLeadFollowups(args: {
   leadId: string;
   contactId: string | null;
   email: string;
+  phone?: string | null;
   firstName: string;
   make: string | null;
   model: string | null;
@@ -95,6 +97,7 @@ export async function scheduleLeadFollowups(args: {
     model: args.model,
   };
 
+  // Email at +3 days
   await scheduleLeadJob({
     shopId: args.shopId,
     leadId: args.leadId,
@@ -105,6 +108,24 @@ export async function scheduleLeadFollowups(args: {
     payload: basePayload,
   });
 
+  // SMS at +5 days (between the 2 emails) — only if we have a phone
+  if (args.phone) {
+    const vehicleLabel = [args.make, args.model].filter(Boolean).join(" ") || null;
+    try {
+      await scheduleLeadFollowupSms({
+        leadId: args.leadId,
+        contactId: args.contactId,
+        shopId: args.shopId,
+        phone: args.phone,
+        firstName: args.firstName,
+        vehicleLabel,
+      });
+    } catch (e) {
+      console.error("Lead follow-up SMS scheduling failed (non-fatal)", e);
+    }
+  }
+
+  // Email at +7 days
   await scheduleLeadJob({
     shopId: args.shopId,
     leadId: args.leadId,
@@ -118,22 +139,35 @@ export async function scheduleLeadFollowups(args: {
 
 /**
  * Cancel any pending lead jobs for a lead (e.g. when they book, so we
- * don't pester them with follow-ups).
+ * don't pester them with follow-ups). Cancels both email and SMS jobs.
  */
 export async function cancelLeadJobs(leadId: string, jobTypes?: LeadJobType[]) {
   const supabase = getSupabaseAdminClient();
-  const query = supabase
+
+  // Cancel email follow-up jobs
+  const emailQuery = supabase
     .from("scheduled_email_jobs")
     .update({ status: "cancelled", last_error: "Cancelled — lead converted" })
     .eq("lead_id", leadId)
     .eq("status", "pending");
 
   if (jobTypes && jobTypes.length > 0) {
-    query.in("job_type", jobTypes);
+    emailQuery.in("job_type", jobTypes);
   }
 
-  const { error } = await query;
-  if (error) {
-    console.error("Failed to cancel lead jobs", { leadId, error });
+  const { error: emailErr } = await emailQuery;
+  if (emailErr) {
+    console.error("Failed to cancel lead email jobs", { leadId, error: emailErr });
+  }
+
+  // Also cancel any pending lead-context SMS jobs for this lead
+  const { error: smsErr } = await supabase
+    .from("scheduled_sms_jobs")
+    .update({ status: "cancelled", last_error: "Cancelled — lead converted" })
+    .eq("lead_id", leadId)
+    .eq("status", "pending");
+
+  if (smsErr) {
+    console.error("Failed to cancel lead SMS jobs", { leadId, error: smsErr });
   }
 }

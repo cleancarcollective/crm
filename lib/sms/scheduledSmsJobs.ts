@@ -1,13 +1,20 @@
 import { addDays, addHours } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
+import { getShopContactsById } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 
 const REVIEW_DELAY_HOURS = 23;
+const LEAD_FOLLOWUP_SMS_DAYS = 5;
 
 const REVIEW_SMS_TEMPLATE = (firstName: string) =>
   `Hey ${firstName}, thanks again for choosing Clean Car Collective! We'd love your quick feedback - just tap here: https://cleancarcollective.co.nz/how-did-we-do/`;
+
+function buildLeadFollowupSms(firstName: string, vehicle: string | null, senderName: string): string {
+  const vehicleStr = vehicle ?? "your vehicle";
+  return `Hi ${firstName}, just checking - any questions about the ${vehicleStr} detailing estimate? Happy to chat or lock in a slot: cleancarcollective.co.nz/make-a-booking - ${senderName}`;
+}
 
 /**
  * T-1 day booking reminder SMS. Fires 24h before scheduled_start so the
@@ -80,6 +87,51 @@ export async function scheduleBookingReminderSms({
 }
 
 /**
+ * T+5 days lead follow-up SMS — slots in between the 3-day and 7-day
+ * follow-up emails. Per-shop sender name (Ben for Christchurch, etc).
+ */
+export async function scheduleLeadFollowupSms({
+  leadId,
+  contactId,
+  shopId,
+  phone,
+  firstName,
+  vehicleLabel,
+}: {
+  leadId: string;
+  contactId: string | null;
+  shopId: string;
+  phone: string;
+  firstName: string;
+  vehicleLabel: string | null;
+}) {
+  const scheduledFor = addDays(new Date(), LEAD_FOLLOWUP_SMS_DAYS).toISOString();
+
+  // Resolve sender name now so the SMS reads correctly when it fires
+  const shopContacts = await getShopContactsById(shopId);
+  const message = buildLeadFollowupSms(firstName, vehicleLabel, shopContacts.sender_name);
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("scheduled_sms_jobs").insert({
+    shop_id: shopId,
+    lead_id: leadId,
+    booking_id: null,
+    contact_id: contactId,
+    phone,
+    message,
+    scheduled_for: scheduledFor,
+    status: "pending",
+  });
+
+  if (error) {
+    console.error("Failed to schedule lead follow-up SMS", { leadId, error });
+    throw error;
+  }
+
+  console.info("Lead follow-up SMS scheduled", { leadId, scheduledFor });
+}
+
+/**
  * Schedule a review SMS to be sent ~23 hours after pick-up.
  */
 export async function scheduleReviewSms({
@@ -121,12 +173,12 @@ export async function scheduleReviewSms({
  * Process all pending SMS jobs that are due. Called by cron.
  * Returns a summary of what was sent / failed.
  */
-export async function processScheduledSmsJobs(): Promise<Array<{ id: string; status: "sent" | "failed"; error?: string }>> {
+export async function processScheduledSmsJobs(): Promise<Array<{ id: string; status: "sent" | "failed" | "skipped"; error?: string }>> {
   const supabase = getSupabaseAdminClient();
 
   const { data: jobs, error } = await supabase
     .from("scheduled_sms_jobs")
-    .select("id, phone, message, booking_id")
+    .select("id, phone, message, booking_id, lead_id, shop_id, contact_id")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .limit(50);
@@ -138,9 +190,25 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
 
   if (!jobs || jobs.length === 0) return [];
 
-  const results: Array<{ id: string; status: "sent" | "failed"; error?: string }> = [];
+  const results: Array<{ id: string; status: "sent" | "failed" | "skipped"; error?: string }> = [];
 
   for (const job of jobs) {
+    // Lead-context jobs: re-check the lead hasn't already converted
+    // before we fire the SMS. Same defensive pattern as the email
+    // follow-up handler — covers cancelLeadJobs failure modes.
+    if (job.lead_id) {
+      const skipReason = await shouldSkipLeadSms(job);
+      if (skipReason) {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "cancelled", last_error: skipReason })
+          .eq("id", job.id);
+        console.info("Lead SMS skipped", { jobId: job.id, leadId: job.lead_id, reason: skipReason });
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
+    }
+
     const result = await sendTnzSms(job.phone as string, job.message as string);
 
     if (result.success) {
@@ -149,7 +217,7 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
         .update({ status: "sent", sent_at: new Date().toISOString() })
         .eq("id", job.id);
 
-      console.info("Scheduled SMS sent", { jobId: job.id, bookingId: job.booking_id });
+      console.info("Scheduled SMS sent", { jobId: job.id, bookingId: job.booking_id, leadId: job.lead_id });
       results.push({ id: job.id as string, status: "sent" });
     } else {
       await supabase
@@ -163,4 +231,82 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
   }
 
   return results;
+}
+
+/**
+ * Defensive pre-send check for lead-context SMS jobs. Returns a reason
+ * string if the SMS should be skipped, otherwise null.
+ *
+ * Mirrors the email follow-up handler's logic: skip if the lead is no
+ * longer 'sent' (already converted/lost), OR if a contact with the same
+ * email/phone has any recent confirmed/completed booking.
+ */
+async function shouldSkipLeadSms(job: {
+  lead_id: string | null;
+  shop_id: string;
+  contact_id: string | null;
+}): Promise<string | null> {
+  if (!job.lead_id) return null;
+  const supabase = getSupabaseAdminClient();
+
+  // 1. Lead status gate
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("status, template_id")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+
+  if (!lead) return "lead not found";
+  if (lead.status !== "sent") return `lead.status = ${lead.status}`;
+
+  // 2. Contact-already-booked gate (catches different-email bookings)
+  if (job.contact_id) {
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("email, phone")
+      .eq("id", job.contact_id)
+      .maybeSingle();
+
+    if (contact && (contact.email || contact.phone)) {
+      const orParts = [
+        contact.email ? `email.eq.${contact.email}` : null,
+        contact.phone ? `phone.eq.${contact.phone}` : null,
+      ].filter(Boolean);
+
+      const { data: matchingContacts } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("shop_id", job.shop_id)
+        .or(orParts.join(","));
+
+      const ids = (matchingContacts ?? []).map((c) => c.id as string);
+      if (ids.length > 0) {
+        const { count } = await supabase
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("shop_id", job.shop_id)
+          .in("contact_id", ids)
+          .in("status", ["pending", "confirmed", "completed"])
+          .gte(
+            "scheduled_start",
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          );
+
+        if ((count ?? 0) > 0) {
+          // Back-fix the lead to keep the funnel honest
+          await supabase
+            .from("leads")
+            .update({
+              status: "won",
+              won_source: lead.template_id ? "auto_email" : "direct_booking",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.lead_id);
+          return "contact has a recent booking";
+        }
+      }
+    }
+  }
+
+  return null;
 }

@@ -32,13 +32,13 @@ export async function POST(
 
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, shop_id, contact_id, template_id, template_key, template_variant, contacts(email, first_name)")
+    .select("id, shop_id, contact_id, template_id, template_key, template_variant, contacts(email, first_name, phone)")
     .eq("id", id)
     .maybeSingle();
 
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
-  const contact = lead.contacts as unknown as { email: string; first_name: string } | null;
+  const contact = lead.contacts as unknown as { email: string; first_name: string; phone: string | null } | null;
   if (!contact?.email) {
     return NextResponse.json({ error: "Contact has no email" }, { status: 400 });
   }
@@ -154,6 +154,7 @@ export async function POST(
     leadId: lead.id,
     contactId: lead.contact_id,
     email: contact.email,
+    phone: contact.phone,
     firstName: contact.first_name,
     make: vehicle?.make ?? null,
     model: vehicle?.model ?? null,

@@ -210,15 +210,31 @@ async function handleLeadAutoEstimate(job: ScheduledJob) {
     })
     .eq("id", job.lead_id);
 
-  // Fetch contact for follow-up rendering later
+  // Fetch contact for follow-up rendering later (firstName + phone for SMS)
   let firstName = "there";
+  let phone: string | null = null;
   if (job.contact_id) {
     const { data: contact } = await supabase
       .from("contacts")
-      .select("first_name")
+      .select("first_name, phone")
       .eq("id", job.contact_id)
       .maybeSingle();
     firstName = contact?.first_name ?? "there";
+    phone = contact?.phone ?? null;
+  }
+
+  // Fetch vehicle for SMS message body ("the {make model} detailing estimate")
+  let make: string | null = null;
+  let model: string | null = null;
+  const { data: leadRow } = await supabase
+    .from("leads")
+    .select("vehicle_id, vehicles(make, model)")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+  if (leadRow?.vehicles) {
+    const v = leadRow.vehicles as unknown as { make: string | null; model: string | null };
+    make = v.make;
+    model = v.model;
   }
 
   await scheduleLeadFollowups({
@@ -226,9 +242,10 @@ async function handleLeadAutoEstimate(job: ScheduledJob) {
     leadId: job.lead_id,
     contactId: job.contact_id,
     email: payload.to,
+    phone,
     firstName,
-    make: null,
-    model: null,
+    make,
+    model,
   });
 }
 
