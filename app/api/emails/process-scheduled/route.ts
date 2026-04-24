@@ -1,0 +1,284 @@
+/**
+ * Minute-cadence scheduled job processor.
+ *
+ * Called by Supabase pg_cron every minute with Bearer <CRON_SECRET>.
+ *
+ * Processes ALL pending jobs in scheduled_email_jobs where scheduled_for
+ * <= now(). Dispatches based on job_type OR template_key (legacy booking
+ * reminders don't have job_type set).
+ *
+ * Handlers:
+ *   lead_auto_estimate      — send the 3-min-delayed estimate + schedule follow-ups
+ *   lead_followup_3day      — if lead still not converted, send follow-up
+ *   lead_followup_7day      — if lead still not converted, send final follow-up
+ *   booking-reminder-*      — legacy booking reminders (delegated to existing handler)
+ */
+
+import { NextResponse } from "next/server";
+
+import { sendEstimateEmail, type SendEstimateArgs } from "@/lib/autorespond/processLead";
+import {
+  buildTemplateContext,
+  loadAndRenderTemplate,
+} from "@/lib/autorespond/templateRenderer";
+import type { TemplateKey } from "@/lib/autorespond/templates";
+import { processScheduledReminderJobs } from "@/lib/email/scheduledReminderJobs";
+import { scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+
+function isAuthorized(request: Request) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) throw new Error("Missing CRON_SECRET env var");
+  const auth = request.headers.get("authorization");
+  return auth === `Bearer ${cronSecret}`;
+}
+
+type ScheduledJob = {
+  id: string;
+  shop_id: string;
+  lead_id: string | null;
+  contact_id: string | null;
+  booking_id: string | null;
+  job_type: string | null;
+  template_key: string;
+  scheduled_for: string;
+  status: string;
+  attempt_count: number;
+  payload_json: Record<string, unknown> | null;
+};
+
+const MAX_ATTEMPTS = 3;
+
+// POST or GET — pg_cron calls POST, manual test calls GET
+export async function GET(request: Request) {
+  return handle(request);
+}
+export async function POST(request: Request) {
+  return handle(request);
+}
+
+async function handle(request: Request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  // Pick up due lead jobs (job_type IS NOT NULL). Legacy booking reminders
+  // are delegated to the existing function below.
+  const nowIso = new Date().toISOString();
+  const { data: jobs, error } = await supabase
+    .from("scheduled_email_jobs")
+    .select("*")
+    .eq("status", "pending")
+    .not("job_type", "is", null)
+    .lte("scheduled_for", nowIso)
+    .order("scheduled_for", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const results: Array<{ jobId: string; jobType: string | null; status: string; error?: string }> = [];
+
+  for (const job of (jobs ?? []) as ScheduledJob[]) {
+    // Claim: flip to 'processing' only if still pending (avoids double-runs)
+    const { data: claimed } = await supabase
+      .from("scheduled_email_jobs")
+      .update({ status: "processing" })
+      .eq("id", job.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+
+    if (!claimed) continue; // another worker got it
+
+    try {
+      await dispatch(job);
+      await supabase
+        .from("scheduled_email_jobs")
+        .update({
+          status: "sent",
+          attempt_count: job.attempt_count + 1,
+          last_error: null,
+        })
+        .eq("id", job.id);
+      results.push({ jobId: job.id, jobType: job.job_type, status: "sent" });
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      const nextAttempt = job.attempt_count + 1;
+      const isFinalAttempt = nextAttempt >= MAX_ATTEMPTS;
+
+      // Exponential backoff for retries: 2, 4, 8 min
+      const backoffMs = Math.pow(2, nextAttempt) * 60 * 1000;
+      const retryAt = new Date(Date.now() + backoffMs).toISOString();
+
+      await supabase
+        .from("scheduled_email_jobs")
+        .update({
+          status: isFinalAttempt ? "failed" : "pending",
+          attempt_count: nextAttempt,
+          last_error: errMsg,
+          ...(isFinalAttempt ? {} : { scheduled_for: retryAt }),
+        })
+        .eq("id", job.id);
+
+      console.error(`Scheduled job ${job.id} (${job.job_type}) failed:`, errMsg);
+      results.push({ jobId: job.id, jobType: job.job_type, status: isFinalAttempt ? "failed" : "retry", error: errMsg });
+    }
+  }
+
+  // Also run the existing booking reminder processor (job_type IS NULL rows)
+  let bookingResults: unknown[] = [];
+  try {
+    bookingResults = await processScheduledReminderJobs();
+  } catch (e) {
+    console.error("Booking reminder processor failed:", e);
+  }
+
+  return NextResponse.json({
+    success: true,
+    leadJobsProcessed: results.length,
+    leadResults: results,
+    bookingRemindersProcessed: bookingResults.length,
+  });
+}
+
+// ── Dispatcher ────────────────────────────────────────────────────────────
+
+async function dispatch(job: ScheduledJob) {
+  switch (job.job_type) {
+    case "lead_auto_estimate":
+      return handleLeadAutoEstimate(job);
+    case "lead_followup_3day":
+    case "lead_followup_7day":
+      return handleLeadFollowup(job);
+    default:
+      throw new Error(`Unknown job_type: ${job.job_type}`);
+  }
+}
+
+// ── Handlers ──────────────────────────────────────────────────────────────
+
+async function handleLeadAutoEstimate(job: ScheduledJob) {
+  if (!job.lead_id) throw new Error("lead_auto_estimate: missing lead_id");
+  const payload = job.payload_json as SendEstimateArgs | null;
+  if (!payload) throw new Error("lead_auto_estimate: missing payload");
+
+  const supabase = getSupabaseAdminClient();
+
+  // Check the lead is still in 'scheduled' state. If something else flipped
+  // it (manual intervention, cancelled, etc), don't send.
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("status")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+
+  if (!lead) throw new Error("lead_auto_estimate: lead not found");
+  if (lead.status !== "scheduled") {
+    // Lead was manually actioned — skip send but mark job as sent so we don't retry
+    console.info("lead_auto_estimate: skipping, lead no longer scheduled", {
+      leadId: job.lead_id,
+      status: lead.status,
+    });
+    return;
+  }
+
+  // Actually send via the same function used for immediate sends
+  await sendEstimateEmail(payload);
+
+  // Flip lead to 'sent'
+  await supabase
+    .from("leads")
+    .update({
+      status: "sent",
+      internal_notes: "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.lead_id);
+
+  // Fetch contact for follow-up rendering later
+  let firstName = "there";
+  if (job.contact_id) {
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("first_name")
+      .eq("id", job.contact_id)
+      .maybeSingle();
+    firstName = contact?.first_name ?? "there";
+  }
+
+  await scheduleLeadFollowups({
+    shopId: job.shop_id,
+    leadId: job.lead_id,
+    contactId: job.contact_id,
+    email: payload.to,
+    firstName,
+    make: null,
+    model: null,
+  });
+}
+
+async function handleLeadFollowup(job: ScheduledJob) {
+  if (!job.lead_id) throw new Error(`${job.job_type}: missing lead_id`);
+  const supabase = getSupabaseAdminClient();
+
+  // Gate: only send if the lead is still in 'sent' state (no reply / click
+  // / booking). Any other state means no follow-up needed.
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("status, email_clicked_at, template_id, template_variant")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+
+  if (!lead) throw new Error(`${job.job_type}: lead not found`);
+  if (lead.status !== "sent") {
+    console.info(`${job.job_type}: skipping, lead status is ${lead.status}`, { leadId: job.lead_id });
+    return;
+  }
+
+  // Load contact + vehicle for rendering
+  const { data: contact } = job.contact_id
+    ? await supabase.from("contacts").select("first_name, email").eq("id", job.contact_id).maybeSingle()
+    : { data: null };
+
+  const { data: leadWithVehicle } = await supabase
+    .from("leads")
+    .select("vehicle_id, vehicles(make, model)")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+
+  const vehicle = (leadWithVehicle?.vehicles as unknown as { make: string | null; model: string | null } | null) ?? null;
+
+  const firstName = contact?.first_name ?? "there";
+  const email = contact?.email;
+  if (!email) throw new Error(`${job.job_type}: contact has no email`);
+
+  const templateKey = job.job_type as TemplateKey;
+  const ctx = buildTemplateContext(
+    templateKey,
+    firstName,
+    vehicle?.make ?? "",
+    vehicle?.model ?? "",
+    null,
+    new Map() // no pricing needed for follow-ups
+  );
+  const rendered = await loadAndRenderTemplate(job.shop_id, templateKey, ctx, "A");
+
+  // Use the existing send helper — writes email_messages, posts to Postmark
+  await sendEstimateEmail({
+    to: email,
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+    shopId: job.shop_id,
+    leadId: job.lead_id,
+    contactId: job.contact_id,
+    templateId: rendered.templateId,
+    templateKey: rendered.templateKey,
+    templateVariant: rendered.variant,
+  });
+}
+

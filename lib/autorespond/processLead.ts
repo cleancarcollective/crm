@@ -12,6 +12,7 @@
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
+import { scheduleLeadJob } from "@/lib/scheduling/leadJobs";
 import { classifyVehicle } from "./vehicleSizing";
 import {
   pickTemplateKey,
@@ -23,6 +24,8 @@ import {
   type PricingMap,
 } from "./templateRenderer";
 import type { VehicleSize } from "./vehicleSizing";
+
+const AUTO_ESTIMATE_DELAY_MINUTES = 3;
 
 type ProcessLeadInput = {
   leadId: string;
@@ -60,7 +63,7 @@ async function loadPricing(shopId: string): Promise<PricingMap> {
   return map;
 }
 
-type SendEstimateArgs = {
+export type SendEstimateArgs = {
   to: string;
   subject: string;
   textBody: string;
@@ -89,7 +92,7 @@ type SendEstimateArgs = {
  * (e.g. links.cleancarcollective.co.nz), tracking can be turned back
  * on without the deliverability cost.
  */
-async function sendEstimateEmail(args: SendEstimateArgs) {
+export async function sendEstimateEmail(args: SendEstimateArgs) {
   const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
   if (!postmarkToken) throw new Error("POSTMARK_SERVER_TOKEN not set");
 
@@ -247,27 +250,38 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     internalNote = "Needs approval: vehicle size unknown.";
     approvalReason = "vehicle_size_unknown";
   } else if (shouldAutoSend) {
-    // Auto send
+    // Schedule the estimate send for 3 minutes from now — feels more human
+    // than an instant auto-reply, gives the customer time to read the
+    // confirmation email first.
     try {
-      await sendEstimateEmail({
-        to: email,
-        subject: draftSubject,
-        textBody: draftBody,
-        htmlBody: draftHtml,
+      const scheduledFor = new Date(Date.now() + AUTO_ESTIMATE_DELAY_MINUTES * 60 * 1000).toISOString();
+      await scheduleLeadJob({
         shopId,
         leadId,
         contactId,
-        templateId,
+        jobType: "lead_auto_estimate",
         templateKey,
-        templateVariant,
+        scheduledFor,
+        payload: {
+          to: email,
+          subject: draftSubject,
+          textBody: draftBody,
+          htmlBody: draftHtml,
+          shopId,
+          leadId,
+          contactId,
+          templateId,
+          templateKey,
+          templateVariant,
+        },
       });
-      newStatus = "sent";
-      internalNote = "";
-      emailSent = true;
+      newStatus = "scheduled";
+      internalNote = `Auto-send scheduled for ${scheduledFor}`;
+      emailSent = false; // not yet — will flip when the job runs
     } catch (e) {
       newStatus = "needs_approval";
       const errMsg = e instanceof Error ? e.message : String(e);
-      internalNote = `Send failed: ${errMsg}`;
+      internalNote = `Schedule failed: ${errMsg}`;
       approvalReason = "send_failed";
       approvalReasonDetail = errMsg;
     }

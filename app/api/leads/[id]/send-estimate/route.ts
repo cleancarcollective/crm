@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cancelLeadJobs, scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function POST(
@@ -133,6 +134,28 @@ export async function POST(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
+
+  // 5. Cancel any still-pending auto-estimate (e.g. admin sent manually
+  //    before the 3-min delay elapsed). Then schedule follow-ups.
+  await cancelLeadJobs(id, ["lead_auto_estimate", "lead_followup_3day", "lead_followup_7day"]);
+
+  // Load vehicle info so follow-up templates can render with {{vehicle}}
+  const { data: vehicleRow } = await supabase
+    .from("leads")
+    .select("vehicles(make, model)")
+    .eq("id", id)
+    .maybeSingle();
+  const vehicle = (vehicleRow?.vehicles as unknown as { make: string | null; model: string | null } | null) ?? null;
+
+  await scheduleLeadFollowups({
+    shopId: lead.shop_id,
+    leadId: lead.id,
+    contactId: lead.contact_id,
+    email: contact.email,
+    firstName: contact.first_name,
+    make: vehicle?.make ?? null,
+    model: vehicle?.model ?? null,
+  });
 
   return NextResponse.json({ ok: true });
 }

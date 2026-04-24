@@ -8,6 +8,7 @@ import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
+import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -182,6 +183,14 @@ export async function POST(request: Request) {
       if (leadUpdateError) {
         throw leadUpdateError;
       }
+
+      // Cancel any pending follow-up emails — no point pestering them now
+      // that they've booked.
+      await cancelLeadJobs(existingLead.id, [
+        "lead_auto_estimate",
+        "lead_followup_3day",
+        "lead_followup_7day",
+      ]);
     }
 
     try {

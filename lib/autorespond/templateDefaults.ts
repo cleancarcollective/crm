@@ -194,6 +194,40 @@ ${CTA}
 Cheers,
 Max`,
   },
+  {
+    template_key: "lead_followup_3day",
+    variant: "A",
+    name: "Follow-up — 3 days after quote",
+    subject: "Any questions about your {{vehicle}} estimate?",
+    body_text: `Hi {{name}},
+
+Just following up on the detailing estimate I sent through a few days ago for your {{vehicle}}.
+
+Happy to answer any questions about the packages, help pick the right option, or tweak things to suit your budget. Most of our bookings go 1-2 weeks out so worth locking in a slot if you're keen.
+
+If you're ready to book: ${BOOKING_URL}
+
+Or reply to this email with any questions.
+
+Cheers,
+Max`,
+  },
+  {
+    template_key: "lead_followup_7day",
+    variant: "A",
+    name: "Follow-up — 7 days after quote (final)",
+    subject: "Still keen on a detail for your {{vehicle}}?",
+    body_text: `Hi {{name}},
+
+Just one last check-in. Let me know if you're still keen for a detail on your {{vehicle}} — happy to help with timing, any questions, or adjusting the package to suit.
+
+Otherwise no worries, I'll leave you be. Feel free to reach out anytime.
+
+${BOOKING_URL}
+
+Cheers,
+Max`,
+  },
 ];
 
 /**
@@ -236,6 +270,14 @@ export const TEMPLATE_VARIABLES: Record<TemplateKey, { key: string; label: strin
     { key: "name", label: "Customer first name" },
     { key: "vehicle", label: "Vehicle (make + model)" },
   ],
+  lead_followup_3day: [
+    { key: "name", label: "Customer first name" },
+    { key: "vehicle", label: "Vehicle (make + model)" },
+  ],
+  lead_followup_7day: [
+    { key: "name", label: "Customer first name" },
+    { key: "vehicle", label: "Vehicle (make + model)" },
+  ],
 };
 
 export const TEMPLATE_KEY_LABELS: Record<TemplateKey, string> = {
@@ -245,4 +287,6 @@ export const TEMPLATE_KEY_LABELS: Record<TemplateKey, string> = {
   ceramic: "Ceramic Coating",
   paint_correction: "Paint Correction",
   other: "Other / Fallback",
+  lead_followup_3day: "Follow-up: 3 days after quote",
+  lead_followup_7day: "Follow-up: 7 days after quote",
 };

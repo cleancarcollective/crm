@@ -11,7 +11,9 @@ export type TemplateKey =
   | "exterior_only"
   | "ceramic"
   | "paint_correction"
-  | "other";
+  | "other"
+  | "lead_followup_3day"
+  | "lead_followup_7day";
 
 export type EstimateDraft = {
   subject: string;

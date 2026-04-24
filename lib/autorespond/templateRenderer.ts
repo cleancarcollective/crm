@@ -147,6 +147,8 @@ export function buildTemplateContext(
         two_step_price: fmtPrice(getPrice(pricing, "Paint Correction 2-Step", "Any")),
       };
     case "other":
+    case "lead_followup_3day":
+    case "lead_followup_7day":
       return base;
     default:
       return base;
