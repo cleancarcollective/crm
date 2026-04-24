@@ -2304,6 +2304,24 @@ textarea {
   gap: 16px;
 }
 
+.templatesSeedFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  margin-top: 4px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: #fafaf8;
+}
+
+.templatesSeedFooterHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .templatesSeedRow {
   display: flex;
   gap: 12px;

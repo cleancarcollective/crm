@@ -143,6 +143,14 @@ export default async function TemplatesIndexPage() {
                 </Link>
               );
             })}
+
+            <div className="templatesSeedFooter">
+              <p className="templatesSeedFooterHint">
+                Missing a template? Seed defaults pulls in any missing template keys
+                without touching your existing edits.
+              </p>
+              <TemplatesSeedButton />
+            </div>
           </div>
         )}
       </section>
