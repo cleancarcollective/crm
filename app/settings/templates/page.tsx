@@ -84,9 +84,11 @@ export default async function TemplatesIndexPage() {
           Performance stats show the last 30 days.
           <br />
           <span className="settingsDescriptionMuted">
-            * Open rate is inflated by Apple Mail Privacy Protection (which pre-fetches
-            tracking pixels whether the email is actually opened or not). Click rate and
-            conversion are reliable — trust those.
+            * Open and click tracking are currently OFF so estimate emails land in
+            Primary inbox (not Promotions). Conversion rate (sent → won) is the
+            reliable signal — trust that. To re-enable open/click tracking without
+            the deliverability hit, set up a custom Postmark link-tracking domain
+            (e.g. links.cleancarcollective.co.nz) — ask Claude to walk you through it.
           </span>
         </p>
 

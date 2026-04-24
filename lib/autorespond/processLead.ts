@@ -80,8 +80,14 @@ type SendEstimateArgs = {
  * pass to Postmark as Metadata. Postmark click/open webhooks reference this
  * ID back to the lead.
  *
- * Enables TrackLinks (reliable) + TrackOpens (noisy due to Apple MPP but
- * still useful as a weak signal).
+ * Tracking is currently OFF (TrackLinks + TrackOpens) to keep estimate
+ * emails out of Gmail's Promotions tab. Postmark's link rewriter
+ * (click.postmarkapp.com) is a strong Gmail-Promotions signal on
+ * transactional-style emails like this. We still track conversions via
+ * the booking intake → lead status=won flow, so the main funnel metric
+ * is preserved. When we set up a custom Postmark link-tracking domain
+ * (e.g. links.cleancarcollective.co.nz), tracking can be turned back
+ * on without the deliverability cost.
  */
 async function sendEstimateEmail(args: SendEstimateArgs) {
   const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
@@ -125,8 +131,8 @@ async function sendEstimateEmail(args: SendEstimateArgs) {
       TextBody: args.textBody,
       HtmlBody: args.htmlBody,
       MessageStream: "booking-emails",
-      TrackOpens: true,
-      TrackLinks: "HtmlAndText",
+      TrackOpens: false,
+      TrackLinks: "None",
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: args.shopId,

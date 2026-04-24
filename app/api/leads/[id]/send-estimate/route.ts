@@ -4,7 +4,7 @@
  * Mirrors the auto-respond send path (processLead.sendEstimateEmail):
  *   - Creates an email_messages row for tracking
  *   - Sends via Postmark with Metadata so click/open webhooks attribute back
- *   - Enables TrackLinks + TrackOpens
+ *   - Tracking OFF (matches auto-respond — keeps emails out of Promotions)
  *   - Advances lead status to 'sent'
  */
 
@@ -86,8 +86,8 @@ export async function POST(
       TextBody: textBody,
       HtmlBody: htmlBody,
       MessageStream: "booking-emails",
-      TrackOpens: true,
-      TrackLinks: "HtmlAndText",
+      TrackOpens: false,
+      TrackLinks: "None",
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: lead.shop_id,
