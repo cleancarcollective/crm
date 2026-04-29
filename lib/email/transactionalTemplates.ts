@@ -1,3 +1,4 @@
+import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import type { BookingConfirmationEmailContext } from "@/lib/email/types";
 
 function capitalise(s: string) {
@@ -149,39 +150,8 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <!-- Tell the email client we control color choices. Without these,
-         Gmail/iOS auto-invert dark backgrounds and our header becomes
-         unreadable (light bg + white text → invisible H1). -->
-    <meta name="color-scheme" content="light only" />
-    <meta name="supported-color-schemes" content="light only" />
     <title>${escapeHtml(heading)}</title>
-    <style>
-      /* Mobile padding tweaks */
-      @media only screen and (max-width: 480px) {
-        .email-card { width: 100% !important; max-width: 100% !important; }
-        .email-pad-x { padding-left: 24px !important; padding-right: 24px !important; }
-        .email-header h1 { font-size: 22px !important; }
-      }
-
-      /* Dark-mode hardening — re-assert our header colors when the user's
-         email client tries to invert them. Gmail (Android), iOS Mail, and
-         Outlook each tag dark-mode messages differently, so we cover all
-         three. */
-      @media (prefers-color-scheme: dark) {
-        .email-header,
-        .email-footer { background-color: #1a1713 !important; }
-        .email-header-eyebrow { color: #c9c5c0 !important; }
-        .email-header-title,
-        .email-footer-title { color: #ffffff !important; }
-        .email-footer-sub { color: #7a6f68 !important; }
-      }
-      [data-ogsc] .email-header,
-      [data-ogsc] .email-footer { background-color: #1a1713 !important; }
-      [data-ogsc] .email-header-eyebrow { color: #c9c5c0 !important; }
-      [data-ogsc] .email-header-title,
-      [data-ogsc] .email-footer-title { color: #ffffff !important; }
-      [data-ogsc] .email-footer-sub { color: #7a6f68 !important; }
-    </style>
+    ${EMAIL_HEAD_HARDENING}
   </head>
   <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
 

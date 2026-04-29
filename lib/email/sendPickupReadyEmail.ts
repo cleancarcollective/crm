@@ -10,6 +10,7 @@ import { formatInTimeZone } from "date-fns-tz";
 
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type PickupEmailArgs = {
@@ -76,6 +77,7 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapeHtml(heading)}</title>
+    ${EMAIL_HEAD_HARDENING}
   </head>
   <body style="margin:0;padding:0;background-color:#E5E4E2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#E5E4E2;padding:32px 16px;">
@@ -84,9 +86,9 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(160deg,#1a1713 0%,#0d0c0b 100%);border-radius:16px 16px 0 0;padding:32px 36px;">
-              <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#E5E4E2;">Clean Car Collective</p>
-              <h1 style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.15;">${escapeHtml(heading)}</h1>
+            <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color:#1a1713;background-image:linear-gradient(160deg,#1a1713 0%,#0d0c0b 100%);border-radius:16px 16px 0 0;padding:32px 36px;">
+              <p class="email-header-eyebrow" style="margin:0 0 6px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c9c5c0;">Clean Car Collective</p>
+              <h1 class="email-header-title" style="margin:0;font-size:26px;font-weight:700;color:#ffffff;line-height:1.15;">${escapeHtml(heading)}</h1>
             </td>
           </tr>
 
@@ -127,15 +129,15 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
 
           <!-- Footer -->
           <tr>
-            <td style="background:#1a1713;border-radius:0 0 16px 16px;padding:22px 36px;">
+            <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color:#1a1713;border-radius:0 0 16px 16px;padding:22px 36px;">
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td>
-                    <p style="margin:0 0 2px;font-size:13px;font-weight:600;color:#ffffff;">Clean Car Collective</p>
-                    <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)}</p>
+                    <p class="email-footer-title" style="margin:0 0 2px;font-size:13px;font-weight:600;color:#ffffff;">Clean Car Collective</p>
+                    <p class="email-footer-sub" style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)}</p>
                   </td>
                   <td align="right" style="vertical-align:middle;">
-                    <a href="${escapeHtml(shopDetails.website)}" style="font-size:12px;color:#7a6f68;text-decoration:none;">${escapeHtml(shopDetails.website.replace("https://", ""))}</a>
+                    <a class="email-footer-sub" href="${escapeHtml(shopDetails.website)}" style="font-size:12px;color:#7a6f68;text-decoration:none;">${escapeHtml(shopDetails.website.replace("https://", ""))}</a>
                   </td>
                 </tr>
               </table>
