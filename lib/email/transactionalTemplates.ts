@@ -110,29 +110,22 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     `
     : "";
 
-  const notesBlock = context.notes && context.notes !== "No additional notes."
-    ? `
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px; background: #f7f3ee; border-radius: 12px; border: 1px solid #e8e0d6;">
-        <tr>
-          <td style="padding: 18px 22px;">
-            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Notes</p>
-            <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #5c5148;">${nl2br(context.notes)}</p>
-          </td>
-        </tr>
-      </table>
-    `
-    : "";
+  // Notes-as-paragraph row (used inside the Description table, not as a
+  // standalone highlighted block — that was creating duplicate info).
+  const hasMeaningfulNotes =
+    context.notes &&
+    context.notes !== "No additional notes." &&
+    context.notes !== "No notes" &&
+    context.notes.trim().length > 0;
 
-  const addOnsBlock = context.add_ons && context.add_ons !== "None"
+  const notesRow = hasMeaningfulNotes
     ? `
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px; background: #f7f3ee; border-radius: 12px; border: 1px solid #e8e0d6;">
-        <tr>
-          <td style="padding: 18px 22px;">
-            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Add-ons</p>
-            <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #5c5148;">${escapeHtml(context.add_ons)}</p>
-          </td>
-        </tr>
-      </table>
+      <tr>
+        <td style="padding: 13px 0; border-bottom: 1px solid #ede6dc;">
+          <span style="display: block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9e9189; margin-bottom: 3px;">Notes</span>
+          <span style="display: block; font-size: 15px; line-height: 1.55; color: #1a1713;">${nl2br(context.notes!)}</span>
+        </td>
+      </tr>
     `
     : "";
 
@@ -157,25 +150,36 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>${escapeHtml(heading)}</title>
+    <style>
+      /* Mobile email clients: shrink padding, but the header keeps its dark
+         background. The bgcolor attribute on the <td> is the bulletproof
+         fallback for clients that drop CSS gradients (Outlook mobile, some
+         Gmail mobile views). */
+      @media only screen and (max-width: 480px) {
+        .email-card { width: 100% !important; max-width: 100% !important; }
+        .email-pad-x { padding-left: 24px !important; padding-right: 24px !important; }
+        .email-header h1 { font-size: 22px !important; }
+      }
+    </style>
   </head>
   <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
 
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #E5E4E2; padding: 32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="max-width: 600px;">
 
-            <!-- Header -->
+            <!-- Header — solid bgcolor for mobile clients that drop gradients -->
             <tr>
-              <td style="background: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
-                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #E5E4E2;">Clean Car Collective</p>
+              <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color: #1a1713; background-image: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
+                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">Clean Car Collective</p>
                 <h1 style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">${escapeHtml(heading)}</h1>
               </td>
             </tr>
 
             <!-- Body -->
             <tr>
-              <td style="background: #ffffff; padding: 36px 36px 32px; border-left: 1px solid #e8e0d6; border-right: 1px solid #e8e0d6;">
+              <td class="email-pad-x" style="background: #ffffff; padding: 36px 36px 32px; border-left: 1px solid #e8e0d6; border-right: 1px solid #e8e0d6;">
 
                 <p style="margin: 0 0 6px; font-size: 17px; font-weight: 600; color: #1a1713;">Hi ${escapeHtml(capitalise(context.first_name))},</p>
                 <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.65; color: #5c5148;">${escapeHtml(context.intro_line)}</p>
@@ -201,14 +205,15 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                   </tr>
                 </table>
 
-                <!-- Description -->
+                <!-- Description — single source of truth, only fields that apply -->
                 <p style="margin: 0 0 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Description</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
-                  ${infoRow("Service", context.service_name)}
+                  ${context.service_name ? infoRow("Service", context.service_name) : ""}
                   ${context.add_ons && context.add_ons !== "None" ? infoRow("Add-ons", context.add_ons) : ""}
-                  ${infoRow("Vehicle", context.vehicle_label)}
-                  ${infoRow("Location type", context.location_type)}
+                  ${context.vehicle_label && context.vehicle_label !== "Vehicle to be confirmed" ? infoRow("Vehicle", context.vehicle_label) : ""}
+                  ${context.location_type && context.location_type !== "To be confirmed" ? infoRow("Location", context.location_type) : ""}
                   ${context.price_estimate ? infoRow("Estimated price", context.price_estimate + " +GST") : ""}
+                  ${notesRow}
                 </table>
 
                 ${context.customer_name || context.customer_email || context.customer_phone ? `
@@ -222,8 +227,6 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 ` : ""}
 
                 ${updateSummaryBlock}
-                ${addOnsBlock}
-                ${notesBlock}
                 ${entranceNoticeBlock(context, heading)}
 
                 <!-- Contact -->
@@ -241,7 +244,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
 
             <!-- Footer -->
             <tr>
-              <td style="background: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
+              <td bgcolor="#1a1713" class="email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td>
