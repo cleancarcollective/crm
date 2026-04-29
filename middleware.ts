@@ -37,5 +37,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Static assets (Next-compiled and our own /images/ folder) skip middleware
+  // entirely — they're public files and shouldn't be auth-gated. Email clients
+  // fetching map images, etc. would otherwise be redirected to /login.
+  matcher: ["/((?!_next/static|_next/image|images/|favicon.ico).*)"],
 };
