@@ -4,6 +4,57 @@ function capitalise(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+/**
+ * The website booking form copies a structured dump of every booking field
+ * into `notes` ("SERVICES: ...\nADD-ONS: ...\nVEHICLE: ...\nDATE: ...\nNOTES: ...").
+ *
+ * That dump is fine for the team (cross-check with the live record) but
+ * looks bizarre in the customer-facing email — they already see all those
+ * fields rendered in the Description table.
+ *
+ * Heuristic detection: if notes contain ALL_CAPS_LABEL: pattern with multiple
+ * known booking fields (SERVICES, ADD-ONS, DELIVERY ADDRESS, etc.), it's
+ * the auto-dump. Strip it for customers, keep it for team emails.
+ *
+ * If the dump contains a real "NOTES:" tail with meaningful customer text,
+ * extract just that for customer display.
+ */
+function cleanNotesForRecipient(
+  rawNotes: string | null | undefined,
+  isTeamEmail: boolean
+): string {
+  if (!rawNotes) return "No additional notes.";
+  const text = rawNotes.trim();
+  if (!text) return "No additional notes.";
+
+  // Team gets the raw dump (helpful for cross-checking)
+  if (isTeamEmail) return text;
+
+  // Detect the auto-generated dump pattern
+  const looksLikeDump =
+    /\b(SERVICES|SERVICE|ADD[-\s]?ONS|DELIVERY\s+ADDRESS|SERVICE\s+ADDRESS)\s*:/i.test(
+      text
+    ) && /\n\s*[A-Z][A-Z\s\-]+\s*:/.test(text); // multiple ALL_CAPS: lines
+
+  if (!looksLikeDump) return text;
+
+  // Try to extract just the NOTES section
+  const notesMatch = text.match(/\bNOTES\s*:\s*([\s\S]+?)$/i);
+  if (notesMatch) {
+    const notes = notesMatch[1].trim();
+    if (
+      !notes ||
+      /^(no\s+(additional|extra)?\s*(information|notes|info)\.?|n\/?a|none|—|-)$/i.test(notes)
+    ) {
+      return "No additional notes.";
+    }
+    return notes;
+  }
+
+  // Couldn't extract — discard the dump
+  return "No additional notes.";
+}
+
 import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency } from "@/lib/dashboard/format";
@@ -211,7 +262,10 @@ function buildTemplateContext({
     vehicle_label: getVehicleLabel(booking),
     location_type: booking.location_type ?? "To be confirmed",
     price_estimate: formatCurrency(booking.price_estimate),
-    notes: booking.notes || booking.service_details || "No additional notes.",
+    notes: cleanNotesForRecipient(
+      booking.notes || booking.service_details,
+      includeCustomerDetails ?? false
+    ),
     intro_line: introLine,
     action_line: actionLine,
     shop_name: shop.name,

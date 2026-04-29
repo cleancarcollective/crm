@@ -149,17 +149,38 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- Tell the email client we control color choices. Without these,
+         Gmail/iOS auto-invert dark backgrounds and our header becomes
+         unreadable (light bg + white text → invisible H1). -->
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
     <title>${escapeHtml(heading)}</title>
     <style>
-      /* Mobile email clients: shrink padding, but the header keeps its dark
-         background. The bgcolor attribute on the <td> is the bulletproof
-         fallback for clients that drop CSS gradients (Outlook mobile, some
-         Gmail mobile views). */
+      /* Mobile padding tweaks */
       @media only screen and (max-width: 480px) {
         .email-card { width: 100% !important; max-width: 100% !important; }
         .email-pad-x { padding-left: 24px !important; padding-right: 24px !important; }
         .email-header h1 { font-size: 22px !important; }
       }
+
+      /* Dark-mode hardening — re-assert our header colors when the user's
+         email client tries to invert them. Gmail (Android), iOS Mail, and
+         Outlook each tag dark-mode messages differently, so we cover all
+         three. */
+      @media (prefers-color-scheme: dark) {
+        .email-header,
+        .email-footer { background-color: #1a1713 !important; }
+        .email-header-eyebrow { color: #c9c5c0 !important; }
+        .email-header-title,
+        .email-footer-title { color: #ffffff !important; }
+        .email-footer-sub { color: #7a6f68 !important; }
+      }
+      [data-ogsc] .email-header,
+      [data-ogsc] .email-footer { background-color: #1a1713 !important; }
+      [data-ogsc] .email-header-eyebrow { color: #c9c5c0 !important; }
+      [data-ogsc] .email-header-title,
+      [data-ogsc] .email-footer-title { color: #ffffff !important; }
+      [data-ogsc] .email-footer-sub { color: #7a6f68 !important; }
     </style>
   </head>
   <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
@@ -169,11 +190,11 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="max-width: 600px;">
 
-            <!-- Header — solid bgcolor for mobile clients that drop gradients -->
+            <!-- Header — solid bgcolor + class hooks for dark-mode hardening -->
             <tr>
               <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color: #1a1713; background-image: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
-                <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">Clean Car Collective</p>
-                <h1 style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">${escapeHtml(heading)}</h1>
+                <p class="email-header-eyebrow" style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">Clean Car Collective</p>
+                <h1 class="email-header-title" style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">${escapeHtml(heading)}</h1>
               </td>
             </tr>
 
@@ -244,15 +265,15 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
 
             <!-- Footer -->
             <tr>
-              <td bgcolor="#1a1713" class="email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
+              <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
                     <td>
-                      <p style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective</p>
-                      <p style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(context.shop_address)}</p>
+                      <p class="email-footer-title" style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective</p>
+                      <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(context.shop_address)}</p>
                     </td>
                     <td align="right" style="vertical-align: middle;">
-                      <a href="${escapeHtml(context.shop_website)}" style="font-size: 12px; color: #7a6f68; text-decoration: none;">${escapeHtml(context.shop_website.replace("https://", ""))}</a>
+                      <a class="email-footer-sub" href="${escapeHtml(context.shop_website)}" style="font-size: 12px; color: #7a6f68; text-decoration: none;">${escapeHtml(context.shop_website.replace("https://", ""))}</a>
                     </td>
                   </tr>
                 </table>
