@@ -117,6 +117,24 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
         </div>
       </section>
 
+      {/* ── System health link ───────────────────────────────────── */}
+      <section className="detailPanel settingsSection">
+        <div className="settingsPricingHeader">
+          <div>
+            <h2>System health</h2>
+            <p className="settingsDescription">
+              Live status of crons, queues, webhooks, and integrations.
+              Check here if anything feels off.
+            </p>
+          </div>
+          <div className="settingsPricingActions">
+            <Link href="/settings/health" className="buttonPrimary">
+              View health →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Email templates link ─────────────────────────────────── */}
       <section className="detailPanel settingsSection">
         <div className="settingsPricingHeader">

@@ -85,10 +85,14 @@ export async function createReminderJobsForBooking({
 export async function processScheduledReminderJobs() {
   const nowIso = new Date().toISOString();
   const supabase = getSupabaseAdminClient();
+  // Only handle booking reminders. Lead-context jobs (job_type IS NOT NULL)
+  // are processed by /api/emails/process-scheduled's lead handler — including
+  // them here causes them to be bogusly marked "skipped: Missing booking_id".
   const { data, error } = await supabase
     .from("scheduled_email_jobs")
     .select("*")
     .eq("status", "pending")
+    .is("job_type", null)
     .lte("scheduled_for", nowIso)
     .order("scheduled_for", { ascending: true })
     .limit(50);

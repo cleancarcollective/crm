@@ -2271,6 +2271,110 @@ textarea {
   color: var(--danger);
 }
 
+/* ── Health / status page ────────────────────────────────────────────── */
+
+.healthOverall {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.healthOverall--ok    { background: #ebf6ec; border-color: #b8dab8; }
+.healthOverall--warn  { background: #fff8e6; border-color: #f5d87a; }
+.healthOverall--error { background: #fbeaea; border-color: #e8a4a4; }
+
+.healthOverallLabel {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.healthOverallCounts {
+  display: flex;
+  gap: 8px;
+}
+
+.healthCountChip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid var(--border);
+}
+.healthCount--ok    { color: #2c7d2c; }
+.healthCount--warn  { color: #a37400; }
+.healthCount--error { color: #b23434; }
+
+.healthChecks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.healthCheckRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.healthCheckRow--ok    { border-left: 3px solid #4caf50; }
+.healthCheckRow--warn  { border-left: 3px solid #f4b942; }
+.healthCheckRow--error { border-left: 3px solid #d23838; }
+.healthCheckRow--info  { border-left: 3px solid #b8b8b8; }
+
+.healthCheckLight {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.healthCheckLight[data-status="ok"]    { background: #4caf50; }
+.healthCheckLight[data-status="warn"]  { background: #f4b942; }
+.healthCheckLight[data-status="error"] { background: #d23838; }
+.healthCheckLight[data-status="info"]  { background: #b8b8b8; }
+
+.healthCheckBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.healthCheckName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.healthCheckMessage {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.healthCheckDetails {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fafaf8;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #5c5148;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
 /* ── Analytics / funnel page ─────────────────────────────────────────── */
 
 .analyticsSection {
