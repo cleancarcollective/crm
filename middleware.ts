@@ -3,14 +3,17 @@ import type { NextRequest } from "next/server";
 
 import { SESSION_COOKIE } from "@/lib/auth/session";
 
-// Paths that don't require authentication
+// Paths that don't require authentication.
+// Cron endpoints authenticate via Bearer <CRON_SECRET> in their handlers.
 const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth/",
   "/api/leads/intake",
   "/api/bookings/intake",
   "/api/email-events/",
-  "/api/emails/process-reminders",
+  "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
+  "/api/emails/process-scheduled",   // pg_cron every minute
+  "/api/sms/process-review",         // Vercel cron 9am UTC daily
   "/_next/",
   "/favicon",
 ];
