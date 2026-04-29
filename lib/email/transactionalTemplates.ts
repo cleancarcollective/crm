@@ -27,6 +27,61 @@ function getEmailHeading(introLine: string): string {
   return "Booking Update";
 }
 
+/**
+ * Christchurch-specific entrance notice for the 1-hour reminder.
+ *
+ * Customers occasionally try to enter from Southwark Street and can't find
+ * the shop, since our entrance is on Allen Street (south side of the block).
+ * For the 1-hour reminder only — they're already on their way at this point,
+ * so the note is most useful right before arrival.
+ *
+ * Wellington and other shops are unaffected because the trigger checks the
+ * shop_address contains "Southwark" (Christchurch's address).
+ *
+ * The map image is hosted statically at /images/... — see public/images/
+ * folder. If the image fails to load, the prose still conveys the message.
+ */
+const ENTRANCE_MAP_URL = "https://crm.cleancarcollective.co.nz/images/booking-reminder-allen-entrance-map.png";
+
+function entranceNoticeBlock(
+  context: BookingConfirmationEmailContext,
+  heading: string
+): string {
+  // Only show on the 1-hour reminder (heading set by getEmailHeading)
+  if (heading !== "Booking Reminder — 1 Hour") return "";
+  // Only show for Christchurch (Southwark Street workshop)
+  if (!context.shop_address.includes("Southwark")) return "";
+  // Skip for mobile bookings (we come to them, no entrance to find)
+  if (context.shop_address.toLowerCase().includes("mobile")) return "";
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="margin: 0 0 24px; background: #fff8e6; border: 1px solid #f5d87a; border-radius: 12px;">
+      <tr>
+        <td style="padding: 18px 22px;">
+          <p style="margin: 0 0 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a37400;">
+            Important — entrance
+          </p>
+          <p style="margin: 0 0 14px; font-size: 15px; font-weight: 600; line-height: 1.5; color: #1a1713;">
+            Please enter from <span style="text-decoration: underline;">Allen Street</span>, not Southwark Street.
+          </p>
+          <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: #5c5148;">
+            Our workshop entrance is at the rear of the building, accessible from Allen St (south side of the block). Look for our Clean Car Collective signage.
+          </p>
+          <a href="${context.shop_map_link ? escapeHtml(context.shop_map_link) : "https://maps.app.goo.gl/jAb6JhCgXV8Nafc49"}"
+             target="_blank"
+             style="display: block; text-decoration: none;">
+            <img src="${ENTRANCE_MAP_URL}"
+                 alt="Map showing Clean Car Collective entrance from Allen Street"
+                 width="600"
+                 style="display: block; width: 100%; max-width: 540px; height: auto; border-radius: 10px; border: 1px solid #e8e0d6;" />
+          </a>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
 export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailContext) {
   const heading = getEmailHeading(context.intro_line);
 
@@ -169,6 +224,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 ${updateSummaryBlock}
                 ${addOnsBlock}
                 ${notesBlock}
+                ${entranceNoticeBlock(context, heading)}
 
                 <!-- Contact -->
                 <p style="margin: 0 0 4px; font-size: 15px; line-height: 1.6; color: #5c5148;">Please reach out if you need to make any changes.</p>
