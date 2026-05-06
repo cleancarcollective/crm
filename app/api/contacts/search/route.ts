@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getShopBySlug } from "@/lib/dashboard/bookings";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function GET(request: Request) {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ contacts: [] });
   }
 
-  const shop = await getShopBySlug();
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
   // Search by full_name, email, or phone

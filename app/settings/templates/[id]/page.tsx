@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { TEMPLATE_KEY_LABELS, TEMPLATE_VARIABLES } from "@/lib/autorespond/templateDefaults";
 import type { TemplateKey } from "@/lib/autorespond/templates";
 import { TemplateEditor } from "@/components/dashboard/TemplateEditor";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 export default async function TemplateEditPage({
   params,
@@ -14,20 +13,16 @@ export default async function TemplateEditPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
-
+  // Scoped read: only this shop's templates can be loaded — prevents
+  // a CHC user from peeking at WLG templates by guessing the URL.
   const { data: template } = await supabase
     .from("lead_email_templates")
     .select("*")
     .eq("id", id)
+    .eq("shop_id", shop.id)
     .maybeSingle();
 
   if (!template) notFound();

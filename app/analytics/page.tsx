@@ -12,9 +12,9 @@
 
 import Link from "next/link";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-const DEFAULT_SHOP_SLUG = "christchurch";
 const WINDOW_DAYS = 30;
 
 type Stage = {
@@ -158,15 +158,7 @@ async function loadBookingFunnel(shopId: string) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default async function AnalyticsPage() {
-  const supabase = getSupabaseAdminClient();
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
+  const shop = await requireCurrentShop();
 
   const [leads, bookings] = await Promise.all([
     loadLeadFunnel(shop.id),

@@ -15,9 +15,8 @@
 
 import Link from "next/link";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 type CheckStatus = "ok" | "warn" | "error" | "info";
 
@@ -368,14 +367,7 @@ async function runChecks(shopId: string): Promise<Check[]> {
 }
 
 export default async function HealthPage() {
-  const supabase = getSupabaseAdminClient();
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
+  const shop = await requireCurrentShop();
 
   const checks = await runChecks(shop.id);
 

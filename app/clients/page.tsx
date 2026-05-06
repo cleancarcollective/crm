@@ -3,6 +3,7 @@ import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getClientDirectory } from "@/lib/dashboard/contacts";
 import { formatCurrency } from "@/lib/dashboard/format";
 
@@ -15,7 +16,8 @@ export default async function ClientsPage({
 }: {
   searchParams?: Promise<{ q?: string; status?: string; from?: string; to?: string }>;
 }) {
-  const { shop, entries } = await getClientDirectory();
+  const currentShop = await requireCurrentShop();
+  const { shop, entries } = await getClientDirectory(currentShop.slug);
   const params = searchParams ? await searchParams : undefined;
   const query = (params?.q ?? "").trim().toLowerCase();
   const status = (params?.status ?? "").trim().toLowerCase();

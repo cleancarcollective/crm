@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -18,13 +19,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
-  // Load source template
+  // Load source template — scoped to current shop
   const { data: source, error: sourceErr } = await supabase
     .from("lead_email_templates")
     .select("*")
     .eq("id", id)
+    .eq("shop_id", shop.id)
     .maybeSingle();
 
   if (sourceErr || !source) {

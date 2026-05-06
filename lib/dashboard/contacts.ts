@@ -57,7 +57,7 @@ export async function getContactProfileById(id: string) {
   } satisfies ContactProfile;
 }
 
-export async function getLeadDirectory(shopSlug = "christchurch") {
+export async function getLeadDirectory(shopSlug: string) {
   const shop = await getShopBySlug(shopSlug);
   const [contacts, leads] = await Promise.all([
     getContactsForShop(shop.id),
@@ -98,7 +98,7 @@ export async function getLeadDirectory(shopSlug = "christchurch") {
   return { shop, entries, stats: { totalLeads, wonLeads, openLeads, conversionRate } };
 }
 
-export async function getClientDirectory(shopSlug = "christchurch") {
+export async function getClientDirectory(shopSlug: string) {
   const shop = await getShopBySlug(shopSlug);
   const [contacts, bookings] = await Promise.all([getContactsForShop(shop.id), getBookingsForShop(shop.id)]);
 

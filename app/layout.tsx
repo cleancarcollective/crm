@@ -59,6 +59,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <nav className="globalNav">
           <Link href="/" className="globalNavBrand">
             CCC CRM
+            <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
+              {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
+            </span>
           </Link>
           <div className="globalNavLinks">
             <Link href="/" className="globalNavLink">Calendar</Link>

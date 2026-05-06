@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-const DEFAULT_SHOP_SLUG = "christchurch";
-
 export async function GET() {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name, slug")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   const { data: settings } = await supabase
     .from("shop_settings")
@@ -34,17 +28,10 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
   const body = await req.json();
   const { autoRespondEnabled } = body as { autoRespondEnabled?: boolean };
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   await supabase
     .from("shop_settings")

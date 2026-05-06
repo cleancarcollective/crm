@@ -1,7 +1,6 @@
 import { SettingsClient } from "@/components/dashboard/SettingsClient";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 // Default pricing rows shown if none set yet
 const DEFAULT_PRICING_ROWS = [
@@ -37,17 +36,8 @@ const DEFAULT_PRICING_ROWS = [
 ];
 
 export default async function SettingsPage() {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name, slug")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) {
-    return <main className="pageShell"><p>Shop not found.</p></main>;
-  }
 
   const { data: settings } = await supabase
     .from("shop_settings")

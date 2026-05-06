@@ -3,6 +3,7 @@ import { format, parse } from "date-fns";
 
 import { BookingList } from "@/components/dashboard/BookingList";
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingsForDay } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatMinutes } from "@/lib/dashboard/format";
 
@@ -12,7 +13,8 @@ export default async function DayPage({
   params: Promise<{ day: string }>;
 }) {
   const { day } = await params;
-  const { shop, bookings } = await getBookingsForDay(day);
+  const currentShop = await requireCurrentShop();
+  const { shop, bookings } = await getBookingsForDay(day, currentShop.slug);
   const parsedDay = parse(day, "yyyy-MM-dd", new Date());
 
   const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.price_estimate ?? 0), 0);

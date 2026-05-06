@@ -47,7 +47,18 @@ export async function POST(request: Request) {
     return withCors(NextResponse.json({ success: false, error: "first_name and email are required." }, { status: 400 }));
   }
 
-  const shopSlug = payload.shop_slug ?? "christchurch";
+  // Multi-tenant: shop_slug is REQUIRED. We used to silently default to
+  // Christchurch but that meant a Wellington form forgetting the field
+  // would route Wellington leads into the Christchurch shop — silent
+  // cross-shop contamination. Now we 400 instead so the form fails loudly.
+  const shopSlug = payload.shop_slug;
+  if (!shopSlug || typeof shopSlug !== "string") {
+    return withCors(NextResponse.json(
+      { success: false, error: "Missing required field: shop_slug" },
+      { status: 400 }
+    ));
+  }
+
   const supabase = getSupabaseAdminClient();
   const parsedVehicle = parseLeadVehicleInput(payload);
 

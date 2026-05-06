@@ -1,11 +1,10 @@
 import Link from "next/link";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { TEMPLATE_KEY_LABELS } from "@/lib/autorespond/templateDefaults";
 import type { TemplateKey } from "@/lib/autorespond/templates";
 import { TemplatesSeedButton } from "@/components/dashboard/TemplatesSeedButton";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 type Perf = {
   sent: number;
@@ -17,15 +16,8 @@ type Perf = {
 };
 
 export default async function TemplatesIndexPage() {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id, name")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return <main className="pageShell"><p>Shop not found.</p></main>;
 
   const { data: templates, error: templatesError } = await supabase
     .from("lead_email_templates")

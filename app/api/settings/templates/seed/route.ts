@@ -7,21 +7,13 @@
 
 import { NextResponse } from "next/server";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { TEMPLATE_DEFAULTS } from "@/lib/autorespond/templateDefaults";
 
-const DEFAULT_SHOP_SLUG = "christchurch";
-
 export async function POST() {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   // Load existing to avoid overwriting customised rows
   const { data: existing } = await supabase

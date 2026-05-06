@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-const DEFAULT_SHOP_SLUG = "christchurch";
-
 export async function PUT(req: NextRequest) {
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
   const body = await req.json();
   const { rows } = body as {
     rows: Array<{ service_name: string; size: string; price_ex_gst: number }>;
   };
-
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   const upsertRows = rows.map((r) => ({
     shop_id: shop.id,

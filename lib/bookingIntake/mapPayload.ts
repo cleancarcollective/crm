@@ -33,7 +33,12 @@ export function mapBookingPayload(
   | { success: false; errors: BookingIntakeValidationError[] } {
   const errors: BookingIntakeValidationError[] = [];
 
-  const shopSlug = cleanString((payload.shop_slug as string | undefined) ?? options.defaultShopSlug ?? "christchurch");
+  // Multi-tenant: require explicit shop_slug. The bookingIntake helper still
+  // accepts an `options.defaultShopSlug` for the second-pass call from the
+  // intake route (after we've resolved the shop), but the initial validation
+  // of an incoming webhook MUST find shop_slug on the payload itself. No
+  // silent christchurch fallback.
+  const shopSlug = cleanString((payload.shop_slug as string | undefined) ?? options.defaultShopSlug);
   if (!shopSlug) {
     errors.push({ field: "shop_slug", message: "Missing shop slug." });
   }

@@ -3,6 +3,7 @@ import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getLeadDirectory } from "@/lib/dashboard/contacts";
 
 function toSearchableText(value: string | null | undefined) {
@@ -14,7 +15,8 @@ export default async function LeadsPage({
 }: {
   searchParams?: Promise<{ q?: string; status?: string }>;
 }) {
-  const { shop, entries, stats } = await getLeadDirectory();
+  const currentShop = await requireCurrentShop();
+  const { shop, entries, stats } = await getLeadDirectory(currentShop.slug);
   const params = searchParams ? await searchParams : undefined;
   const query = (params?.q ?? "").trim().toLowerCase();
   const status = (params?.status ?? "").trim().toLowerCase();

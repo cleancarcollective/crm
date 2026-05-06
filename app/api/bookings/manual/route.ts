@@ -1,7 +1,7 @@
 import { addMinutes } from "date-fns";
 import { NextResponse } from "next/server";
 
-import { getShopBySlug } from "@/lib/dashboard/bookings";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const shop = await getShopBySlug();
+  const shop = await requireCurrentShop();
 
   // ── 1. Resolve contact ──────────────────────────────────────────────
   let contactId: string;

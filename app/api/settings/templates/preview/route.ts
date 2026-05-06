@@ -13,8 +13,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { buildTemplateContext, type PricingMap } from "@/lib/autorespond/templateRenderer";
 import type { TemplateKey } from "@/lib/autorespond/templates";
 import type { VehicleSize } from "@/lib/autorespond/vehicleSizing";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 
 type PreviewBody = {
   template_key?: TemplateKey;
@@ -42,14 +41,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing template_key / subject / body_text" }, { status: 400 });
   }
 
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-  const { data: shop } = await supabase
-    .from("shops")
-    .select("id")
-    .eq("slug", DEFAULT_SHOP_SLUG)
-    .maybeSingle();
-
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   const { data: pricingRows } = await supabase
     .from("pricing")

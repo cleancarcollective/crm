@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BookingCalendar } from "@/components/dashboard/BookingCalendar";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingsForMonth } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatMonthLabel } from "@/lib/dashboard/format";
 
@@ -10,7 +11,8 @@ export default async function HomePage({
   searchParams?: Promise<{ month?: string }>;
 }) {
   const params = searchParams ? await searchParams : undefined;
-  const { shop, month, previous, next, days } = await getBookingsForMonth(params?.month);
+  const currentShop = await requireCurrentShop();
+  const { shop, month, previous, next, days } = await getBookingsForMonth(params?.month, currentShop.slug);
 
   const totalRevenue = days.reduce((sum, day) => sum + day.totalRevenue, 0);
   const totalBookings = days.reduce((sum, day) => sum + day.bookingCount, 0);

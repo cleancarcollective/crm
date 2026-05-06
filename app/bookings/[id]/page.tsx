@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { BookingDetail } from "@/components/dashboard/BookingDetail";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingById } from "@/lib/dashboard/bookings";
 
 export default async function BookingDetailPage({
@@ -9,7 +10,8 @@ export default async function BookingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { shop, booking } = await getBookingById(id);
+  const currentShop = await requireCurrentShop();
+  const { shop, booking } = await getBookingById(id, currentShop.slug);
 
   return (
     <main className="pageShell">

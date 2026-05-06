@@ -1,25 +1,27 @@
 /**
- * GET   /api/settings/templates/[id]  — fetch a single template
- * PATCH /api/settings/templates/[id]  — update subject / body_text / name / is_active
+ * GET   /api/settings/templates/[id]  — fetch a single template (shop-scoped)
+ * PATCH /api/settings/templates/[id]  — update subject / body_text / name / is_active / weight
+ * DELETE /api/settings/templates/[id] — delete a variant (refuses if it's the last one)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
     .from("lead_email_templates")
     .select("*")
     .eq("id", id)
+    .eq("shop_id", shop.id)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -33,6 +35,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const shop = await requireCurrentShop();
   const body = await req.json();
   const supabase = getSupabaseAdminClient();
 
@@ -55,6 +58,7 @@ export async function PATCH(
     .from("lead_email_templates")
     .update(allowed)
     .eq("id", id)
+    .eq("shop_id", shop.id)
     .select("*")
     .single();
 
@@ -68,6 +72,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
   // Don't let the user delete the last active variant of a template_key —
@@ -76,6 +81,7 @@ export async function DELETE(
     .from("lead_email_templates")
     .select("shop_id, template_key")
     .eq("id", id)
+    .eq("shop_id", shop.id)
     .maybeSingle();
 
   if (!target) {
@@ -85,7 +91,7 @@ export async function DELETE(
   const { count } = await supabase
     .from("lead_email_templates")
     .select("id", { count: "exact", head: true })
-    .eq("shop_id", target.shop_id)
+    .eq("shop_id", shop.id)
     .eq("template_key", target.template_key);
 
   if ((count ?? 0) <= 1) {
@@ -95,7 +101,11 @@ export async function DELETE(
     );
   }
 
-  const { error: delErr } = await supabase.from("lead_email_templates").delete().eq("id", id);
+  const { error: delErr } = await supabase
+    .from("lead_email_templates")
+    .delete()
+    .eq("id", id)
+    .eq("shop_id", shop.id);
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

@@ -3,10 +3,18 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 export const SESSION_COOKIE = "crm_session";
 const SESSION_DAYS = 30;
 
+export type SessionShop = {
+  id: string;
+  slug: string;
+  name: string;
+  timezone: string;
+};
+
 export type SessionUser = {
   userId: string;
   email: string;
   name: string;
+  shop: SessionShop;
 };
 
 export async function createSession(userId: string): Promise<string> {
@@ -28,9 +36,12 @@ export async function verifySession(sessionId: string): Promise<SessionUser | nu
   if (!sessionId) return null;
   const supabase = getSupabaseAdminClient();
 
+  // Pull session → user → user's shop in one query
   const { data, error } = await supabase
     .from("staff_sessions")
-    .select("user_id, expires_at, staff_users(id, email, name)")
+    .select(
+      "user_id, expires_at, staff_users(id, email, name, shop_id, shop:shops(id, slug, name, timezone))"
+    )
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -41,10 +52,29 @@ export async function verifySession(sessionId: string): Promise<SessionUser | nu
     return null;
   }
 
-  const user = data.staff_users as unknown as { id: string; email: string; name: string } | null;
-  if (!user) return null;
+  const user = data.staff_users as unknown as
+    | {
+        id: string;
+        email: string;
+        name: string;
+        shop_id: string;
+        shop: { id: string; slug: string; name: string; timezone: string } | null;
+      }
+    | null;
 
-  return { userId: user.id, email: user.email, name: user.name };
+  if (!user || !user.shop) return null;
+
+  return {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    shop: {
+      id: user.shop.id,
+      slug: user.shop.slug,
+      name: user.shop.name,
+      timezone: user.shop.timezone,
+    },
+  };
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

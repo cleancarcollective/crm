@@ -22,9 +22,12 @@ import type {
   VehicleRecord
 } from "@/lib/dashboard/types";
 
-const DEFAULT_SHOP_SLUG = "christchurch";
-
-export async function getShopBySlug(slug = DEFAULT_SHOP_SLUG) {
+/**
+ * Look up a shop by slug. Used by webhooks where the slug arrives in the
+ * payload. UI/dashboard helpers prefer requireCurrentShop() so the user's
+ * session shop scopes the query.
+ */
+export async function getShopBySlug(slug: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("shops")
@@ -79,7 +82,7 @@ export function getMonthNavigation(month: string | undefined, timezone: string) 
   };
 }
 
-export async function getBookingsForMonth(month: string | undefined, shopSlug = DEFAULT_SHOP_SLUG) {
+export async function getBookingsForMonth(month: string | undefined, shopSlug: string) {
   const shop = await getShopBySlug(shopSlug);
   const navigation = getMonthNavigation(month, shop.timezone);
 
@@ -101,7 +104,7 @@ export async function getBookingsForMonth(month: string | undefined, shopSlug = 
   };
 }
 
-export async function getBookingsForDay(day: string, shopSlug = DEFAULT_SHOP_SLUG) {
+export async function getBookingsForDay(day: string, shopSlug: string) {
   const shop = await getShopBySlug(shopSlug);
   const zonedDay = parse(day, "yyyy-MM-dd", new Date());
 
@@ -121,7 +124,7 @@ export async function getBookingsForDay(day: string, shopSlug = DEFAULT_SHOP_SLU
   };
 }
 
-export async function getBookingById(id: string, shopSlug = DEFAULT_SHOP_SLUG) {
+export async function getBookingById(id: string, shopSlug: string) {
   const shop = await getShopBySlug(shopSlug);
   const booking = await getBookingWithRelationsById(id, shop.id);
 

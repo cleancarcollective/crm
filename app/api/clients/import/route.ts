@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { parseImportFile } from "@/lib/import/parseImportFile";
-
-const DEFAULT_SHOP_SLUG = "christchurch";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -12,9 +11,8 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const rows = await parseImportFile(buffer, file.name);
 
+  const shop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
-  const { data: shop } = await supabase.from("shops").select("id").eq("slug", DEFAULT_SHOP_SLUG).maybeSingle();
-  if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
 
   let imported = 0;
 
