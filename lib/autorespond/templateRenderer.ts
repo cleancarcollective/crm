@@ -53,27 +53,18 @@ export type RenderedTemplate = {
   variant: string;
 };
 
-const BOOKING_URL = "https://cleancarcollective.co.nz/make-a-booking/";
-
 // ── HTML wrapping ──────────────────────────────────────────────────────────
+// Booking URL was previously injected as an <a> link. Removed because it
+// pushed estimate emails into Gmail's Promotions tab. Customers reply to
+// the email instead — much better deliverability for transactional sends.
 
 function htmlBody(plain: string): string {
-  let html = plain
+  const html = plain
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-
-  const escapedUrl = BOOKING_URL.replace(/&/g, "&amp;");
-  html = html.replace(
-    escapedUrl,
-    `<a href="${BOOKING_URL}" style="color:#1a73e8;text-decoration:underline;">make a booking here</a>`
-  );
-  html = html.replace(
-    /If you&#39;d like to make a booking, you can do so here: <a /,
-    "If you&#39;d like to make a booking, you can <a "
-  );
 
   return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap;">${html}</div>`;
 }

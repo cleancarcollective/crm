@@ -23,8 +23,9 @@ export type TemplateDefault = {
   body_text: string;
 };
 
-const BOOKING_URL = "https://cleancarcollective.co.nz/make-a-booking/";
-const CTA = `If you'd like to make a booking, you can do so here: ${BOOKING_URL}`;
+// CTA without a URL — links in transactional emails were pushing them
+// to Gmail's Promotions tab. Customers can simply reply to lock in.
+const CTA = `Just reply to this email if you'd like to lock in a slot or have any other questions.`;
 
 export const TEMPLATE_DEFAULTS: TemplateDefault[] = [
   {
@@ -205,9 +206,7 @@ Just following up on the detailing estimate I sent through a few days ago for yo
 
 Happy to answer any questions about the packages, help pick the right option, or tweak things to suit your budget. Most of our bookings go 1-2 weeks out so worth locking in a slot if you're keen.
 
-If you're ready to book: ${BOOKING_URL}
-
-Or reply to this email with any questions.
+Just reply to this email and I'll get you booked in.
 
 Cheers,
 Max`,
@@ -222,8 +221,6 @@ Max`,
 Just one last check-in. Let me know if you're still keen for a detail on your {{vehicle}} — happy to help with timing, any questions, or adjusting the package to suit.
 
 Otherwise no worries, I'll leave you be. Feel free to reach out anytime.
-
-${BOOKING_URL}
 
 Cheers,
 Max`,
