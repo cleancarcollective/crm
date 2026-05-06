@@ -5,6 +5,8 @@ import { SESSION_COOKIE } from "@/lib/auth/session";
 
 // Paths that don't require authentication.
 // Cron endpoints authenticate via Bearer <CRON_SECRET> in their handlers.
+// Token-authed action endpoints (lead quick-send, future booking-action)
+// authenticate via signed URL tokens.
 const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth/",
@@ -14,14 +16,27 @@ const PUBLIC_PREFIXES = [
   "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
   "/api/emails/process-scheduled",   // pg_cron every minute
   "/api/sms/process-review",         // Vercel cron 9am UTC daily
+  "/lead-action/",                   // public confirmation pages after token-authed actions
+  "/manage-booking",                 // customer self-service reschedule/cancel page
+  "/api/public/",                    // token-authed customer-facing actions
   "/_next/",
   "/favicon",
+];
+
+// Paths that are themselves authenticated by signed token (not session)
+// — middleware lets the request through, the route handler verifies the token.
+const TOKEN_AUTHED_PATTERNS = [
+  /^\/api\/leads\/[^/]+\/quick-send/,
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  if (TOKEN_AUTHED_PATTERNS.some((re) => re.test(pathname))) {
     return NextResponse.next();
   }
 

@@ -117,6 +117,23 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
         </div>
       </section>
 
+      {/* ── Account link ─────────────────────────────────────────── */}
+      <section className="detailPanel settingsSection">
+        <div className="settingsPricingHeader">
+          <div>
+            <h2>Your account</h2>
+            <p className="settingsDescription">
+              Change your password or review your profile.
+            </p>
+          </div>
+          <div className="settingsPricingActions">
+            <Link href="/settings/account" className="buttonPrimary">
+              Account →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── System health link ───────────────────────────────────── */}
       <section className="detailPanel settingsSection">
         <div className="settingsPricingHeader">

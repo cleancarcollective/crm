@@ -191,6 +191,7 @@ export async function POST(request: Request) {
         "lead_auto_estimate",
         "lead_followup_3day",
         "lead_followup_7day",
+        "lead_followup_30day",
       ]);
     }
 

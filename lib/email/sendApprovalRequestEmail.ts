@@ -10,6 +10,7 @@
  */
 
 import type { ShopRecord } from "@/lib/dashboard/types";
+import { signActionToken } from "@/lib/auth/signedTokens";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
@@ -96,7 +97,7 @@ function infoRow(label: string, value: string | null) {
   `;
 }
 
-function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string): string {
+function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string, quickSendUrl: string | null): string {
   const { shop, customer, vehicle, serviceRequested, customerNotes, reason, reasonDetail, estimate } = args;
   const vehicleLabel = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || null;
   const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(" ");
@@ -169,16 +170,26 @@ function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string): strin
                 </table>
                 ` : ""}
 
-                <!-- CTA button -->
+                <!-- Action buttons: quick-send (one-click) + review-in-CRM -->
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0 24px;">
                   <tr>
                     <td align="center">
-                      <a href="${escapeHtml(reviewUrl)}" style="display: inline-block; padding: 16px 36px; background: #1a1713; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; letter-spacing: 0.02em;">
-                        Review &amp; send in CRM →
+                      ${quickSendUrl ? `
+                        <a href="${escapeHtml(quickSendUrl)}" style="display: inline-block; padding: 16px 36px; background: #2c7d2c; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; letter-spacing: 0.02em; margin-right: 8px;">
+                          ✅ Send draft as-is
+                        </a>
+                      ` : ""}
+                      <a href="${escapeHtml(reviewUrl)}" style="display: inline-block; padding: 16px 30px; background: #1a1713; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 10px; letter-spacing: 0.02em;">
+                        Review &amp; edit in CRM →
                       </a>
                     </td>
                   </tr>
                 </table>
+                ${quickSendUrl ? `
+                <p style="margin: 0 0 24px; font-size: 12px; color: #9e9189; text-align: center;">
+                  &ldquo;Send draft as-is&rdquo; sends the exact draft below — no edits, no review. Use it when the draft looks good. Link expires in 7 days, single-use.
+                </p>
+                ` : ""}
 
                 <!-- Draft preview -->
                 <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Draft estimate</p>
@@ -224,7 +235,7 @@ function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string): strin
   `.trim();
 }
 
-function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string): string {
+function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string, quickSendUrl: string | null): string {
   const { shop, customer, vehicle, serviceRequested, customerNotes, reason, reasonDetail, estimate } = args;
   const vehicleLabel = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "—";
   const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.firstName;
@@ -248,7 +259,8 @@ function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string): strin
     `  Vehicle: ${vehicleLabel}`,
     customerNotes ? `\nCustomer notes:\n${customerNotes}` : null,
     ``,
-    `Review & send in CRM: ${reviewUrl}`,
+    quickSendUrl ? `Send the draft as-is (1 click): ${quickSendUrl}` : null,
+    `Review & edit in CRM: ${reviewUrl}`,
     ``,
     `---`,
     `Draft estimate`,
@@ -272,6 +284,19 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
     ? `${CRM_BASE_URL}/contacts/${contactId}`
     : `${CRM_BASE_URL}/leads`;
 
+  // One-click "Send as-is" link — only mint a token if the env var is set
+  // (it'll throw otherwise). When ACTION_TOKEN_SECRET isn't set the email
+  // still goes out without the quick-send button — graceful degradation.
+  let quickSendUrl: string | null = null;
+  try {
+    if (process.env.ACTION_TOKEN_SECRET) {
+      const token = signActionToken({ a: "lead_send_estimate", r: leadId, s: shop.id });
+      quickSendUrl = `${CRM_BASE_URL}/api/leads/${leadId}/quick-send?token=${encodeURIComponent(token)}`;
+    }
+  } catch (err) {
+    console.warn("Quick-send token mint failed; falling back to review-only", err);
+  }
+
   const vehicleLabel = [args.vehicle.year, args.vehicle.make, args.vehicle.model].filter(Boolean).join(" ");
   const subjectParts = [
     "🔔 Action needed:",
@@ -281,8 +306,8 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
   ].filter(Boolean);
   const subject = subjectParts.join(" ");
 
-  const htmlBody = renderApprovalHtml(args, reviewUrl);
-  const textBody = renderApprovalText(args, reviewUrl);
+  const htmlBody = renderApprovalHtml(args, reviewUrl, quickSendUrl);
+  const textBody = renderApprovalText(args, reviewUrl, quickSendUrl);
 
   const supabase = getSupabaseAdminClient();
 

@@ -13,7 +13,8 @@ export type TemplateKey =
   | "paint_correction"
   | "other"
   | "lead_followup_3day"
-  | "lead_followup_7day";
+  | "lead_followup_7day"
+  | "lead_followup_30day";
 
 export type EstimateDraft = {
   subject: string;

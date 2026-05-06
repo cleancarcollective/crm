@@ -2290,6 +2290,82 @@ textarea {
   color: var(--danger);
 }
 
+/* ── Public token-authed lead-action pages ──────────────────────────── */
+
+.leadActionShell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: #E5E4E2;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.leadActionCard {
+  max-width: 480px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.leadActionCard--ok   { border-top: 4px solid #2c7d2c; }
+.leadActionCard--info { border-top: 4px solid #2c4a7c; }
+.leadActionCard--err  { border-top: 4px solid #b23434; }
+.leadActionEmoji { font-size: 48px; margin-bottom: 8px; }
+.leadActionCard h1 { font-size: 22px; margin: 0 0 16px; }
+.leadActionCard p  { font-size: 15px; line-height: 1.55; color: #5c5148; margin: 0 0 12px; }
+.leadActionFoot { font-size: 13px; color: var(--muted); margin-top: 16px; }
+
+.manageBookingGrid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 6px 14px;
+  margin: 18px 0 22px;
+  padding: 16px 18px;
+  background: #fafaf8;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.manageBookingGrid dt { color: var(--muted); font-size: 13px; }
+.manageBookingGrid dd { margin: 0; font-size: 14px; font-weight: 600; }
+
+.manageBookingActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.manageBookingForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.manageBookingForm h3 { margin: 8px 0 0; font-size: 16px; text-align: center; }
+.manageBookingHint { font-size: 13px; color: var(--muted); text-align: center; margin: 0; }
+.manageBookingError { color: #b23434; font-size: 13px; margin: 0; text-align: center; }
+
+/* ── Account page ────────────────────────────────────────────────────── */
+
+.accountInfoGrid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  row-gap: 8px;
+  margin: 12px 0 0;
+}
+.accountInfoGrid dt { color: var(--muted); font-size: 13px; }
+.accountInfoGrid dd { margin: 0; font-size: 14px; font-weight: 500; }
+
+.changePasswordForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 440px;
+}
+
 /* ── Health / status page ────────────────────────────────────────────── */
 
 .healthOverall {

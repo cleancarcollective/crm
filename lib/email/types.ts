@@ -55,6 +55,8 @@ export type BookingConfirmationEmailContext = {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
+  // Optional — signed self-service link for customer-facing emails
+  manage_booking_url?: string;
 };
 
 export type RenderedEmail = {

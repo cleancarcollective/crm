@@ -2,6 +2,7 @@ import { addMinutes } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById } from "@/lib/dashboard/bookings";
 import { sendBookingUpdateEmail } from "@/lib/email/sendBookingUpdateEmail";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -84,11 +85,13 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Invalid JSON payload." }, { status: 400 });
   }
 
+  const currentShop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
   const { data: existingBooking, error: fetchError } = await supabase
     .from("bookings")
     .select("*")
     .eq("id", id)
+    .eq("shop_id", currentShop.id)
     .single();
 
   if (fetchError || !existingBooking) {
@@ -115,6 +118,7 @@ export async function PATCH(
     .from("bookings")
     .update(updateData)
     .eq("id", id)
+    .eq("shop_id", currentShop.id)
     .select("*")
     .single();
 
@@ -177,12 +181,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const currentShop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
-  const { error } = await supabase.from("bookings").delete().eq("id", id);
+  const { error, count } = await supabase
+    .from("bookings")
+    .delete({ count: "exact" })
+    .eq("id", id)
+    .eq("shop_id", currentShop.id);
 
   if (error) {
     return NextResponse.json({ success: false, error: "Failed to delete booking." }, { status: 500 });
+  }
+  if ((count ?? 0) === 0) {
+    return NextResponse.json({ success: false, error: "Booking not found." }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });

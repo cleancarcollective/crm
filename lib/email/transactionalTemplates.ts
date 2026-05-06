@@ -220,8 +220,21 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 ${updateSummaryBlock}
                 ${entranceNoticeBlock(context, heading)}
 
+                ${context.manage_booking_url ? `
+                <!-- Self-service: reschedule / cancel -->
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0 12px;">
+                  <tr>
+                    <td align="center">
+                      <a href="${escapeHtml(context.manage_booking_url)}" style="display: inline-block; padding: 12px 24px; background: #ffffff; border: 1.5px solid #1a1713; color: #1a1713; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 10px;">
+                        Reschedule or cancel →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                ` : ""}
+
                 <!-- Contact -->
-                <p style="margin: 0 0 4px; font-size: 15px; line-height: 1.6; color: #5c5148;">Please reach out if you need to make any changes.</p>
+                <p style="margin: 0 0 4px; font-size: 15px; line-height: 1.6; color: #5c5148;">Or just reach out directly if you need anything.</p>
                 <p style="margin: 0 0 28px; font-size: 15px; color: #5c5148;">
                   <a href="mailto:${escapeHtml(context.shop_email)}" style="color: #1a1713; font-weight: 600; text-decoration: none;">${escapeHtml(context.shop_email)}</a>
                   &nbsp;&middot;&nbsp;

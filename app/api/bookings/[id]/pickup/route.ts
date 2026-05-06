@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { sendPickupReadyEmail } from "@/lib/email/sendPickupReadyEmail";
 import { scheduleReviewSms } from "@/lib/sms/scheduledSmsJobs";
@@ -19,13 +20,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const currentShop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
-  // Fetch booking record to get shop_id
+  // Fetch booking record — scoped to the user's shop so a CHC user can't
+  // trigger a pickup notification on a Wellington booking by guessing the id.
   const { data: bookingRecord, error: fetchError } = await supabase
     .from("bookings")
     .select("id, shop_id, contact_id")
     .eq("id", id)
+    .eq("shop_id", currentShop.id)
     .single();
 
   if (fetchError || !bookingRecord) {

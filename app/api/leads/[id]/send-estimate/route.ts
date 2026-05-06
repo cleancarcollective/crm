@@ -9,6 +9,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getShopContactsById } from "@/lib/email/shopContacts";
 import { cancelLeadJobs, scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -28,12 +30,14 @@ export async function POST(
     return NextResponse.json({ error: "subject and body required" }, { status: 400 });
   }
 
+  const currentShop = await requireCurrentShop();
   const supabase = getSupabaseAdminClient();
 
   const { data: lead } = await supabase
     .from("leads")
     .select("id, shop_id, contact_id, template_id, template_key, template_variant, contacts(email, first_name, phone)")
     .eq("id", id)
+    .eq("shop_id", currentShop.id)
     .maybeSingle();
 
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
@@ -139,7 +143,12 @@ export async function POST(
 
   // 5. Cancel any still-pending auto-estimate (e.g. admin sent manually
   //    before the 3-min delay elapsed). Then schedule follow-ups.
-  await cancelLeadJobs(id, ["lead_auto_estimate", "lead_followup_3day", "lead_followup_7day"]);
+  await cancelLeadJobs(id, [
+    "lead_auto_estimate",
+    "lead_followup_3day",
+    "lead_followup_7day",
+    "lead_followup_30day",
+  ]);
 
   // Load vehicle info so follow-up templates can render with {{vehicle}}
   const { data: vehicleRow } = await supabase

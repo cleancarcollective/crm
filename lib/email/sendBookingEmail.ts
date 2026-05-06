@@ -59,6 +59,7 @@ import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency } from "@/lib/dashboard/format";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
+import { signActionToken } from "@/lib/auth/signedTokens";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { renderTemplate } from "@/lib/email/templateRenderer";
 import type { BookingConfirmationEmailContext, EmailTemplateKey, EmailTemplateRecord } from "@/lib/email/types";
@@ -251,6 +252,25 @@ function buildTemplateContext({
   const shopDetails = SHOP_DETAILS[shop.slug] ?? DEFAULT_SHOP_DETAILS;
   const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
 
+  // Customer self-service link — only on customer-facing emails (skip team).
+  // 14-day expiry covers most reschedule windows; customer can always reply
+  // to the email if their token expires.
+  let manageBookingUrl: string | undefined;
+  if (!includeCustomerDetails) {
+    try {
+      if (process.env.ACTION_TOKEN_SECRET) {
+        const token = signActionToken(
+          { a: "manage_booking", r: booking.id, s: shop.id },
+          14 * 24 * 60 * 60
+        );
+        const base = process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz";
+        manageBookingUrl = `${base}/manage-booking?token=${encodeURIComponent(token)}`;
+      }
+    } catch (err) {
+      console.warn("manage_booking token mint failed; omitting self-service link", err);
+    }
+  }
+
   return {
     first_name: capitalise(firstName ?? booking.contact?.first_name ?? "there"),
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
@@ -274,6 +294,7 @@ function buildTemplateContext({
     shop_phone: shopDetails.phone,
     shop_email: shopDetails.email,
     shop_website: shopDetails.website,
+    manage_booking_url: manageBookingUrl,
     ...(includeCustomerDetails && {
       customer_name: getBookingDisplayName(booking),
       customer_email: booking.contact?.email ?? undefined,

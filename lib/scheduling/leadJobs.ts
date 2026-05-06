@@ -16,7 +16,8 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 export type LeadJobType =
   | "lead_auto_estimate"
   | "lead_followup_3day"
-  | "lead_followup_7day";
+  | "lead_followup_7day"
+  | "lead_followup_30day";
 
 export type LeadAutoEstimatePayload = {
   to: string;
@@ -84,8 +85,10 @@ export async function scheduleLeadFollowups(args: {
   model: string | null;
 }) {
   const now = Date.now();
-  const in3Days = new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString();
-  const in7Days = new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const DAY = 24 * 60 * 60 * 1000;
+  const in3Days = new Date(now + 3 * DAY).toISOString();
+  const in7Days = new Date(now + 7 * DAY).toISOString();
+  const in30Days = new Date(now + 30 * DAY).toISOString();
 
   const basePayload = {
     shopId: args.shopId,
@@ -133,6 +136,17 @@ export async function scheduleLeadFollowups(args: {
     jobType: "lead_followup_7day",
     templateKey: "lead_followup_7day",
     scheduledFor: in7Days,
+    payload: basePayload,
+  });
+
+  // Email at +30 days — last-chance re-engagement
+  await scheduleLeadJob({
+    shopId: args.shopId,
+    leadId: args.leadId,
+    contactId: args.contactId,
+    jobType: "lead_followup_30day",
+    templateKey: "lead_followup_30day",
+    scheduledFor: in30Days,
     payload: basePayload,
   });
 }

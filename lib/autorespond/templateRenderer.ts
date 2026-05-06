@@ -157,6 +157,7 @@ export function buildTemplateContext(
     case "other":
     case "lead_followup_3day":
     case "lead_followup_7day":
+    case "lead_followup_30day":
       return base;
     default:
       return base;

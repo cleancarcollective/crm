@@ -225,6 +225,22 @@ Otherwise no worries, I'll leave you be. Feel free to reach out anytime.
 Cheers,
 Max`,
   },
+  {
+    template_key: "lead_followup_30day",
+    variant: "A",
+    name: "Re-engagement — 30 days after quote",
+    subject: "Still thinking about a detail for your {{vehicle}}?",
+    body_text: `Hi {{name}},
+
+Realised it's been about a month since I sent through your detailing estimate. Life gets busy — totally get it.
+
+If a detail for your {{vehicle}} is still on the to-do list, just hit reply and I'll get you sorted. Happy to flex on timing or work to a different budget if helpful.
+
+If not, no stress — won't follow up again from here.
+
+Cheers,
+Max`,
+  },
 ];
 
 /**
@@ -275,6 +291,10 @@ export const TEMPLATE_VARIABLES: Record<TemplateKey, { key: string; label: strin
     { key: "name", label: "Customer first name" },
     { key: "vehicle", label: "Vehicle (make + model)" },
   ],
+  lead_followup_30day: [
+    { key: "name", label: "Customer first name" },
+    { key: "vehicle", label: "Vehicle (make + model)" },
+  ],
 };
 
 export const TEMPLATE_KEY_LABELS: Record<TemplateKey, string> = {
@@ -286,4 +306,5 @@ export const TEMPLATE_KEY_LABELS: Record<TemplateKey, string> = {
   other: "Other / Fallback",
   lead_followup_3day: "Follow-up: 3 days after quote",
   lead_followup_7day: "Follow-up: 7 days after quote",
+  lead_followup_30day: "Re-engagement: 30 days after quote",
 };

@@ -164,6 +164,7 @@ async function dispatch(job: ScheduledJob) {
       return handleLeadAutoEstimate(job);
     case "lead_followup_3day":
     case "lead_followup_7day":
+    case "lead_followup_30day":
       return handleLeadFollowup(job);
     default:
       throw new Error(`Unknown job_type: ${job.job_type}`);
