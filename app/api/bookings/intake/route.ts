@@ -10,6 +10,7 @@ import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmatio
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
+import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -268,7 +269,10 @@ export async function POST(request: Request) {
       try {
         const firstName = contact.first_name ?? contact.full_name?.split(" ")[0] ?? "there";
         const dateLabel = formatInTimeZone(booking.scheduled_start, (shop as ShopRow).timezone, "EEE d MMM 'at' h:mm a");
-        const smsMessage = `Hi ${firstName}, your booking is confirmed for ${dateLabel}. See you soon! - Clean Car Collective`;
+        const { body: smsMessage } = await loadAndRenderSms(shop.id, "booking_confirmation", {
+          name: firstName,
+          date_time: dateLabel,
+        });
         const smsResult = await sendTnzSms(contact.phone, smsMessage);
         console.info("Booking confirmation SMS result", { bookingId: booking.id, smsResult });
       } catch (smsError) {

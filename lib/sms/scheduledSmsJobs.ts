@@ -2,28 +2,12 @@ import { addDays, addHours } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 import { getShopContactsById } from "@/lib/email/shopContacts";
+import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 
 const REVIEW_DELAY_HOURS = 23;
 const LEAD_FOLLOWUP_SMS_DAYS = 5;
-
-const REVIEW_SMS_TEMPLATE = (firstName: string) =>
-  `Hey ${firstName}, thanks again for choosing Clean Car Collective! We'd love your quick feedback - just tap here: https://cleancarcollective.co.nz/how-did-we-do/`;
-
-function buildLeadFollowupSms(firstName: string, vehicle: string | null, senderName: string): string {
-  const vehicleStr = vehicle ?? "your vehicle";
-  return `Hi ${firstName}, just checking - any questions about the ${vehicleStr} detailing estimate? Happy to chat or lock in a slot: cleancarcollective.co.nz/make-a-booking - ${senderName}`;
-}
-
-/**
- * T-1 day booking reminder SMS. Fires 24h before scheduled_start so the
- * customer gets a friendly nudge. Date formatted in the shop's timezone
- * for clarity ("Thu 25 Apr at 2:00 pm").
- */
-function buildBookingReminderSms(firstName: string, dateLabel: string): string {
-  return `Hi ${firstName}, friendly reminder - your Clean Car Collective booking is tomorrow, ${dateLabel}. Reply if anything's changed. See you soon!`;
-}
 
 /**
  * Schedule a day-before booking reminder SMS.
@@ -62,7 +46,10 @@ export async function scheduleBookingReminderSms({
     timezone,
     "EEE d MMM 'at' h:mm a"
   );
-  const message = buildBookingReminderSms(firstName, dateLabel);
+  const { body: message } = await loadAndRenderSms(shopId, "booking_reminder_day", {
+    name: firstName,
+    date_time: dateLabel,
+  });
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from("scheduled_sms_jobs").insert({
@@ -109,7 +96,11 @@ export async function scheduleLeadFollowupSms({
 
   // Resolve sender name now so the SMS reads correctly when it fires
   const shopContacts = await getShopContactsById(shopId);
-  const message = buildLeadFollowupSms(firstName, vehicleLabel, shopContacts.sender_name);
+  const { body: message } = await loadAndRenderSms(shopId, "lead_followup_5day", {
+    name: firstName,
+    vehicle: vehicleLabel ?? "your vehicle",
+    senderName: shopContacts.sender_name,
+  });
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from("scheduled_sms_jobs").insert({
@@ -149,7 +140,9 @@ export async function scheduleReviewSms({
 }) {
   const supabase = getSupabaseAdminClient();
   const scheduledFor = addHours(new Date(), REVIEW_DELAY_HOURS).toISOString();
-  const message = REVIEW_SMS_TEMPLATE(firstName);
+  const { body: message } = await loadAndRenderSms(shopId, "review_request", {
+    name: firstName,
+  });
 
   const { error } = await supabase.from("scheduled_sms_jobs").insert({
     shop_id: shopId,

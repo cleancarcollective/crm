@@ -147,12 +147,49 @@ async function loadBookingFunnel(shopId: string) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, status, booking_source, created_at, scheduled_start")
+    .select("id, status, booking_source, created_at, scheduled_start, price_estimate")
     .eq("shop_id", shopId)
     .gte("created_at", since);
 
   if (error) throw error;
   return (data ?? []) as AnyRow[];
+}
+
+/**
+ * Bucket a list of items into 4 weekly groups (most recent week last). Each
+ * bucket gets a {label, count, value} computed from the supplied accessors.
+ */
+function bucketByWeek<T extends { created_at?: unknown; scheduled_start?: unknown }>(
+  items: T[],
+  dateField: "created_at" | "scheduled_start",
+  valueAccessor?: (item: T) => number
+): Array<{ weekLabel: string; count: number; value: number }> {
+  const now = Date.now();
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  const buckets: Array<{ weekLabel: string; count: number; value: number; weeksAgo: number }> = [];
+
+  for (let weeksAgo = 3; weeksAgo >= 0; weeksAgo--) {
+    const start = now - (weeksAgo + 1) * WEEK;
+    const end = now - weeksAgo * WEEK;
+    const inBucket = items.filter((it) => {
+      const ts = new Date(it[dateField] as string).getTime();
+      return ts >= start && ts < end;
+    });
+    const value = valueAccessor ? inBucket.reduce((sum, it) => sum + valueAccessor(it), 0) : 0;
+    buckets.push({
+      weekLabel:
+        weeksAgo === 0 ? "this week" : weeksAgo === 1 ? "last week" : `${weeksAgo}w ago`,
+      count: inBucket.length,
+      value,
+      weeksAgo,
+    });
+  }
+
+  return buckets;
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
@@ -188,6 +225,30 @@ export default async function AnalyticsPage() {
     ["confirmed", "completed"].includes(b.status as string)
   );
 
+  // Total revenue (estimate-based)
+  const totalRevenue = bookingRevenueEligible.reduce(
+    (sum, b) => sum + ((b.price_estimate as number | null) ?? 0),
+    0
+  );
+  const completedBookings = bookings.filter((b) => b.status === "completed");
+  const completedRevenue = completedBookings.reduce(
+    (sum, b) => sum + ((b.price_estimate as number | null) ?? 0),
+    0
+  );
+
+  // Average ticket size
+  const avgTicket = completedBookings.length > 0
+    ? completedRevenue / completedBookings.length
+    : 0;
+
+  // Weekly trends — last 4 weeks
+  const leadsByWeek = bucketByWeek(leads, "created_at");
+  const bookingsByWeek = bucketByWeek(
+    bookingRevenueEligible,
+    "created_at",
+    (b) => (b.price_estimate as number | null) ?? 0
+  );
+
   return (
     <main className="pageShell">
       <div className="pageTopbar">
@@ -199,6 +260,57 @@ export default async function AnalyticsPage() {
           </p>
         </div>
       </div>
+
+      <section className="detailPanel analyticsSection">
+        <h2>Revenue</h2>
+        <p className="settingsDescription">
+          Based on <code>price_estimate</code> on bookings. Pre-job estimates can
+          differ from invoiced amounts — treat as a directional signal.
+        </p>
+        <div className="quickFactsGrid">
+          <Fact label="Total revenue (window)" value={formatCurrency(totalRevenue)} />
+          <Fact label="From completed jobs" value={formatCurrency(completedRevenue)} />
+          <Fact label="Avg ticket (completed)" value={completedBookings.length > 0 ? formatCurrency(avgTicket) : "—"} />
+          <Fact label="Bookings completed" value={completedBookings.length} />
+        </div>
+      </section>
+
+      <section className="detailPanel analyticsSection">
+        <h2>Weekly trends</h2>
+        <p className="settingsDescription">
+          Last 4 weeks at a glance. Compare this week to the prior weeks to spot
+          momentum shifts early.
+        </p>
+        <div className="weeklyTrendsGrid">
+          <div className="weeklyTrendCol">
+            <h3 className="weeklyTrendTitle">Leads received</h3>
+            <div className="weeklyTrendList">
+              {leadsByWeek.map((b) => (
+                <div key={b.weekLabel} className="weeklyTrendRow">
+                  <span className="weeklyTrendLabel">{b.weekLabel}</span>
+                  <span className="weeklyTrendValue">{b.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="weeklyTrendCol">
+            <h3 className="weeklyTrendTitle">Booking revenue</h3>
+            <div className="weeklyTrendList">
+              {bookingsByWeek.map((b) => (
+                <div key={b.weekLabel} className="weeklyTrendRow">
+                  <span className="weeklyTrendLabel">{b.weekLabel}</span>
+                  <span className="weeklyTrendValue">
+                    {formatCurrency(b.value)}{" "}
+                    <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
+                      ({b.count})
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="detailPanel analyticsSection">
         <h2>Lead funnel</h2>

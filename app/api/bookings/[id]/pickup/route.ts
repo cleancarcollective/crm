@@ -4,16 +4,9 @@ import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { sendPickupReadyEmail } from "@/lib/email/sendPickupReadyEmail";
 import { scheduleReviewSms } from "@/lib/sms/scheduledSmsJobs";
+import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-function buildPickupSmsMessage(firstName: string, vehicleLabel: string | null, afterHours: boolean): string {
-  const vehicle = vehicleLabel ?? "your vehicle";
-  if (afterHours) {
-    return `Hi ${firstName}, ${vehicle} is ready for pick-up! We close at 5:00 pm — if you'll be more than 30 mins away please let us know your ETA. - Clean Car Collective`;
-  }
-  return `Hi ${firstName}, ${vehicle} is ready for pick-up! If you'll be more than 30 minutes away, please give us a heads-up. - Clean Car Collective`;
-}
 
 export async function POST(
   _request: Request,
@@ -70,7 +63,14 @@ export async function POST(
   // Send pickup ready SMS (if customer has a phone)
   let smsResult: { sent: boolean; error?: string } = { sent: false };
   if (customerPhone) {
-    const smsMessage = buildPickupSmsMessage(firstName, vehicleLabel, emailResult.afterHours);
+    const { body: smsMessage } = await loadAndRenderSms(
+      bookingRecord.shop_id,
+      emailResult.afterHours ? "pickup_after_hours" : "pickup_normal",
+      {
+        name: firstName,
+        vehicle: vehicleLabel ?? "your vehicle",
+      }
+    );
     const tnzResult = await sendTnzSms(customerPhone, smsMessage);
     smsResult = tnzResult.success
       ? { sent: true }

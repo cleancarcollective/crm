@@ -7,6 +7,10 @@
     {
       "path": "/api/sms/process-review",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/emails/daily-digest",
+      "schedule": "0 19 * * *"
     }
   ]
 }

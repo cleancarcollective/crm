@@ -7,6 +7,7 @@ import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmatio
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
 import { cancelLeadJobs } from "@/lib/scheduling/leadJobs";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
+import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { formatInTimeZone } from "date-fns-tz";
@@ -276,7 +277,10 @@ export async function POST(request: Request) {
     try {
       const firstName = contactFirstName ?? "there";
       const dateLabel = formatInTimeZone(booking.scheduled_start, shop.timezone, "EEE d MMM 'at' h:mm a");
-      const smsMessage = `Hi ${firstName}, your booking is confirmed for ${dateLabel}. See you soon! - Clean Car Collective`;
+      const { body: smsMessage } = await loadAndRenderSms(shop.id, "booking_confirmation", {
+        name: firstName,
+        date_time: dateLabel,
+      });
       await sendTnzSms(contactPhone, smsMessage);
     } catch (err) {
       console.error("Confirmation SMS failed", err);

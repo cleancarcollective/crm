@@ -2290,6 +2290,97 @@ textarea {
   color: var(--danger);
 }
 
+/* ── SMS template editor ─────────────────────────────────────────────── */
+
+.smsTemplateList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.smsTemplateCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: #ffffff;
+}
+
+.smsTemplateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.smsTemplateLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.smsTemplateName {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.smsTemplateActiveToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.smsTemplateTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  background: #fafaf8;
+}
+
+.smsTemplateTextarea:focus {
+  outline: none;
+  border-color: var(--foreground);
+  background: #ffffff;
+}
+
+.smsTemplateMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.smsTemplateLen {
+  font-variant-numeric: tabular-nums;
+}
+
+.smsTemplateVars {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.smsTemplateActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
 /* ── Public token-authed lead-action pages ──────────────────────────── */
 
 .leadActionShell {
@@ -2612,6 +2703,53 @@ textarea {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.weeklyTrendsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 12px;
+}
+@media (max-width: 720px) {
+  .weeklyTrendsGrid { grid-template-columns: 1fr; }
+}
+.weeklyTrendCol {
+  background: #fafaf8;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.weeklyTrendTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.weeklyTrendList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.weeklyTrendRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid #ede6dc;
+}
+.weeklyTrendRow:last-child { border-bottom: none; }
+.weeklyTrendLabel {
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+.weeklyTrendValue {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .analyticsFooterHint {

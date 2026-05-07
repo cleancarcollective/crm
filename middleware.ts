@@ -16,6 +16,7 @@ const PUBLIC_PREFIXES = [
   "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
   "/api/emails/process-scheduled",   // pg_cron every minute
   "/api/sms/process-review",         // Vercel cron 9am UTC daily
+  "/api/emails/daily-digest",        // Vercel cron 7pm UTC = 7am NZ daily
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page
   "/api/public/",                    // token-authed customer-facing actions

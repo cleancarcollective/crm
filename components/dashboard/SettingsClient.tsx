@@ -152,6 +152,23 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
         </div>
       </section>
 
+      {/* ── SMS templates link ───────────────────────────────────── */}
+      <section className="detailPanel settingsSection">
+        <div className="settingsPricingHeader">
+          <div>
+            <h2>SMS templates</h2>
+            <p className="settingsDescription">
+              Customer text messages — booking confirmation, reminders, pickup, review.
+            </p>
+          </div>
+          <div className="settingsPricingActions">
+            <Link href="/settings/sms-templates" className="buttonPrimary">
+              Manage SMS →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Email templates link ─────────────────────────────────── */}
       <section className="detailPanel settingsSection">
         <div className="settingsPricingHeader">
