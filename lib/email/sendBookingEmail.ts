@@ -248,6 +248,16 @@ function buildTemplateContext({
   const shopDetails = SHOP_DETAILS[shop.slug] ?? DEFAULT_SHOP_DETAILS;
   const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
 
+  // Map raw enum to a customer-facing string. Templates just see one
+  // friendly phrase regardless of how `location_type` is stored.
+  function humaniseLocation(raw: string | null | undefined): string {
+    const v = (raw ?? "").toLowerCase().trim();
+    if (!v) return "To be confirmed";
+    if (v.includes("mobile")) return "We come to you";
+    if (v === "in_shop" || v === "shop" || v.includes("drop")) return "Drop-off at our shop";
+    return raw as string; // unknown — surface as-is so we notice
+  }
+
   // Customer self-service link — only on customer-facing emails (skip team).
   // 14-day expiry covers most reschedule windows; customer can always reply
   // to the email if their token expires.
@@ -276,7 +286,7 @@ function buildTemplateContext({
     scheduled_date: formatInTimeZone(booking.scheduled_start, shop.timezone, "EEEE d MMMM yyyy"),
     scheduled_time: formatInTimeZone(booking.scheduled_start, shop.timezone, "h:mm a"),
     vehicle_label: getVehicleLabel(booking),
-    location_type: booking.location_type ?? "To be confirmed",
+    location_type: humaniseLocation(booking.location_type),
     price_estimate: formatCurrency(booking.price_estimate),
     notes: cleanNotesForRecipient(
       booking.notes || booking.service_details,
