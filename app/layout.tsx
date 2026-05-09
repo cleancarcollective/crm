@@ -68,16 +68,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <nav className="globalNav">
-          <Link href="/" className="globalNavBrand">
-            CCC CRM
-            {user.isSuperAdmin ? (
-              <ShopSwitcher activeSlug={user.shop.slug} shops={allShops} />
-            ) : (
-              <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
-                {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
-              </span>
-            )}
-          </Link>
+          <Link href="/" className="globalNavBrand">CCC CRM</Link>
+          {user.isSuperAdmin ? (
+            <ShopSwitcher activeSlug={user.shop.slug} shops={allShops} />
+          ) : (
+            <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
+              {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
+            </span>
+          )}
           <div className="globalNavLinks">
             <Link href="/" className="globalNavLink">Calendar</Link>
             <Link href="/leads" className="globalNavLink">Leads</Link>
