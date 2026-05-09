@@ -149,20 +149,30 @@ async function getVehiclesForContact(contactId: string) {
   return (data ?? []) as VehicleRecord[];
 }
 
+/**
+ * PostgREST limits result sets to 1000 rows by default. Wellington has
+ * thousands of contacts/leads after the Orbis migration, so directory
+ * queries must page through the full set explicitly.
+ */
+const PAGE_SIZE = 1000;
+
 async function getContactsForShop(shopId: string) {
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("contacts")
-    .select("id, shop_id, first_name, last_name, full_name, email, phone, notes, created_at, updated_at")
-    .eq("shop_id", shopId)
-    .not("archived", "eq", true)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    throw error;
+  const all: ContactRecord[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("contacts")
+      .select("id, shop_id, first_name, last_name, full_name, email, phone, notes, created_at, updated_at")
+      .eq("shop_id", shopId)
+      .not("archived", "eq", true)
+      .order("updated_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as ContactRecord[];
+    all.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
   }
-
-  return (data ?? []) as ContactRecord[];
+  return all;
 }
 
 async function getLeadsForContact(contactId: string) {
@@ -191,18 +201,25 @@ async function getLeadsForContact(contactId: string) {
 
 async function getLeadsForShop(shopId: string) {
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, quote_subject, quote_body, quote_html, template_key, suggested_size, confidence, reason_code, internal_notes, approved_size, created_at, updated_at, booked_at")
-    .eq("shop_id", shopId)
-    .not("archived", "eq", true)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    throw error;
+  // Strip quote_html / quote_body / body_rendered etc — those are huge
+  // (multi-KB per lead) and only the detail page needs them. Directory
+  // listings only display id/contact/vehicle/status/service/dates.
+  // Page through all rows to bypass PostgREST's 1000-row default.
+  const all: LeadRecord[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, template_key, suggested_size, confidence, reason_code, approved_size, created_at, updated_at, booked_at")
+      .eq("shop_id", shopId)
+      .not("archived", "eq", true)
+      .order("updated_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as LeadRecord[];
+    all.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
   }
-
-  const leads = (data ?? []) as LeadRecord[];
+  const leads = all;
   const vehicleIds = [...new Set(leads.map((lead) => lead.vehicle_id).filter(Boolean))] as string[];
   const vehicles = await getVehiclesByIds(vehicleIds);
   const vehicleMap = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
@@ -239,17 +256,22 @@ async function getBookingsForContact(contact: ContactRecord) {
 
 async function getBookingsForShop(shopId: string) {
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("shop_id", shopId)
-    .order("scheduled_start", { ascending: false });
-
-  if (error) {
-    throw error;
+  // Page through to bypass PostgREST's 1000-row cap (Wellington has ~1000
+  // imported historical bookings).
+  const bookings: BookingRecord[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("shop_id", shopId)
+      .order("scheduled_start", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as BookingRecord[];
+    bookings.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
   }
 
-  const bookings = (data ?? []) as BookingRecord[];
   const contactIds = [...new Set(bookings.map((booking) => booking.contact_id).filter(Boolean))] as string[];
   const vehicleIds = [...new Set(bookings.map((booking) => booking.vehicle_id).filter(Boolean))] as string[];
 
@@ -264,40 +286,44 @@ async function getBookingsForShop(shopId: string) {
   })) satisfies BookingWithRelations[];
 }
 
+// Batch size for `.in()` queries — keeps the URL length safe (each UUID is
+// ~36 chars; 200 ids × 36 ≈ 7KB which is well under typical 8KB caps).
+const IN_BATCH = 200;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 async function getContactsByIds(ids: string[]) {
-  if (ids.length === 0) {
-    return [] as ContactRecord[];
-  }
-
+  if (ids.length === 0) return [] as ContactRecord[];
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("contacts")
-    .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
-    .in("id", ids);
-
-  if (error) {
-    throw error;
+  const all: ContactRecord[] = [];
+  for (const batch of chunk(ids, IN_BATCH)) {
+    const { data, error } = await supabase
+      .from("contacts")
+      .select("id, shop_id, first_name, last_name, full_name, email, phone, created_at, updated_at")
+      .in("id", batch);
+    if (error) throw error;
+    all.push(...((data ?? []) as ContactRecord[]));
   }
-
-  return (data ?? []) as ContactRecord[];
+  return all;
 }
 
 async function getVehiclesByIds(ids: string[]) {
-  if (ids.length === 0) {
-    return [] as VehicleRecord[];
-  }
-
+  if (ids.length === 0) return [] as VehicleRecord[];
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("vehicles")
-    .select("id, make, model, year, rego, size")
-    .in("id", ids);
-
-  if (error) {
-    throw error;
+  const all: VehicleRecord[] = [];
+  for (const batch of chunk(ids, IN_BATCH)) {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("id, make, model, year, rego, size")
+      .in("id", batch);
+    if (error) throw error;
+    all.push(...((data ?? []) as VehicleRecord[]));
   }
-
-  return (data ?? []) as VehicleRecord[];
+  return all;
 }
 
 async function getEmailsForContact({
