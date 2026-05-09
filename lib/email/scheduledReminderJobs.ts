@@ -27,13 +27,13 @@ const REMINDER_DEFINITIONS = [
 function getReminderIntroLine(templateKey: EmailTemplateKey, shopName: string): string {
   switch (templateKey) {
     case "booking-reminder-week":
-      return `This is your one-week reminder for your upcoming booking with ${shopName}.`;
+      return `Just a heads-up that your booking with ${shopName} is coming up in a week.`;
     case "booking-reminder-day":
-      return `This is your one-day reminder for your upcoming booking with ${shopName}.`;
+      return `Quick reminder — your booking with ${shopName} is tomorrow.`;
     case "booking-reminder-hour":
-      return `This is your one-hour reminder for your upcoming booking with ${shopName}.`;
+      return `You're booked in with ${shopName} in about an hour.`;
     default:
-      return `A reminder about your upcoming booking with ${shopName}.`;
+      return `A quick reminder about your upcoming booking with ${shopName}.`;
   }
 }
 

@@ -180,20 +180,20 @@ async function main() {
     {
       label: "3/8 booking-reminder-week",
       templateKey: "booking-reminder-week",
-      introLine: `This is your one-week reminder for your upcoming booking with ${shop.name}.`,
+      introLine: `Just a heads-up that your booking with ${shop.name} is coming up in a week.`,
       actionLine: "If anything has changed, reply to this email.",
     },
     {
       label: "4/8 booking-reminder-day",
       templateKey: "booking-reminder-day",
-      introLine: `This is your one-day reminder for your upcoming booking with ${shop.name}.`,
-      actionLine: "If anything has changed, reply to this email.",
+      introLine: `Quick reminder — your booking with ${shop.name} is tomorrow.`,
+      actionLine: "If anything has changed, reply and we'll sort it.",
     },
     {
       label: "5/8 booking-reminder-hour",
       templateKey: "booking-reminder-hour",
-      introLine: `This is your one-hour reminder for your upcoming booking with ${shop.name}.`,
-      actionLine: "We look forward to seeing you shortly.",
+      introLine: `You're booked in with ${shop.name} in about an hour.`,
+      actionLine: "Looking forward to it.",
     },
   ];
 

@@ -35,12 +35,12 @@ export const SMS_TEMPLATE_DEFAULTS: SmsTemplateDefault[] = [
   {
     template_key: "pickup_normal",
     name: "Pickup ready — during opening hours",
-    body_text: `Hi {{name}}, {{vehicle}} is ready for pick-up! If you'll be more than 30 minutes away, please give us a heads-up. - Clean Car Collective`,
+    body_text: `Hi {{name}}, your {{vehicle}} is ready for pick-up! If you'll be more than 30 minutes away, please give us a heads-up. - Clean Car Collective`,
   },
   {
     template_key: "pickup_after_hours",
     name: "Pickup ready — after hours",
-    body_text: `Hi {{name}}, {{vehicle}} is ready for pick-up! We close at 5:00 pm — if you'll be more than 30 mins away please let us know your ETA. - Clean Car Collective`,
+    body_text: `Hi {{name}}, your {{vehicle}} is ready for pick-up! We close at 5:00 pm — if you'll be more than 30 mins away please let us know your ETA. - Clean Car Collective`,
   },
   {
     template_key: "review_request",
