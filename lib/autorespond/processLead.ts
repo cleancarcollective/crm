@@ -14,6 +14,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getShopContactsById } from "@/lib/email/shopContacts";
 import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
 import { scheduleLeadJob } from "@/lib/scheduling/leadJobs";
+import { llmDraftQuote, type LlmDraftInput } from "./llmDraftQuote";
 import { classifyVehicle } from "./vehicleSizing";
 import {
   pickTemplateKey,
@@ -294,6 +295,83 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     newStatus = "needs_approval";
     internalNote = `Needs approval: confidence ${confidence} (${Math.round(confNumeric * 100)}%, reason: ${reasonCode}).`;
     approvalReason = "low_confidence";
+  }
+
+  // ── LLM fallback ─────────────────────────────────────────────────────────
+  // When the deterministic path bailed and we'd otherwise hand a thin draft
+  // to staff, ask Claude (via OpenRouter) to draft a real reply with proper
+  // pricing reasoning. Lead still lands in needs_approval — staff one-click
+  // sends it via the existing approval-email flow. Failures are non-fatal
+  // (the deterministic draft remains as the fallback).
+  let llmConfidence: number | null = null;
+  if (
+    newStatus === "needs_approval" &&
+    process.env.OPENROUTER_API_KEY &&
+    (approvalReason === "low_confidence" ||
+      approvalReason === "vehicle_size_unknown" ||
+      approvalReason === "notes_present")
+  ) {
+    try {
+      const contacts = await getShopContactsById(shopId);
+      // Look up shop name/slug + vehicle year on the side. Cheap and keeps
+      // the input type unchanged for callers.
+      const { data: shopRow } = await supabase
+        .from("shops")
+        .select("name, slug")
+        .eq("id", shopId)
+        .single();
+      const { data: leadRow } = await supabase
+        .from("leads")
+        .select("vehicle_id, vehicles(year)")
+        .eq("id", leadId)
+        .maybeSingle();
+      const vehicleYear =
+        ((leadRow?.vehicles as unknown) as { year: string | null } | null)?.year ?? null;
+
+      const llmInput: LlmDraftInput = {
+        shopId,
+        shopName: shopRow?.name ?? "Clean Car Collective",
+        shopSlug: shopRow?.slug ?? "",
+        senderFirstName: contacts.sender_name,
+        bookingUrl: `${contacts.website}/make-a-booking`,
+        reason: approvalReason as LlmDraftInput["reason"],
+        firstName,
+        serviceRequested,
+        vehicleMake: makeRaw,
+        vehicleModel: modelRaw,
+        vehicleYear,
+        customerNotes: notes,
+        deterministicSubject: draftSubject,
+        deterministicBody: draftBody,
+      };
+      const llm = await llmDraftQuote(llmInput);
+
+      // If LLM decided to ask for info instead of quoting, body will already
+      // reflect that. Either way, replace the deterministic draft with the
+      // LLM's output so staff sees the better version.
+      draftSubject = llm.subject;
+      draftBody = llm.body;
+      draftHtml = llm.htmlBody;
+      llmConfidence = llm.confidence;
+      internalNote = `LLM-drafted (confidence ${Math.round(llm.confidence * 100)}%${
+        llm.suggestedPriceEstimate !== null ? `, ~$${llm.suggestedPriceEstimate}` : ""
+      }${llm.needsMoreInfo ? ", asking for info" : ""}). ${llm.internalNotes}`;
+      console.info("LLM draft generated", {
+        leadId,
+        confidence: llm.confidence,
+        suggestedPrice: llm.suggestedPriceEstimate,
+        needsMoreInfo: !!llm.needsMoreInfo,
+        promptTokens: llm.usage.promptTokens,
+        completionTokens: llm.usage.completionTokens,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("LLM draft failed (non-fatal — falling back to deterministic draft)", {
+        leadId,
+        err: msg,
+      });
+      internalNote += ` LLM draft attempt failed: ${msg}.`;
+    }
   }
 
   // Update lead record
