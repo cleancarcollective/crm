@@ -194,6 +194,8 @@ export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Pro
       TextBody: textBody,
       HtmlBody: htmlBody,
       MessageStream: "booking-emails",
+      TrackOpens: false,
+      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: args.shop.id,

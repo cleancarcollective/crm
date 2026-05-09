@@ -184,6 +184,8 @@ export async function sendLeadTeamNotification({
       TextBody: textBody,
       HtmlBody: renderLeadNotificationHtml(shop, lead),
       MessageStream: "booking-emails",
+      TrackOpens: false,
+      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: shop.id,

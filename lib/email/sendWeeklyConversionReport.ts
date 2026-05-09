@@ -154,13 +154,63 @@ export async function gatherConversionStats(args: {
     bookings = bookingsData ?? [];
   }
 
-  // Index bookings by contact for O(1) lookup
-  const bookingsByContact = new Map<string, typeof bookings>();
-  for (const b of bookings) {
-    if (!b.contact_id) continue;
-    const arr = bookingsByContact.get(b.contact_id) ?? [];
-    arr.push(b);
-    bookingsByContact.set(b.contact_id, arr);
+  // Attribute each booking to AT MOST ONE lead (the most recent eligible lead
+  // for that contact). Without this, a contact who submits 5 leads then books
+  // once gets counted as 5 conversions.
+  //
+  // Eligible = lead.contact_id matches, lead.created_at <= booking.created_at,
+  //            booking.created_at - lead.created_at <= conversion window.
+  // We need leads from a wider net than just the cohort, because a booking in
+  // the cohort might attribute to a lead that came in just before the cohort
+  // started. But for THIS report we only count attributions where the lead
+  // itself is in the cohort — so the simpler rule works: among leads in the
+  // cohort, pick the most recent one before each booking.
+  const conversionWindowMsForAttr = CONVERSION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+  // leadId → matching booking (if any). Used below to flag the lead as booked.
+  const attributedBookingByLead = new Map<string, (typeof bookings)[number]>();
+
+  // Group leads-in-cohort by contact, sorted newest-first
+  const leadsByContact = new Map<string, typeof leads>();
+  for (const l of leads) {
+    if (!l.contact_id) continue;
+    const arr = leadsByContact.get(l.contact_id as string) ?? [];
+    arr.push(l);
+    leadsByContact.set(l.contact_id as string, arr);
+  }
+  for (const arr of leadsByContact.values()) {
+    arr.sort(
+      (a, b) =>
+        new Date(b.created_at as string).getTime() -
+        new Date(a.created_at as string).getTime()
+    );
+  }
+
+  // Track which bookings we've already attributed (so a contact's earlier
+  // booking doesn't also get credited to a later lead).
+  const attributedBookingIds = new Set<number>(); // bookings have no id pulled — use index
+  // Tag bookings with index for de-dup
+  const bookingsIndexed = bookings.map((b, i) => ({ ...b, _idx: i }));
+
+  for (const [contactId, contactLeads] of leadsByContact.entries()) {
+    const contactBookings = bookingsIndexed
+      .filter((b) => b.contact_id === contactId)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); // oldest first
+
+    for (const booking of contactBookings) {
+      if (attributedBookingIds.has(booking._idx)) continue;
+      const bMs = new Date(booking.created_at).getTime();
+      // Find the most-recent lead before this booking, within window
+      const matchingLead = contactLeads.find((l) => {
+        if (attributedBookingByLead.has(l.id as string)) return false; // lead already credited
+        const lMs = new Date(l.created_at as string).getTime();
+        return lMs <= bMs && bMs - lMs <= conversionWindowMsForAttr;
+      });
+      if (matchingLead) {
+        attributedBookingByLead.set(matchingLead.id as string, booking);
+        attributedBookingIds.add(booking._idx);
+      }
+    }
   }
 
   const totals: FunnelTotals = {
@@ -174,7 +224,6 @@ export async function gatherConversionStats(args: {
   };
 
   const sources: SourceBreakdown = {};
-  const conversionWindowMs = CONVERSION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
   for (const lead of leads) {
     const src = (lead.source as string) || "unknown";
@@ -193,17 +242,7 @@ export async function gatherConversionStats(args: {
     if (allEvents.some((e) => e.event_type === "open")) totals.opened++;
     if (allEvents.some((e) => e.event_type === "click")) totals.clicked++;
 
-    // Auto-detect conversion: any booking for this contact, created after
-    // the lead, within the conversion window.
-    if (!lead.contact_id) continue;
-    const leadCreatedMs = new Date(lead.created_at as string).getTime();
-    const contactBookings = bookingsByContact.get(lead.contact_id) ?? [];
-
-    const matchingBooking = contactBookings.find((b) => {
-      const bookedMs = new Date(b.created_at).getTime();
-      return bookedMs >= leadCreatedMs && bookedMs <= leadCreatedMs + conversionWindowMs;
-    });
-
+    const matchingBooking = attributedBookingByLead.get(lead.id as string);
     if (matchingBooking) {
       totals.booked++;
       sources[src].booked++;

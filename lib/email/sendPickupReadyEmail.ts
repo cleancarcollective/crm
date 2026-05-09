@@ -199,6 +199,8 @@ export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sen
     TextBody: textBody,
     HtmlBody: htmlBody,
     MessageStream: "booking-emails",
+    TrackOpens: false,
+    TrackLinks: "None" as never,
     Metadata: {
       email_message_id: messageRecord.id,
       booking_id: args.bookingId,

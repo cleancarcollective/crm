@@ -186,6 +186,11 @@ export async function sendBookingEmail({
       TextBody: rendered.textBody,
       HtmlBody: rendered.htmlBody,
       MessageStream: "booking-emails",
+      // Open + click tracking off — pixels and link rewriting hurt
+      // deliverability and the data is unreliable (Apple Mail prefetch
+      // skews opens, etc.). Conversion is measured via booking presence.
+      TrackOpens: false,
+      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         booking_id: booking.id,
