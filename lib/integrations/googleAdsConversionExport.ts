@@ -220,7 +220,7 @@ export async function exportRecentBookingsForGoogleAds() {
   if (!response.ok) {
     throw new Error(`Sheets webhook HTTP ${response.status}: ${responseText.slice(0, 300)}`);
   }
-  let parsed: { ok?: boolean; error?: string; appended?: number } = {};
+  let parsed: Record<string, unknown> = {};
   try {
     parsed = JSON.parse(responseText);
   } catch {
@@ -230,5 +230,5 @@ export async function exportRecentBookingsForGoogleAds() {
     throw new Error(`Sheets webhook rejected: ${parsed.error ?? JSON.stringify(parsed).slice(0, 300)}`);
   }
 
-  return { exported: rows.length, withAttribution, appended: parsed.appended ?? 0 };
+  return { exported: rows.length, withAttribution, sheetsResponse: parsed };
 }
