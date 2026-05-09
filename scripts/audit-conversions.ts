@@ -60,8 +60,9 @@ type AuditRow = {
   contactPhone: string | null;
   vehicleLabel: string;
   serviceRequested: string | null;
-  emailSentAt: string | null;
-  emailSubject: string | null;
+  confirmationSentAt: string | null;
+  quoteSentAt: string | null;
+  quoteSubject: string | null;
   bookingId: string | null;
   bookingCreatedAt: string | null;
   bookingStatus: string | null;
@@ -95,10 +96,13 @@ async function main() {
   if (!shops) throw new Error("No shops");
 
   const allRows: AuditRow[] = [];
-  const summary: Record<string, { totalLeads: number; booked: number; ambiguous: number; orphan: number }> = {};
+  const summary: Record<
+    string,
+    { totalLeads: number; booked: number; ambiguous: number; orphan: number; quoteSent: number; confirmedNoQuote: number }
+  > = {};
 
   for (const shop of shops) {
-    summary[shop.slug] = { totalLeads: 0, booked: 0, ambiguous: 0, orphan: 0 };
+    summary[shop.slug] = { totalLeads: 0, booked: 0, ambiguous: 0, orphan: 0, quoteSent: 0, confirmedNoQuote: 0 };
 
     // Leads in the lookback window — pull contact + first email
     const { data: leads, error: leadsErr } = await supabase
@@ -171,10 +175,23 @@ async function main() {
       summary[shop.slug]!.totalLeads++;
       const sentEmails = (lead.email_messages ?? []).filter((m: any) => m.status === "sent" && m.sent_at);
       sentEmails.sort((a: any, b: any) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime());
-      const firstEmail = sentEmails[0] ?? null;
+
+      // Classify each email by subject. The auto-confirmation ("we got your
+      // enquiry") goes to every customer automatically and does NOT mean
+      // we've actually engaged. The quote/estimate is the real contact —
+      // sent by staff after approval, or auto-sent by the high-confidence
+      // auto-respond path.
+      const isConfirmation = (s: string) => s.startsWith("We've received your enquiry");
+      const isTeamNotif = (s: string) => s.startsWith("New lead:");
+      const confirmationEmail = sentEmails.find((m: any) => isConfirmation(m.subject ?? ""));
+      const quoteEmail = sentEmails.find(
+        (m: any) => !isConfirmation(m.subject ?? "") && !isTeamNotif(m.subject ?? "")
+      );
 
       const matching = attributedBookingByLead.get(lead.id) ?? null;
       const leadMs = new Date(lead.created_at).getTime();
+      if (quoteEmail) summary[shop.slug]!.quoteSent++;
+      if (confirmationEmail && !quoteEmail) summary[shop.slug]!.confirmedNoQuote++;
 
       const contact = lead.contact ?? {};
       const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "—";
@@ -190,8 +207,10 @@ async function main() {
           flags.push(`ℹ️ contact has ${leadCount} leads — only this lead credited (most recent before booking)`);
           summary[shop.slug]!.ambiguous++;
         }
-        if (!firstEmail) {
-          flags.push(`📞 no email — likely phone-in or auto-respond skipped`);
+        if (!confirmationEmail && !quoteEmail) {
+          flags.push(`📞 no email of any kind — likely phone-in`);
+        } else if (!quoteEmail) {
+          flags.push(`⚠️ booked WITHOUT us sending a quote — auto-confirm only`);
         }
       } else {
         if (!lead.contact_id) {
@@ -214,8 +233,9 @@ async function main() {
         contactPhone: contact.phone ?? null,
         vehicleLabel: vehicle,
         serviceRequested: lead.service_requested,
-        emailSentAt: firstEmail?.sent_at ?? null,
-        emailSubject: firstEmail?.subject ?? null,
+        confirmationSentAt: confirmationEmail?.sent_at ?? null,
+        quoteSentAt: quoteEmail?.sent_at ?? null,
+        quoteSubject: quoteEmail?.subject ?? null,
         bookingId: matching?.id ?? null,
         bookingCreatedAt: matching?.created_at ?? null,
         bookingStatus: matching?.status ?? null,
@@ -245,12 +265,14 @@ async function main() {
   // Summary
   md.push(`## Summary`);
   md.push("");
-  md.push(`| Shop | Leads (90d) | Booked | Ambiguous (multi-lead contact) | Orphan (no contact) |`);
-  md.push(`|---|---:|---:|---:|---:|`);
+  md.push(`| Shop | Leads (90d) | Auto-confirm only (no quote) | Quote sent | Booked | Ambiguous | Orphan |`);
+  md.push(`|---|---:|---:|---:|---:|---:|---:|`);
   for (const shop of shops) {
     const s = summary[shop.slug]!;
-    md.push(`| ${shop.name} | ${s.totalLeads} | ${s.booked} | ${s.ambiguous} | ${s.orphan} |`);
+    md.push(`| ${shop.name} | ${s.totalLeads} | ${s.confirmedNoQuote} | ${s.quoteSent} | ${s.booked} | ${s.ambiguous} | ${s.orphan} |`);
   }
+  md.push("");
+  md.push(`> **Auto-confirm only** = lead got the "we received your enquiry" auto-reply but staff never sent an actual quote. These are leads we may have dropped.`);
   md.push("");
 
   // Per-shop detail
@@ -268,11 +290,11 @@ async function main() {
       md.push(`_None._`);
       md.push("");
     } else {
-      md.push(`| Lead date | Source | Contact | Email sent? | Booking date | Lag | Booking status | Price | Service | Flags |`);
-      md.push(`|---|---|---|---|---|---:|---|---:|---|---|`);
+      md.push(`| Lead date | Source | Contact | Auto-confirm | Quote sent | Booking date | Lag | Booking status | Price | Service | Flags |`);
+      md.push(`|---|---|---|---|---|---|---:|---|---:|---|---|`);
       for (const r of booked) {
         md.push(
-          `| ${fmtDate(r.leadCreatedAt, shop.timezone)} | ${r.leadSource} | ${r.contactName} (${r.contactEmail}) | ${r.emailSentAt ? "✓ " + fmtDate(r.emailSentAt, shop.timezone) : "—"} | ${fmtDate(r.bookingCreatedAt, shop.timezone)} | ${r.lagDays}d | ${r.bookingStatus} | ${fmtNzd(r.bookingPrice)} | ${r.serviceRequested ?? "—"} | ${r.flag || ""} |`
+          `| ${fmtDate(r.leadCreatedAt, shop.timezone)} | ${r.leadSource} | ${r.contactName} (${r.contactEmail}) | ${r.confirmationSentAt ? "✓ " + fmtDate(r.confirmationSentAt, shop.timezone) : "—"} | ${r.quoteSentAt ? "✓ " + fmtDate(r.quoteSentAt, shop.timezone) : "—"} | ${fmtDate(r.bookingCreatedAt, shop.timezone)} | ${r.lagDays}d | ${r.bookingStatus} | ${fmtNzd(r.bookingPrice)} | ${r.serviceRequested ?? "—"} | ${r.flag || ""} |`
         );
       }
       md.push("");
@@ -286,11 +308,12 @@ async function main() {
       md.push(`_None._`);
       md.push("");
     } else {
-      md.push(`| Lead date | Source | Contact | Email sent? | Service | Flags |`);
-      md.push(`|---|---|---|---|---|---|`);
+      md.push(`| Lead date | Source | Contact | Auto-confirm | Quote sent | Service | Flags |`);
+      md.push(`|---|---|---|---|---|---|---|`);
       for (const r of unbooked) {
+        const noQuoteFlag = !r.quoteSentAt && r.confirmationSentAt ? "⏳ awaiting quote / approval" : r.flag;
         md.push(
-          `| ${fmtDate(r.leadCreatedAt, shop.timezone)} | ${r.leadSource} | ${r.contactName} (${r.contactEmail}) | ${r.emailSentAt ? "✓ " + fmtDate(r.emailSentAt, shop.timezone) : "—"} | ${r.serviceRequested ?? "—"} | ${r.flag || ""} |`
+          `| ${fmtDate(r.leadCreatedAt, shop.timezone)} | ${r.leadSource} | ${r.contactName} (${r.contactEmail}) | ${r.confirmationSentAt ? "✓ " + fmtDate(r.confirmationSentAt, shop.timezone) : "—"} | ${r.quoteSentAt ? "✓ " + fmtDate(r.quoteSentAt, shop.timezone) : "—"} | ${r.serviceRequested ?? "—"} | ${noQuoteFlag} |`
         );
       }
       md.push("");
