@@ -152,7 +152,11 @@ async function buildExportRows(args: {
     rows.push({
       booking_id: booking.id as string,
       shop_slug: shopSlug ?? "unknown",
-      conversion_action: "Booking made",
+      // Conversion action name in Google Ads. Must match exactly what's
+      // configured in each shop's Google Ads account. Same name across
+      // shops — they're routed by which tab/sheet the row lands in, not
+      // by conversion action name.
+      conversion_action: "Booking value (CRM offline)",
       conversion_time: booking.created_at as string,
       value,
       currency: "NZD",

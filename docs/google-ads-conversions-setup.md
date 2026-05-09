@@ -95,18 +95,32 @@ fields into the JSON body before submission. Same idea, different plumbing.
 
 ### 3. Google Sheet + Apps Script web app
 
+We use **one Sheet with one tab per shop**. Each shop's Google Ads account
+imports from its own tab — that way Christchurch bookings only get credited
+to the Christchurch ad account, and Wellington to Wellington. (Don't dump
+everything in one tab — Google Ads scheduled imports pull the whole sheet
+into whichever account is connected, and you'd cross-attribute revenue.)
+
 1. Create a new Google Sheet. Name it `Clean Car Collective — Google Ads conversions`.
-2. Add a header row with these columns (exact order, exact spelling):
+2. Create two tabs (rename "Sheet1" + add a new tab):
+   - `Christchurch`
+   - `Wellington`
+3. In **both tabs**, add this header row in row 1 (exact order, exact spelling):
 
    | Google Click ID | Conversion Name | Conversion Time | Conversion Value | Conversion Currency | GBRAID | WBRAID | Email | Booking ID |
 
-3. `Extensions → Apps Script`. Replace the placeholder code with:
+4. `Extensions → Apps Script`. Replace the placeholder code with:
 
    ```javascript
    const WEBHOOK_SECRET = "REPLACE_WITH_LONG_RANDOM_STRING";
 
+   // shop_slug → tab name. Add new shops here as we expand.
+   const TAB_BY_SHOP = {
+     christchurch: "Christchurch",
+     wellington: "Wellington",
+   };
+
    function doPost(e) {
-     // Validate shared secret (passed via header, falls back to body field)
      const headerSecret = e.parameter && e.parameter.secret;
      const body = JSON.parse(e.postData.contents);
      const bodySecret = body.secret;
@@ -116,17 +130,38 @@ fields into the JSON body before submission. Same idea, different plumbing.
        ).setMimeType(ContentService.MimeType.JSON);
      }
 
-     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-     const existing = sheet.getDataRange().getValues();
-     const bookingIdCol = 8; // 0-indexed: 9th column = Booking ID
-     const seenBookingIds = new Set(existing.slice(1).map((r) => r[bookingIdCol]));
+     const ss = SpreadsheetApp.getActiveSpreadsheet();
+     // Build per-tab dedupe sets up front so we don't reread the sheet
+     // for every row.
+     const dedupeByTab = {};
+     Object.values(TAB_BY_SHOP).forEach((tabName) => {
+       const tab = ss.getSheetByName(tabName);
+       if (!tab) return;
+       const data = tab.getDataRange().getValues();
+       const bookingIdCol = 8; // 9th column = Booking ID (0-indexed 8)
+       dedupeByTab[tabName] = new Set(data.slice(1).map((r) => r[bookingIdCol]));
+     });
 
-     let appended = 0;
+     const result = { appended: 0, skipped_duplicate: 0, skipped_unknown_shop: 0 };
+
      (body.rows || []).forEach((row) => {
-       if (seenBookingIds.has(row.booking_id)) return; // de-dupe
-       sheet.appendRow([
+       const tabName = TAB_BY_SHOP[row.shop_slug];
+       if (!tabName) {
+         result.skipped_unknown_shop++;
+         return;
+       }
+       const tab = ss.getSheetByName(tabName);
+       if (!tab) {
+         result.skipped_unknown_shop++;
+         return;
+       }
+       if (dedupeByTab[tabName] && dedupeByTab[tabName].has(row.booking_id)) {
+         result.skipped_duplicate++;
+         return;
+       }
+       tab.appendRow([
          row.gclid || "",
-         row.conversion_action || "Booking completed",
+         row.conversion_action || "Booking value (CRM offline)",
          row.conversion_time || "",
          row.value || 0,
          row.currency || "NZD",
@@ -135,21 +170,22 @@ fields into the JSON body before submission. Same idea, different plumbing.
          row.email_sha256 || "",
          row.booking_id || "",
        ]);
-       appended++;
+       if (dedupeByTab[tabName]) dedupeByTab[tabName].add(row.booking_id);
+       result.appended++;
      });
 
      return ContentService.createTextOutput(
-       JSON.stringify({ ok: true, appended })
+       JSON.stringify({ ok: true, ...result })
      ).setMimeType(ContentService.MimeType.JSON);
    }
    ```
 
-4. Replace `WEBHOOK_SECRET` with a long random string (e.g.
+5. Replace `WEBHOOK_SECRET` with a long random string (e.g.
    `openssl rand -hex 32`). Keep it.
-5. Click **Deploy → New deployment → Web app**.
+6. Click **Deploy → New deployment → Web app**.
    - Execute as: **Me**
    - Who has access: **Anyone** (the secret is the gate)
-6. Authorize. Copy the deployed Web app URL.
+7. Authorize. Copy the deployed Web app URL.
 
 ### 4. CRM environment variables (Vercel)
 
@@ -160,23 +196,40 @@ GOOGLE_ADS_SHEETS_WEBHOOK_SECRET=<the random string from step 3>
 
 After saving, redeploy so the env vars are picked up by the cron.
 
-### 5. Google Ads — set up the conversion action
+### 5. Google Ads — set up the conversion action (in EACH shop's account)
+
+We do this once per shop, in the matching Google Ads sub-account under the
+MCC (Christchurch account → Christchurch tab; Wellington account → Wellington
+tab). Settings are identical between the two; only which sheet tab the
+account is connected to differs.
 
 1. **Tools → Conversions → New conversion action → Import → Other data sources or CRM → Track conversions from clicks**.
-2. Name it exactly `Booking made` (this must match what the CRM sends in the `Conversion Name` column).
+2. Name it exactly `Booking value (CRM offline)` (this must match the
+   `Conversion Name` column the CRM writes — same name in both accounts).
 3. Category: **Purchase**.
 4. Value: **Use different values for each conversion**. Default currency: NZD.
 5. Count: **One** (de-dupe per booking).
 6. Click-through window: 90 days. View-through: 1 day.
-7. Save.
+7. **Counting → Goal type / Conversion goal: set to SECONDARY.** This is the
+   safety wheel — the new conversion is visible in reports but Smart Bidding
+   ignores it. You can flip it to Primary later once the data looks clean
+   (typically after 2–4 weeks).
+8. Save.
+
+Repeat in the second account.
 
 ### 6. Google Ads — schedule the import from Sheets
 
+In each shop's account, schedule the import to pull from that shop's tab.
+
 1. **Tools → Conversions → Uploads → Schedules → New schedule**.
 2. Source: **Google Sheets**.
-3. Pick the sheet from step 3.
+3. Pick the sheet — and then **the matching tab** (Christchurch tab in
+   the Christchurch account; Wellington tab in the Wellington account).
 4. Frequency: **Every 6 hours** (or daily — whichever you prefer).
 5. Save.
+
+Repeat in the second account, picking the other tab.
 
 You're done. Google Ads will now pull the rows on a schedule and credit them
 against the right ad clicks.
