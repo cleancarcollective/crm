@@ -51,6 +51,13 @@ export async function createReminderJobsForBooking({
   const scheduledStartDate = new Date(scheduledStart);
   const now = new Date();
 
+  // Anything scheduled within the next 5 minutes is treated as "due now" —
+  // the cron processes it on the next tick. This avoids a millisecond-race
+  // for bookings made very close to a reminder boundary (e.g. exactly 7d
+  // out: the week-reminder offset lands within microseconds of `now` and
+  // gets dropped). 5 minutes is short enough that a customer will perceive
+  // the reminder as roughly-instant if it does happen to fire.
+  const nowMinus5Min = new Date(now.getTime() - 5 * 60 * 1000);
   const jobsToInsert = REMINDER_DEFINITIONS
     .map((definition) => ({
       shop_id: shop.id,
@@ -60,7 +67,7 @@ export async function createReminderJobsForBooking({
       scheduled_for: definition.offset(scheduledStartDate).toISOString(),
       status: "pending" as const
     }))
-    .filter((job) => new Date(job.scheduled_for) > now);
+    .filter((job) => new Date(job.scheduled_for) > nowMinus5Min);
 
   if (jobsToInsert.length === 0) {
     return [];

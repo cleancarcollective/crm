@@ -43,9 +43,7 @@ Booking is 7 days out, so the **week reminder** scheduled time is approximately 
 | # | Channel | To | Template | Trigger |
 |---|---|---|---|---|
 | 6 | Email | **Customer** | `booking-reminder-day` | pg_cron picks up at exactly `scheduled_start - 24h`. Subject: "Reminder: {service} tomorrow at {time}". |
-| 7 | SMS | **Customer** | `booking_reminder_day` (SMS) | Vercel cron `/api/sms/process-review` runs once daily at **9am UTC = 9pm NZ NZST / 10pm NZDT**. Body: "Hi {name}, friendly reminder - your Clean Car Collective booking is tomorrow, {date_time}. Reply if anything's changed. See you soon!" |
-
-> ⚠️ **Timing note on SMS**: the SMS processor only runs **once per day** (Vercel cron, not pg_cron). So a reminder SMS scheduled for, say, Thursday 11am NZ will actually go out at the next 9pm NZ run — i.e. **up to ~10 hours late**. If you want SMS to fire close to the scheduled time, we'd need to either: (a) move SMS processing to pg_cron every minute, or (b) increase the cron frequency. Flagging — easy fix.
+| 7 | SMS | **Customer** | `booking_reminder_day` (SMS) | Fires within ~1 minute of `scheduled_start - 24h`. The pg_cron-driven `/api/emails/process-scheduled` endpoint runs every minute and processes both email AND SMS jobs in the same call. Body: "Hi {name}, friendly reminder - your Clean Car Collective booking is tomorrow, {date_time}. Reply if anything's changed. See you soon!" |
 
 ---
 
@@ -76,7 +74,7 @@ When the vehicle is **ready for collection**, staff opens the booking in the CRM
 
 | # | Channel | To | Template | Trigger |
 |---|---|---|---|---|
-| 11 | SMS | **Customer** | `review_request` (SMS) | Vercel cron `/api/sms/process-review` daily at 9pm NZ. Body: "Hey {name}, thanks again for choosing Clean Car Collective! We'd love your quick feedback - just tap here: https://cleancarcollective.co.nz/how-did-we-do/" |
+| 11 | SMS | **Customer** | `review_request` (SMS) | pg_cron picks it up within ~1 minute of `pickup + 23h`. Body: "Hey {name}, thanks again for choosing Clean Car Collective! We'd love your quick feedback - just tap here: https://cleancarcollective.co.nz/how-did-we-do/" |
 
 This is the last automated touch.
 
@@ -91,7 +89,7 @@ This is the last automated touch.
 | T+0s | Booking confirmation SMS | ✓ |
 | ~T+0 (if 7d out) | Week reminder email | ✓ (probable but boundary-dependent) |
 | T+6d | Day reminder email | ✓ |
-| T+6d evening | Day reminder SMS | ✓ (delayed up to ~10h by daily cron) |
+| T+6d | Day reminder SMS | ✓ (within ~1 min of scheduled time) |
 | T+6d 23h | Hour reminder email | ✓ |
 | (manual) | Pickup-ready email | ✓ |
 | (manual) | Pickup-ready SMS | ✓ |
@@ -109,11 +107,9 @@ After the SMS migration ran, both shops also have all 6 SMS templates in the dat
 
 ---
 
-## Issues worth fixing
+## Notes
 
-1. **SMS cron frequency** — currently daily, so reminder & review SMS fire up to 10h late. Recommend moving SMS processing onto pg_cron every minute (mirror the email setup) or at minimum hourly. Estimated 15 min of work.
-2. **Week-reminder boundary** — bookings exactly 7 days out are racy: the filter `scheduled_for > now` either fires or skips depending on a few-millisecond window. Recommend changing to `scheduled_for >= now - 5 minutes` so it always queues for fresh bookings. Trivial.
+1. ~~SMS cron frequency~~ — **non-issue, audit was wrong on first pass.** SMS jobs are processed by the same pg_cron tick that runs emails (every minute), via a shared call to `processScheduledSmsJobs()` inside `/api/emails/process-scheduled`. The Vercel daily SMS cron was redundant and has been removed.
+2. **Week-reminder boundary** ✅ fixed — `scheduledReminderJobs.ts` now treats anything within the next 5 minutes as "due", so 7-day-out bookings always queue the week reminder.
 3. **No "thank you" email after pickup** — only an SMS review request. If you want an email companion (some customers don't engage with SMS), that's a small add.
 4. **Pickup-ready email is in-code, not in `email_templates`** — different from the booking emails which are DB-templated. Inconsistent. Lower priority.
-
-Want me to fix 1 and 2 now? They're 30 min combined.
