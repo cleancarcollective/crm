@@ -1293,6 +1293,47 @@ textarea {
 .globalNavShopPill--christchurch { background: #1a4d2e; color: #d8f0e3; }
 .globalNavShopPill--wellington   { background: #2c4a7c; color: #d8e3f0; }
 
+/* Super-admin shop switcher: same pill, but a tappable native <select>. */
+.globalNavShopSwitcher {
+  padding: 0;
+  position: relative;
+}
+.globalNavShopSwitcher::after {
+  content: "▾";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 9px;
+  opacity: 0.7;
+}
+.globalNavShopSwitcher select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: inherit;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  padding: 3px 22px 3px 10px;
+  cursor: pointer;
+}
+.globalNavShopSwitcher select:focus {
+  outline: 2px solid rgba(255,255,255,0.35);
+  outline-offset: 1px;
+  border-radius: 999px;
+}
+.globalNavShopSwitcher select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.globalNavShopSwitcher select option {
+  color: #1a1713;
+  background: #ffffff;
+}
+
 .globalNavLinks {
   display: flex;
   gap: 4px;

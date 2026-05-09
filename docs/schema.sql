@@ -352,3 +352,8 @@ create table if not exists sms_templates (
   unique(shop_id, template_key)
 );
 create index if not exists sms_templates_shop_id_idx on sms_templates(shop_id);
+
+-- ─── staff_users super-admin flag (cross-shop access via active-shop cookie) ──
+-- See docs/migrations/2026-05-09-super-admin.sql
+alter table staff_users
+  add column if not exists is_super_admin boolean not null default false;

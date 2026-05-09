@@ -7,18 +7,16 @@
  * GET  /api/admin/staff  →  list all staff accounts (no password hashes)
  */
 
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sessionId) return null;
-  return verifySession(sessionId);
+  // Uses currentShop helper so super-admins managing staff see whichever
+  // shop they're currently switched to (not just their home shop).
+  return getCurrentUser();
 }
 
 export async function GET() {

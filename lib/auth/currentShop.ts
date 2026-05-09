@@ -18,19 +18,30 @@
 
 import { cookies } from "next/headers";
 
-import { SESSION_COOKIE, type SessionShop, type SessionUser, verifySession } from "./session";
+import {
+  ACTIVE_SHOP_COOKIE,
+  SESSION_COOKIE,
+  type SessionShop,
+  type SessionUser,
+  verifySession,
+} from "./session";
 
 export type { SessionShop, SessionUser };
 
 /**
- * Get the authenticated user (with their shop) for the current request.
- * Returns null if no valid session.
+ * Get the authenticated user (with their effective shop) for the current
+ * request. Returns null if no valid session.
+ *
+ * For super-admins, reads ACTIVE_SHOP_COOKIE to allow shop switching.
+ * For everyone else, the cookie is ignored and they always operate on
+ * their home shop.
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
-  return verifySession(sessionId);
+  const activeShopSlug = cookieStore.get(ACTIVE_SHOP_COOKIE)?.value ?? null;
+  return verifySession(sessionId, activeShopSlug);
 }
 
 /**

@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
+import { ShopSwitcher } from "@/components/dashboard/ShopSwitcher";
+import { getCurrentUser } from "@/lib/auth/currentShop";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
@@ -41,9 +42,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  const user = sessionId ? await verifySession(sessionId) : null;
+  const user = await getCurrentUser();
 
   if (!user) {
     return (
@@ -53,15 +52,31 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     );
   }
 
+  // For super-admins, load the full shop list so the switcher can render
+  // every option without an extra round-trip from the client.
+  let allShops: Array<{ slug: string; name: string }> = [];
+  if (user.isSuperAdmin) {
+    const supabase = getSupabaseAdminClient();
+    const { data } = await supabase
+      .from("shops")
+      .select("slug, name")
+      .order("slug");
+    allShops = (data ?? []) as Array<{ slug: string; name: string }>;
+  }
+
   return (
     <html lang="en">
       <body>
         <nav className="globalNav">
           <Link href="/" className="globalNavBrand">
             CCC CRM
-            <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
-              {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
-            </span>
+            {user.isSuperAdmin ? (
+              <ShopSwitcher activeSlug={user.shop.slug} shops={allShops} />
+            ) : (
+              <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
+                {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
+              </span>
+            )}
           </Link>
           <div className="globalNavLinks">
             <Link href="/" className="globalNavLink">Calendar</Link>
