@@ -20,12 +20,6 @@ import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -281,8 +275,7 @@ export async function sendDailyDigestForShop(shop: ShopRecord) {
   const html = renderHtml(stats);
   const text = renderText(stats);
 
-  const { team_email } = getShopContacts(shop);
-  const from = getRequiredEnv("POSTMARK_FROM_EMAIL");
+  const { team_email, from_line: from } = getShopContacts(shop);
   const yesterdayLabel = formatInTimeZone(stats.windowStartIso, shop.timezone, "EEE d MMM");
   const subject = `📊 ${shop.name.replace("Clean Car Collective ", "")} — daily digest (${yesterdayLabel})`;
 

@@ -25,12 +25,6 @@ type Body = {
   new_time?: string;
 };
 
-function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
 export async function POST(request: Request) {
   let body: Body;
   try {
@@ -168,8 +162,7 @@ async function notifyTeam(args: {
   subject: string;
   bodyLines: string[];
 }) {
-  const { team_email } = getShopContacts(args.shop);
-  const from = getRequiredEnv("POSTMARK_FROM_EMAIL");
+  const { team_email, from_line: from } = getShopContacts(args.shop);
   const postmark = getPostmarkClient();
   await postmark.sendEmail({
     From: from,

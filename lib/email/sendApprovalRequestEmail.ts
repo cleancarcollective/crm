@@ -51,11 +51,6 @@ type ApprovalRequestArgs = {
   };
 };
 
-function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
 
 function escapeHtml(value: string) {
   return value
@@ -275,8 +270,7 @@ function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string, quickS
 
 export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promise<void> {
   const { shop, leadId, contactId, customer } = args;
-  const { team_email: recipient } = getShopContacts(shop);
-  const from = getRequiredEnv("POSTMARK_FROM_EMAIL");
+  const { team_email: recipient, from_line: from } = getShopContacts(shop);
 
   // The review URL — contact profile is where the estimate panel lives.
   // If no contactId (shouldn't happen in practice), fall back to /leads.

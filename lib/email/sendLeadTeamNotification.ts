@@ -18,12 +18,6 @@ type LeadDetails = {
   notes: string | null;
 };
 
-function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -143,8 +137,7 @@ export async function sendLeadTeamNotification({
   shop: ShopRecord;
   lead: LeadDetails;
 }) {
-  const { team_email: recipient } = getShopContacts(shop);
-  const from = getRequiredEnv("POSTMARK_FROM_EMAIL");
+  const { team_email: recipient, from_line: from } = getShopContacts(shop);
 
   const vehicleLabel = [lead.vehicle_year, lead.vehicle_make, lead.vehicle_model].filter(Boolean).join(" ");
   const subject = `New lead: ${lead.first_name}${lead.last_name ? " " + lead.last_name : ""}${lead.service_requested ? " — " + lead.service_requested : ""}${vehicleLabel ? " (" + vehicleLabel + ")" : ""}`;

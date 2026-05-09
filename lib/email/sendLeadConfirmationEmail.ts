@@ -1,6 +1,7 @@
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
+import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type LeadConfirmationArgs = {
@@ -157,8 +158,7 @@ function renderText(args: LeadConfirmationArgs, shopDetails: { phone: string; re
 }
 
 export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Promise<void> {
-  const fromEmail = process.env["POSTMARK_FROM_EMAIL"];
-  if (!fromEmail) throw new Error("Missing POSTMARK_FROM_EMAIL");
+  const fromLine = getShopContacts(args.shop).from_line;
 
   const shopDetails = SHOP_DETAILS[args.shop.slug] ?? DEFAULT_SHOP_DETAILS;
 
@@ -188,7 +188,7 @@ export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Pro
   try {
     const postmark = getPostmarkClient();
     const response = await postmark.sendEmail({
-      From: fromEmail,
+      From: fromLine,
       To: args.email,
       Subject: subject,
       TextBody: textBody,

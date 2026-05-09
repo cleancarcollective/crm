@@ -11,6 +11,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
+import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type PickupEmailArgs = {
@@ -160,8 +161,7 @@ function renderPickupText(args: PickupEmailArgs, afterHours: boolean, shopDetail
 }
 
 export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sent: boolean; afterHours: boolean }> {
-  const fromEmail = process.env["POSTMARK_FROM_EMAIL"];
-  if (!fromEmail) throw new Error("Missing POSTMARK_FROM_EMAIL");
+  const fromEmail = getShopContacts(args.shop).from_line;
 
   const shopDetails = SHOP_DETAILS[args.shop.slug] ?? DEFAULT_SHOP_DETAILS;
   const afterHours = isAfterFourPm(args.shop);

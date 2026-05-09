@@ -61,6 +61,7 @@ import { formatCurrency } from "@/lib/dashboard/format";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 import { signActionToken } from "@/lib/auth/signedTokens";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { getShopContacts } from "@/lib/email/shopContacts";
 import { renderTemplate } from "@/lib/email/templateRenderer";
 import type { BookingConfirmationEmailContext, EmailTemplateKey, EmailTemplateRecord } from "@/lib/email/types";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -102,16 +103,6 @@ type SendBookingEmailArgs = {
   includeCustomerDetails?: boolean;
   updateSummary?: string;
 };
-
-function getRequiredEnv(name: "POSTMARK_FROM_EMAIL") {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
-  return value;
-}
 
 export async function sendBookingEmail({
   shop,
@@ -189,7 +180,7 @@ export async function sendBookingEmail({
   try {
     const postmark = getPostmarkClient();
     const response = await postmark.sendEmail({
-      From: getRequiredEnv("POSTMARK_FROM_EMAIL"),
+      From: getShopContacts(shop).from_line,
       To: recipient,
       Subject: rendered.subject,
       TextBody: rendered.textBody,
