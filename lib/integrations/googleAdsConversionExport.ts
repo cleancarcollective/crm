@@ -81,8 +81,7 @@ async function buildExportRows(args: {
     .from("bookings")
     .select(`
       id, shop_id, contact_id, price_estimate, created_at, scheduled_start, status,
-      gclid, gbraid, wbraid,
-      shop:shops ( slug )
+      gclid, gbraid, wbraid
     `)
     .neq("status", "cancelled")
     .gte("created_at", args.windowStartIso)
@@ -90,6 +89,18 @@ async function buildExportRows(args: {
 
   if (bookingsErr) throw bookingsErr;
   if (!bookings || bookings.length === 0) return [];
+
+  // Fetch shop slugs separately. The PostgREST embedded `shop:shops(slug)`
+  // join sometimes returns null on rows where it shouldn't — saw 4-of-5
+  // Wellington bookings come back with no slug despite having a valid
+  // shop_id. Explicit lookup is reliable.
+  const { data: shops } = await supabase
+    .from("shops")
+    .select("id, slug");
+  const slugByShopId = new Map<string, string>();
+  for (const s of shops ?? []) {
+    if (s.id && s.slug) slugByShopId.set(s.id as string, s.slug as string);
+  }
 
   const contactIds = Array.from(
     new Set(bookings.map((b) => b.contact_id).filter((v): v is string => Boolean(v)))
@@ -147,8 +158,7 @@ async function buildExportRows(args: {
     const email = emailByContact.get(booking.contact_id as string) ?? null;
     const emailHash = email ? await sha256Hex(email) : null;
 
-    const shopRel = booking.shop as { slug?: string } | { slug?: string }[] | null;
-    const shopSlug = Array.isArray(shopRel) ? shopRel[0]?.slug : shopRel?.slug;
+    const shopSlug = slugByShopId.get(booking.shop_id as string);
 
     rows.push({
       booking_id: booking.id as string,
