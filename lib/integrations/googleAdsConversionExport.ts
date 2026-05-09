@@ -199,56 +199,36 @@ export async function exportRecentBookingsForGoogleAds() {
   // POST to the Apps Script web app. It validates a shared secret, dedupes
   // by booking_id, and appends to the Sheet.
   //
-  // Quirk: Apps Script web apps respond to POST with a 302 redirect to a
-  // googleusercontent.com URL. Node fetch follows the redirect but per HTTP
-  // spec turns POST→GET and drops the body — meaning the script's doPost
-  // would never receive the rows. We follow the redirect manually with the
-  // same method + body to work around this.
+  // Note: Apps Script POSTs respond with a 302 to a googleusercontent.com
+  // URL whose GET serves the doPost return value. Default fetch redirect
+  // following handles this correctly — the doPost has already run by the
+  // time we follow the redirect. Don't try to re-POST the redirect target;
+  // it returns 405.
+  //
+  // Pass the secret in the body (Apps Script can't read custom HTTP headers).
   const secret = process.env.GOOGLE_ADS_SHEETS_WEBHOOK_SECRET;
-  const headers = {
-    "Content-Type": "application/json",
-    ...(secret ? { "X-Webhook-Secret": secret } : {}),
-  };
-  const body = JSON.stringify({ rows, secret });
-
-  let response = await fetch(webhookUrl, {
+  const response = await fetch(webhookUrl, {
     method: "POST",
-    headers,
-    body,
-    redirect: "manual",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows, secret }),
   });
 
-  // Manual redirect-follow, capped to avoid loops.
-  let hops = 0;
-  while ((response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) && hops < 5) {
-    const location = response.headers.get("location");
-    if (!location) break;
-    response = await fetch(location, {
-      method: "POST",
-      headers,
-      body,
-      redirect: "manual",
-    });
-    hops++;
-  }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Sheets webhook failed: ${response.status} ${text}`);
-  }
-
-  // Apps Script returns 200 even on logical errors (auth fail, etc) — parse
-  // the body and check for our explicit ok flag so silent failures surface.
+  // Apps Script can return HTTP 200 even on logical errors (auth fail,
+  // unknown shop, etc) — parse and check for our explicit ok flag so silent
+  // failures surface.
   const responseText = await response.text().catch(() => "");
-  let parsed: { ok?: boolean; error?: string } = {};
+  if (!response.ok) {
+    throw new Error(`Sheets webhook HTTP ${response.status}: ${responseText.slice(0, 300)}`);
+  }
+  let parsed: { ok?: boolean; error?: string; appended?: number } = {};
   try {
     parsed = JSON.parse(responseText);
   } catch {
-    throw new Error(`Sheets webhook returned non-JSON: ${responseText.slice(0, 200)}`);
+    throw new Error(`Sheets webhook returned non-JSON: ${responseText.slice(0, 300)}`);
   }
   if (parsed.ok !== true) {
-    throw new Error(`Sheets webhook rejected payload: ${parsed.error ?? responseText.slice(0, 200)}`);
+    throw new Error(`Sheets webhook rejected: ${parsed.error ?? JSON.stringify(parsed).slice(0, 300)}`);
   }
 
-  return { exported: rows.length, withAttribution };
+  return { exported: rows.length, withAttribution, appended: parsed.appended ?? 0 };
 }
