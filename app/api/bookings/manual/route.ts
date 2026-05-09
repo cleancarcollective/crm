@@ -96,25 +96,63 @@ export async function POST(request: Request) {
   } else {
     const nc = payload.new_contact!;
     const fullName = [nc.first_name, nc.last_name].filter(Boolean).join(" ") || null;
-    const { data: created, error } = await supabase
-      .from("contacts")
-      .insert({
-        shop_id: shop.id,
-        first_name: nc.first_name ?? null,
-        last_name: nc.last_name ?? null,
-        full_name: fullName,
-        email: nc.email?.toLowerCase().trim() || null,
-        phone: nc.phone?.trim() || null,
-      })
-      .select("id, phone, first_name")
-      .single();
+    const normalizedEmail = nc.email?.toLowerCase().trim() || null;
+    const normalizedPhone = nc.phone?.trim() || null;
 
-    if (error || !created) {
-      return NextResponse.json({ success: false, error: "Failed to create contact." }, { status: 500 });
+    // Look up an existing contact by email (then phone) BEFORE inserting.
+    // Without this, every manual booking creates a duplicate contacts row,
+    // which silently breaks lead → booking attribution because the booking's
+    // contact_id won't match the lead's contact_id.
+    let existing: { id: string; phone: string | null; first_name: string | null; full_name: string | null } | null = null;
+
+    if (normalizedEmail) {
+      const { data } = await supabase
+        .from("contacts")
+        .select("id, phone, first_name, full_name")
+        .eq("shop_id", shop.id)
+        .ilike("email", normalizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existing = data;
     }
-    contactId = created.id;
-    contactPhone = created.phone ?? null;
-    contactFirstName = created.first_name ?? null;
+    if (!existing && normalizedPhone) {
+      const { data } = await supabase
+        .from("contacts")
+        .select("id, phone, first_name, full_name")
+        .eq("shop_id", shop.id)
+        .eq("phone", normalizedPhone)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existing = data;
+    }
+
+    if (existing) {
+      contactId = existing.id;
+      contactPhone = existing.phone ?? normalizedPhone;
+      contactFirstName = existing.first_name ?? existing.full_name?.split(" ")[0] ?? nc.first_name ?? null;
+    } else {
+      const { data: created, error } = await supabase
+        .from("contacts")
+        .insert({
+          shop_id: shop.id,
+          first_name: nc.first_name ?? null,
+          last_name: nc.last_name ?? null,
+          full_name: fullName,
+          email: normalizedEmail,
+          phone: normalizedPhone,
+        })
+        .select("id, phone, first_name")
+        .single();
+
+      if (error || !created) {
+        return NextResponse.json({ success: false, error: "Failed to create contact." }, { status: 500 });
+      }
+      contactId = created.id;
+      contactPhone = created.phone ?? null;
+      contactFirstName = created.first_name ?? null;
+    }
   }
 
   // ── 2. Resolve vehicle (optional) ───────────────────────────────────
