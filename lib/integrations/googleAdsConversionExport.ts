@@ -198,19 +198,56 @@ export async function exportRecentBookingsForGoogleAds() {
 
   // POST to the Apps Script web app. It validates a shared secret, dedupes
   // by booking_id, and appends to the Sheet.
+  //
+  // Quirk: Apps Script web apps respond to POST with a 302 redirect to a
+  // googleusercontent.com URL. Node fetch follows the redirect but per HTTP
+  // spec turns POST→GET and drops the body — meaning the script's doPost
+  // would never receive the rows. We follow the redirect manually with the
+  // same method + body to work around this.
   const secret = process.env.GOOGLE_ADS_SHEETS_WEBHOOK_SECRET;
-  const response = await fetch(webhookUrl, {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(secret ? { "X-Webhook-Secret": secret } : {}),
+  };
+  const body = JSON.stringify({ rows, secret });
+
+  let response = await fetch(webhookUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(secret ? { "X-Webhook-Secret": secret } : {}),
-    },
-    body: JSON.stringify({ rows }),
+    headers,
+    body,
+    redirect: "manual",
   });
+
+  // Manual redirect-follow, capped to avoid loops.
+  let hops = 0;
+  while ((response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) && hops < 5) {
+    const location = response.headers.get("location");
+    if (!location) break;
+    response = await fetch(location, {
+      method: "POST",
+      headers,
+      body,
+      redirect: "manual",
+    });
+    hops++;
+  }
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(`Sheets webhook failed: ${response.status} ${text}`);
+  }
+
+  // Apps Script returns 200 even on logical errors (auth fail, etc) — parse
+  // the body and check for our explicit ok flag so silent failures surface.
+  const responseText = await response.text().catch(() => "");
+  let parsed: { ok?: boolean; error?: string } = {};
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    throw new Error(`Sheets webhook returned non-JSON: ${responseText.slice(0, 200)}`);
+  }
+  if (parsed.ok !== true) {
+    throw new Error(`Sheets webhook rejected payload: ${parsed.error ?? responseText.slice(0, 200)}`);
   }
 
   return { exported: rows.length, withAttribution };
