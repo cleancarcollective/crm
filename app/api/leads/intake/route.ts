@@ -18,6 +18,13 @@ export type LeadIntakePayload = {
   notes?: string;
   shop_slug?: string;
   source?: string;
+  // Google Ads attribution — captured by website JS from URL/cookie and
+  // forwarded with the form. Used later to upload offline conversion values
+  // back to Google Ads when a booking completes.
+  gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
+  landing_url?: string;
 };
 
 // Lead statuses that indicate an enquiry is still in progress
@@ -275,6 +282,10 @@ export async function POST(request: Request) {
           service_requested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
           status: "new",
+          gclid: payload.gclid ?? null,
+          gbraid: payload.gbraid ?? null,
+          wbraid: payload.wbraid ?? null,
+          landing_url: payload.landing_url ?? null,
         })
         .select("id")
         .single();

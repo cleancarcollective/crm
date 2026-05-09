@@ -15,6 +15,10 @@
     {
       "path": "/api/emails/weekly-conversion",
       "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/integrations/google-ads-conversions",
+      "schedule": "0 14 * * *"
     }
   ]
 }

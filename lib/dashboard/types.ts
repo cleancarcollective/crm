@@ -78,6 +78,12 @@ export type LeadRecord = {
   created_at: string;
   updated_at: string;
   booked_at: string | null;
+  // Google Ads attribution captured at lead intake. Used to upload offline
+  // conversion values back to Google Ads when a booking completes.
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
+  landing_url: string | null;
 };
 
 export type LeadWithVehicle = LeadRecord & {

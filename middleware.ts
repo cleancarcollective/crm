@@ -18,6 +18,7 @@ const PUBLIC_PREFIXES = [
   "/api/sms/process-review",         // Vercel cron 9am UTC daily
   "/api/emails/daily-digest",        // Vercel cron 7pm UTC = 7am NZ daily
   "/api/emails/weekly-conversion",   // Vercel cron Sun 8pm UTC = Mon 8am NZ weekly
+  "/api/integrations/google-ads-conversions", // Vercel cron 2pm UTC = 2am NZ daily
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page
   "/api/public/",                    // token-authed customer-facing actions
