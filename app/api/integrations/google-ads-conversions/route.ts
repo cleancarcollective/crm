@@ -14,6 +14,12 @@ export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
-  const result = await exportRecentBookingsForGoogleAds();
-  return NextResponse.json(result);
+  try {
+    const result = await exportRecentBookingsForGoogleAds();
+    return NextResponse.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[google-ads-conversions] export failed:", message);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }
