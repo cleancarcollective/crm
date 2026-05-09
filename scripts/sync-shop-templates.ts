@@ -90,6 +90,11 @@ const RULES: ConfigRule[] = [
     textFields: ["subject_template", "body_template"],
   },
   {
+    table: "sms_templates",
+    uniqueKeys: ["template_key"],
+    textFields: ["body_text"],
+  },
+  {
     table: "pricing",
     uniqueKeys: ["service_name", "size"],
     textFields: [],
@@ -200,8 +205,17 @@ async function main() {
   console.log(`\n${APPLY ? "Applying" : "Dry-run"}: ${fromShop.slug} → ${toShop.slug}\n`);
 
   for (const rule of RULES) {
-    const result = await syncTable(rule, fromShop.id, toShop.id);
-    console.log(`  ${rule.table.padEnd(25)} ${result.inserts} insert · ${result.updates} update · ${result.unchanged} unchanged · ${result.normalisedSource} normalised in source`);
+    try {
+      const result = await syncTable(rule, fromShop.id, toShop.id);
+      console.log(`  ${rule.table.padEnd(25)} ${result.inserts} insert · ${result.updates} update · ${result.unchanged} unchanged · ${result.normalisedSource} normalised in source`);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      if (msg.includes("does not exist") || msg.includes("schema cache")) {
+        console.log(`  ${rule.table.padEnd(25)} ⚠ table missing — run pending migration in docs/migrations/`);
+      } else {
+        throw err;
+      }
+    }
   }
 
   if (!APPLY) {

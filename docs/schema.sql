@@ -336,3 +336,19 @@ add column if not exists service_id text,
 add column if not exists duration_minutes integer,
 add column if not exists location_type text,
 add column if not exists raw_payload jsonb not null default '{}'::jsonb;
+
+-- ─── SMS templates (per-shop, editable; falls back to code defaults) ──────────
+-- See docs/migrations/2026-05-09-sms-templates.sql for the migration to run
+-- against an existing database.
+create table if not exists sms_templates (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references shops(id) on delete cascade,
+  template_key text not null,
+  name text not null,
+  body_text text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(shop_id, template_key)
+);
+create index if not exists sms_templates_shop_id_idx on sms_templates(shop_id);
