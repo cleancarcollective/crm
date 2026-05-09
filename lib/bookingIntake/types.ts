@@ -37,6 +37,13 @@ export type BookingIntakePayload = {
   "Service ID"?: string;
   "Event Address"?: string;
   rego?: string;
+  // Google Ads attribution — captured by booking iframe from URL params
+  // forwarded by the host WordPress page. Lets us attribute direct bookings
+  // (no preceding lead form submission) back to the originating ad click.
+  gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
+  landing_url?: string;
   [key: string]: unknown;
 };
 
@@ -77,6 +84,13 @@ export type NormalizedBookingInput = {
   serviceId: string | null;
   durationMinutes: number | null;
   locationType: string | null;
+  // Google Ads attribution forwarded with the booking — used by the offline
+  // conversion export so direct bookings (no preceding lead) still get
+  // gclid attribution.
+  gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
+  landingUrl: string | null;
   rawPayload: BookingIntakePayload;
 };
 

@@ -125,6 +125,10 @@ export function mapBookingPayload(
         serviceId: cleanString(payload["Service ID"]) ?? cleanString(payload.service_ids),
         durationMinutes: durationMinutesValue,
         locationType: cleanString(payload.location_type),
+        gclid: cleanString(payload.gclid),
+        gbraid: cleanString(payload.gbraid),
+        wbraid: cleanString(payload.wbraid),
+        landingUrl: cleanString(payload.landing_url),
         rawPayload: payload
       }
     }

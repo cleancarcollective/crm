@@ -81,6 +81,7 @@ async function buildExportRows(args: {
     .from("bookings")
     .select(`
       id, shop_id, contact_id, price_estimate, created_at, scheduled_start, status,
+      gclid, gbraid, wbraid,
       shop:shops ( slug )
     `)
     .neq("status", "cancelled")
@@ -160,9 +161,12 @@ async function buildExportRows(args: {
       conversion_time: booking.created_at as string,
       value,
       currency: "NZD",
-      gclid: matchingLead?.gclid ?? null,
-      gbraid: matchingLead?.gbraid ?? null,
-      wbraid: matchingLead?.wbraid ?? null,
+      // Direct booking gclid (set when the customer booked directly without
+      // a preceding lead form) takes priority. Fall back to the originating
+      // lead's gclid when the customer enquired before booking.
+      gclid: (booking.gclid as string | null) ?? matchingLead?.gclid ?? null,
+      gbraid: (booking.gbraid as string | null) ?? matchingLead?.gbraid ?? null,
+      wbraid: (booking.wbraid as string | null) ?? matchingLead?.wbraid ?? null,
       email_sha256: emailHash,
     });
   }

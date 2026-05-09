@@ -155,6 +155,10 @@ export async function POST(request: Request) {
         service_id: normalized.data.booking.serviceId,
         duration_minutes: normalized.data.booking.durationMinutes,
         location_type: normalized.data.booking.locationType,
+        gclid: normalized.data.booking.gclid,
+        gbraid: normalized.data.booking.gbraid,
+        wbraid: normalized.data.booking.wbraid,
+        landing_url: normalized.data.booking.landingUrl,
         raw_payload: normalized.data.booking.rawPayload
       })
       .select("*")
