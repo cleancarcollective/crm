@@ -166,8 +166,11 @@ export async function getLeadDirectoryPage(args: {
     }
   }
 
-  // 2-4 fired in parallel: stats, page-leads, count.
-  const oversample = pageSize * 4;
+  // Page leads + stats in parallel. We oversample to dedupe by contact +
+  // detect "has more" — fetching pageSize×4+1 means if we get >pageSize
+  // unique contacts AND there's a "+1" hangover, there's another page.
+  // No count query — that was the slowest single piece on Wellington.
+  const oversample = pageSize * 4 + 1;
   const startRange = (page - 1) * pageSize;
   const inFilter = contactIdFilter ? contactIdFilter.slice(0, IN_BATCH) : null;
 
@@ -181,23 +184,10 @@ export async function getLeadDirectoryPage(args: {
   if (status) leadsQuery = leadsQuery.eq("status", status);
   if (inFilter) leadsQuery = leadsQuery.in("contact_id", inFilter);
 
-  let countQ = supabase
-    .from("leads")
-    .select("id", { count: "exact", head: true })
-    .eq("shop_id", shop.id)
-    .not("archived", "eq", true);
-  if (status) countQ = countQ.eq("status", status);
-  if (inFilter) countQ = countQ.in("contact_id", inFilter);
-
-  const [statsResult, leadsResult, countResult] = await Promise.all([
-    getLeadStats(shop.id),
-    leadsQuery,
-    countQ,
-  ]);
+  const [statsResult, leadsResult] = await Promise.all([getLeadStats(shop.id), leadsQuery]);
   if (leadsResult.error) throw leadsResult.error;
   const stats = statsResult;
   const leads = (leadsResult.data ?? []) as LeadRecord[];
-  const totalMatchingLeads = countResult.count ?? 0;
 
   // Dedupe by contact, take pageSize
   const seen = new Set<string>();
@@ -210,16 +200,21 @@ export async function getLeadDirectoryPage(args: {
     if (uniqueLeads.length >= pageSize) break;
   }
 
-  const totalPages = Math.max(1, Math.ceil(totalMatchingLeads / pageSize));
+  // hasMore: if we got more leads than we needed for this page (after
+  // dedupe headroom), there's at least one more page worth.
+  const hasMore = leads.length >= oversample;
+  const totalPages = hasMore ? page + 1 : page;
 
-  // 6. Hydrate contacts + vehicles + per-contact lead counts
+  // Hydrate contacts + vehicles. Per-contact lead counts dropped from the
+  // directory view — they were the slowest hydration query and the count
+  // is only meaningful on the contact profile page anyway.
   const contactIds = uniqueLeads.map((l) => l.contact_id as string);
   const vehicleIds = uniqueLeads.map((l) => l.vehicle_id).filter(Boolean) as string[];
-  const [contacts, vehicles, leadCountByContact] = await Promise.all([
+  const [contacts, vehicles] = await Promise.all([
     getContactsByIds(contactIds),
     getVehiclesByIds(vehicleIds),
-    getLeadCountsByContact(contactIds),
   ]);
+  const leadCountByContact = new Map<string, number>();
   const contactMap = new Map(contacts.map((c) => [c.id, c]));
   const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
 
@@ -336,56 +331,24 @@ export async function getClientDirectoryPage(args: {
   const startRange = (page - 1) * pageSize;
   const inFilter = contactIdFilter ? contactIdFilter.slice(0, IN_BATCH) : null;
 
-  // Build the three independent queries (page, count, revenue-sum) and fire
-  // them in parallel — they don't depend on each other's results.
+  // Just one query: the page worth of bookings, oversampled. No count, no
+  // revenue sum — those were each loading thousands of rows. The summary
+  // shows page X (no Y), and revenue lives on the analytics page.
+  const oversampleSize = oversample + 1; // +1 to detect "has more"
   let bookingsQuery = supabase
     .from("bookings")
     .select("*")
     .eq("shop_id", shop.id)
     .order("scheduled_start", { ascending: false })
-    .range(startRange, startRange + oversample - 1);
-  let countQ = supabase
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("shop_id", shop.id);
-  let revQ = supabase
-    .from("bookings")
-    .select("price_estimate")
-    .eq("shop_id", shop.id)
-    .limit(5000);
-  if (status) {
-    bookingsQuery = bookingsQuery.eq("status", status);
-    countQ = countQ.eq("status", status);
-    revQ = revQ.eq("status", status);
-  }
-  if (fromIso) {
-    bookingsQuery = bookingsQuery.gte("scheduled_start", fromIso);
-    countQ = countQ.gte("scheduled_start", fromIso);
-    revQ = revQ.gte("scheduled_start", fromIso);
-  }
-  if (toIso) {
-    bookingsQuery = bookingsQuery.lte("scheduled_start", toIso);
-    countQ = countQ.lte("scheduled_start", toIso);
-    revQ = revQ.lte("scheduled_start", toIso);
-  }
-  if (inFilter) {
-    bookingsQuery = bookingsQuery.in("contact_id", inFilter);
-    countQ = countQ.in("contact_id", inFilter);
-    revQ = revQ.in("contact_id", inFilter);
-  }
+    .range(startRange, startRange + oversampleSize - 1);
+  if (status) bookingsQuery = bookingsQuery.eq("status", status);
+  if (fromIso) bookingsQuery = bookingsQuery.gte("scheduled_start", fromIso);
+  if (toIso) bookingsQuery = bookingsQuery.lte("scheduled_start", toIso);
+  if (inFilter) bookingsQuery = bookingsQuery.in("contact_id", inFilter);
 
-  const [bookingsResult, countResult, revResult] = await Promise.all([
-    bookingsQuery,
-    countQ,
-    revQ,
-  ]);
-  if (bookingsResult.error) throw bookingsResult.error;
-  const bookings = (bookingsResult.data ?? []) as BookingRecord[];
-  const totalMatchingBookings = countResult.count ?? 0;
-  const totalRevenue = ((revResult.data ?? []) as Array<{ price_estimate: number | null }>).reduce(
-    (sum, r) => sum + (r.price_estimate ?? 0),
-    0
-  );
+  const { data: rawBookings, error: bookingsErr } = await bookingsQuery;
+  if (bookingsErr) throw bookingsErr;
+  const bookings = (rawBookings ?? []) as BookingRecord[];
 
   // Dedupe by contact
   const seen = new Set<string>();
@@ -398,17 +361,24 @@ export async function getClientDirectoryPage(args: {
     if (uniqueBookings.length >= pageSize) break;
   }
 
-  const totalPages = Math.max(1, Math.ceil(totalMatchingBookings / pageSize));
+  // hasMore detection from oversample fetch
+  const hasMore = bookings.length >= oversampleSize;
+  const totalPages = hasMore ? page + 1 : page;
+  const totalRevenue = 0; // surfaced on analytics page now, not directory
+  const totalMatchingBookings = uniqueBookings.length + (hasMore ? 1 : 0);
 
-  // Hydrate contacts + vehicles + bookingCount per contact
+  // Hydrate just contacts + vehicles for the visible page. Per-contact
+  // booking-count and revenue queries were the bottleneck — drop them
+  // from the list view (the contact profile already shows total bookings
+  // + total revenue).
   const contactIds = uniqueBookings.map((b) => b.contact_id as string);
   const vehicleIds = uniqueBookings.map((b) => b.vehicle_id).filter(Boolean) as string[];
-  const [contacts, vehicles, bookingCountByContact, revenueByContact] = await Promise.all([
+  const [contacts, vehicles] = await Promise.all([
     getContactsByIds(contactIds),
     getVehiclesByIds(vehicleIds),
-    getBookingCountsByContact(contactIds),
-    getRevenueByContact(contactIds),
   ]);
+  const bookingCountByContact = new Map<string, number>();
+  const revenueByContact = new Map<string, number>();
   const contactMap = new Map(contacts.map((c) => [c.id, c]));
   const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
 

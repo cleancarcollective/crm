@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
 import { LeadStatusActions } from "@/components/dashboard/LeadStatusActions";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
-import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
+import { formatDateTime } from "@/lib/dashboard/format";
 import type { ClientDirectoryEntry, LeadDirectoryEntry } from "@/lib/dashboard/types";
 
 type ContactDirectoryListProps =
@@ -44,15 +44,24 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
       {props.mode === "leads"
         ? props.entries.map((entry) => {
             const displayName = getDisplayName(entry.contact);
+            const needsApproval = entry.latestLead.status === "needs_approval";
 
             return (
-              <div key={entry.contact.id} className="directoryRow">
+              <div
+                key={entry.contact.id}
+                className={`directoryRow${needsApproval ? " directoryRow--needsApproval" : ""}`}
+              >
                 <div className="directoryMain">
                   <div className="directoryTop">
                     <Link href={`/contacts/${entry.contact.id}`} className="profilePrimaryLink">
                       {displayName}
                     </Link>
                     <StatusBadge status={entry.latestLead.status} />
+                    {needsApproval ? (
+                      <span className="directoryBadge directoryBadge--needsApproval" title="Auto-respond couldn't auto-send — quote draft is ready for your review">
+                        ⚠ Needs your quote
+                      </span>
+                    ) : null}
                   </div>
                   <div className="directoryMeta">
                     <span>{entry.contact.email ?? "No email"}</span>
@@ -64,7 +73,9 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
                   </div>
                   <div className="directoryMeta">
                     <span>{entry.latestLead.source_detail ?? entry.latestLead.source}</span>
-                    <span>{entry.leadCount} open {entry.leadCount === 1 ? "lead" : "leads"}</span>
+                    {entry.leadCount > 1 ? (
+                      <span>{entry.leadCount} leads</span>
+                    ) : null}
                   </div>
                   <LeadStatusActions leadId={entry.latestLead.id} currentStatus={entry.latestLead.status} wonSource={entry.latestLead.won_source} />
                   <ArchiveButton type="lead" id={entry.latestLead.id} />
@@ -95,10 +106,6 @@ export function ContactDirectoryList(props: ContactDirectoryListProps) {
                   <div className="directoryMeta">
                     <span>{entry.latestBooking.service_name}</span>
                     <span>{entry.latestBooking.vehicle ? [entry.latestBooking.vehicle.year, entry.latestBooking.vehicle.make, entry.latestBooking.vehicle.model].filter(Boolean).join(" ") : "Vehicle not linked"}</span>
-                  </div>
-                  <div className="directoryMeta">
-                    <span>{entry.bookingCount} {entry.bookingCount === 1 ? "booking" : "bookings"}</span>
-                    <span>Total est. revenue {formatCurrency(entry.totalRevenue)}</span>
                   </div>
                   <div className="directoryMeta">
                     <Link href={`/bookings/${entry.latestBooking.id}`} className="profileMetaLink">

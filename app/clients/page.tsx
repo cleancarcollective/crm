@@ -6,7 +6,6 @@ import { DirectoryPagination } from "@/components/dashboard/DirectoryPagination"
 import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getClientDirectoryPage } from "@/lib/dashboard/contacts";
-import { formatCurrency } from "@/lib/dashboard/format";
 
 export default async function ClientsPage({
   searchParams,
@@ -21,7 +20,7 @@ export default async function ClientsPage({
   const dateTo = (params?.to ?? "").trim();
   const page = Math.max(1, Number(params?.page ?? "1") | 0);
 
-  const { shop, entries, totalPages, totalRevenue, totalBookings } = await getClientDirectoryPage({
+  const { shop, entries, totalPages } = await getClientDirectoryPage({
     shopSlug: currentShop.slug,
     query,
     status,
@@ -31,6 +30,10 @@ export default async function ClientsPage({
   });
 
   const hasFilters = query.length > 0 || status.length > 0 || dateFrom.length > 0 || dateTo.length > 0;
+  // Track for summary copy — totalRevenue is no longer computed on the
+  // directory page (it lives on /analytics now). Keeping a placeholder
+  // var so we don't reshape the summary card grid right now.
+  void hasFilters;
 
   const buildHref = (p: number) => {
     const sp = new URLSearchParams();
@@ -60,16 +63,16 @@ export default async function ClientsPage({
 
       <div className="summaryStrip">
         <div className="summaryCard">
-          <span>Bookings shown</span>
-          <strong>{totalBookings}</strong>
+          <span>Showing</span>
+          <strong>{entries.length}</strong>
         </div>
         <div className="summaryCard">
-          <span>{hasFilters ? "Page" : "Total pages"}</span>
-          <strong>{page} / {totalPages}</strong>
+          <span>Page</span>
+          <strong>{page}{totalPages > page ? "+" : ""}</strong>
         </div>
-        <div className="summaryCard">
-          <span>Est. Revenue</span>
-          <strong>{formatCurrency(totalRevenue)}</strong>
+        <div className="summaryCard summaryCardHighlight">
+          <span>Revenue</span>
+          <strong><a href="/analytics" style={{ color: "inherit" }}>see analytics →</a></strong>
         </div>
       </div>
 

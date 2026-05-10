@@ -762,6 +762,27 @@ textarea {
   text-align: right;
 }
 
+/* Visual nudge for leads where the auto-respond couldn't auto-send and we
+   need a human to send the quote. Yellow left bar + soft tint so they
+   stand out while scrolling without being noisy. */
+.directoryRow--needsApproval {
+  border-left: 3px solid #f4b942;
+  background: linear-gradient(90deg, rgba(244,185,66,0.10) 0%, rgba(255,255,255,0.86) 220px);
+}
+.directoryBadge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.directoryBadge--needsApproval {
+  background: #fff3d4;
+  color: #8a5a00;
+  border: 1px solid #f4b942;
+}
+
 .directoryPagination {
   display: flex;
   align-items: center;
