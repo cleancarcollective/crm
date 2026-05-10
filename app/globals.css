@@ -762,6 +762,35 @@ textarea {
   text-align: right;
 }
 
+.directoryPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 18px 0 8px;
+}
+.directoryPaginationLink {
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255,255,255,0.86);
+  border: 1px solid rgba(0,0,0,0.06);
+  font-size: 14px;
+  font-weight: 500;
+}
+.directoryPaginationLink:hover {
+  background: #ffffff;
+}
+.directoryPaginationLink--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.directoryPaginationLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .emptyState {
   padding: 42px 24px;
   text-align: center;

@@ -1,66 +1,47 @@
 import Link from "next/link";
-import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
+import { DirectoryPagination } from "@/components/dashboard/DirectoryPagination";
+import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
-import { getClientDirectory } from "@/lib/dashboard/contacts";
+import { getClientDirectoryPage } from "@/lib/dashboard/contacts";
 import { formatCurrency } from "@/lib/dashboard/format";
-
-function toSearchableText(value: string | null | undefined) {
-  return (value ?? "").toLowerCase();
-}
 
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; status?: string; from?: string; to?: string }>;
+  searchParams?: Promise<{ q?: string; status?: string; from?: string; to?: string; page?: string }>;
 }) {
   const currentShop = await requireCurrentShop();
-  const { shop, entries } = await getClientDirectory(currentShop.slug);
   const params = searchParams ? await searchParams : undefined;
-  const query = (params?.q ?? "").trim().toLowerCase();
+  const query = (params?.q ?? "").trim();
   const status = (params?.status ?? "").trim().toLowerCase();
   const dateFrom = (params?.from ?? "").trim();
   const dateTo = (params?.to ?? "").trim();
-  const hasFilters = query.length > 0 || status.length > 0 || dateFrom.length > 0 || dateTo.length > 0;
+  const page = Math.max(1, Number(params?.page ?? "1") | 0);
 
-  const fromDate = dateFrom ? new Date(dateFrom) : null;
-  const toDate = dateTo ? new Date(dateTo + "T23:59:59") : null;
-
-  const filteredEntries = entries.filter((entry) => {
-    if (status && entry.latestBooking.status !== status) return false;
-
-    if (fromDate || toDate) {
-      const bookingDate = new Date(entry.latestBooking.scheduled_start);
-      if (fromDate && bookingDate < fromDate) return false;
-      if (toDate && bookingDate > toDate) return false;
-    }
-
-    if (!query) return true;
-
-    const vehicleLabel = entry.latestBooking.vehicle
-      ? [entry.latestBooking.vehicle.year, entry.latestBooking.vehicle.make, entry.latestBooking.vehicle.model].filter(Boolean).join(" ")
-      : "";
-
-    const haystack = [
-      entry.contact.full_name,
-      entry.contact.first_name,
-      entry.contact.last_name,
-      entry.contact.email,
-      entry.contact.phone,
-      entry.latestBooking.service_name,
-      entry.latestBooking.location_type,
-      vehicleLabel,
-    ]
-      .map((value) => toSearchableText(value))
-      .join(" ");
-
-    return haystack.includes(query);
+  const { shop, entries, totalPages, totalRevenue, totalBookings } = await getClientDirectoryPage({
+    shopSlug: currentShop.slug,
+    query,
+    status,
+    dateFrom,
+    dateTo,
+    page,
   });
 
-  const totalRevenue = filteredEntries.reduce((sum, entry) => sum + entry.totalRevenue, 0);
-  const totalBookings = filteredEntries.reduce((sum, entry) => sum + entry.bookingCount, 0);
+  const hasFilters = query.length > 0 || status.length > 0 || dateFrom.length > 0 || dateTo.length > 0;
+
+  const buildHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (query) sp.set("q", query);
+    if (status) sp.set("status", status);
+    if (dateFrom) sp.set("from", dateFrom);
+    if (dateTo) sp.set("to", dateTo);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/clients?${qs}` : "/clients";
+  };
 
   return (
     <main className="pageShell">
@@ -79,12 +60,12 @@ export default async function ClientsPage({
 
       <div className="summaryStrip">
         <div className="summaryCard">
-          <span>Clients</span>
-          <strong>{filteredEntries.length}</strong>
+          <span>Bookings shown</span>
+          <strong>{totalBookings}</strong>
         </div>
         <div className="summaryCard">
-          <span>{hasFilters ? "Bookings shown" : "Bookings"}</span>
-          <strong>{hasFilters ? `${totalBookings} across ${filteredEntries.length}` : totalBookings}</strong>
+          <span>{hasFilters ? "Page" : "Total pages"}</span>
+          <strong>{page} / {totalPages}</strong>
         </div>
         <div className="summaryCard">
           <span>Est. Revenue</span>
@@ -112,7 +93,9 @@ export default async function ClientsPage({
 
       <ImportExportBar mode="clients" exportParams={query ? `?q=${query}` : ""} />
 
-      <ContactDirectoryList mode="clients" entries={filteredEntries} timezone={shop.timezone} />
+      <ContactDirectoryList mode="clients" entries={entries} timezone={shop.timezone} />
+
+      <DirectoryPagination page={page} totalPages={totalPages} buildHref={buildHref} />
     </main>
   );
 }

@@ -1,56 +1,38 @@
 import Link from "next/link";
-import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
+import { DirectoryPagination } from "@/components/dashboard/DirectoryPagination";
+import { ImportExportBar } from "@/components/dashboard/ImportExportBar";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
-import { getLeadDirectory } from "@/lib/dashboard/contacts";
-
-function toSearchableText(value: string | null | undefined) {
-  return (value ?? "").toLowerCase();
-}
+import { getLeadDirectoryPage } from "@/lib/dashboard/contacts";
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string; status?: string }>;
+  searchParams?: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
   const currentShop = await requireCurrentShop();
-  const { shop, entries, stats } = await getLeadDirectory(currentShop.slug);
   const params = searchParams ? await searchParams : undefined;
-  const query = (params?.q ?? "").trim().toLowerCase();
+  const query = (params?.q ?? "").trim();
   const status = (params?.status ?? "").trim().toLowerCase();
+  const page = Math.max(1, Number(params?.page ?? "1") | 0);
 
-  const filteredEntries = entries.filter((entry) => {
-    if (status && entry.latestLead.status !== status) {
-      return false;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    const vehicleLabel = entry.latestLead.vehicle
-      ? [entry.latestLead.vehicle.year, entry.latestLead.vehicle.make, entry.latestLead.vehicle.model].filter(Boolean).join(" ")
-      : "";
-
-    const haystack = [
-      entry.contact.full_name,
-      entry.contact.first_name,
-      entry.contact.last_name,
-      entry.contact.email,
-      entry.contact.phone,
-      entry.latestLead.service_requested,
-      entry.latestLead.source,
-      entry.latestLead.source_detail,
-      entry.latestLead.won_source,
-      vehicleLabel,
-    ]
-      .map((value) => toSearchableText(value))
-      .join(" ");
-
-    return haystack.includes(query);
+  const { shop, entries, stats, totalPages } = await getLeadDirectoryPage({
+    shopSlug: currentShop.slug,
+    query,
+    status,
+    page,
   });
+
+  const buildHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (query) sp.set("q", query);
+    if (status) sp.set("status", status);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/leads?${qs}` : "/leads";
+  };
 
   return (
     <main className="pageShell">
@@ -61,15 +43,9 @@ export default async function LeadsPage({
           <p className="detailSubtitle">{shop.name}</p>
         </div>
         <div className="topbarMeta directoryNav">
-          <Link href="/" className="textLink">
-            Calendar
-          </Link>
-          <Link href="/leads" className="textLink directoryNavActive">
-            Leads
-          </Link>
-          <Link href="/clients" className="textLink">
-            Clients
-          </Link>
+          <Link href="/" className="textLink">Calendar</Link>
+          <Link href="/leads" className="textLink directoryNavActive">Leads</Link>
+          <Link href="/clients" className="textLink">Clients</Link>
         </div>
       </div>
 
@@ -109,7 +85,9 @@ export default async function LeadsPage({
 
       <ImportExportBar mode="leads" exportParams={status || query ? `?status=${status}&q=${query}` : ""} />
 
-      <ContactDirectoryList mode="leads" entries={filteredEntries} timezone={shop.timezone} />
+      <ContactDirectoryList mode="leads" entries={entries} timezone={shop.timezone} />
+
+      <DirectoryPagination page={page} totalPages={totalPages} buildHref={buildHref} />
     </main>
   );
 }

@@ -16,6 +16,23 @@ import type {
 import { getShopById, getShopBySlug } from "@/lib/dashboard/bookings";
 
 const OPEN_LEAD_STATUSES = new Set(["new", "contacted", "quoted", "clicked"]);
+const OPEN_LEAD_STATUS_LIST = ["new", "contacted", "quoted", "clicked"];
+
+/**
+ * Page size for directory pages — shared so the page UI and the data fn
+ * can't disagree about how many rows fit per page.
+ */
+export const DIRECTORY_PAGE_SIZE = 20;
+
+/**
+ * Escape a string for safe inclusion inside a PostgREST .or() filter.
+ * PostgREST splits on commas and parentheses, so anything user-typed needs
+ * to be sanitised. We strip the dangerous chars rather than try to escape —
+ * names rarely contain them and we'd rather drop the search than break it.
+ */
+function escapeForOrFilter(s: string): string {
+  return s.replace(/[(),%]/g, " ").trim();
+}
 
 export async function getContactProfileById(id: string) {
   const supabase = getSupabaseAdminClient();
@@ -96,6 +113,357 @@ export async function getLeadDirectory(shopSlug: string) {
   const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
   return { shop, entries, stats: { totalLeads, wonLeads, openLeads, conversionRate } };
+}
+
+/**
+ * Server-paginated leads directory. Returns just the visible page plus
+ * shop-wide stats — no full table dump like getLeadDirectory.
+ *
+ * Search: matches on contact name/email/phone (a leading two-step query
+ * resolves the matching contact_ids first, then filters leads by those).
+ * If the search returns no contacts, we short-circuit to an empty result.
+ *
+ * Pagination: oversamples leads 4× to dedupe by contact (the directory
+ * shows 1 row per contact, latest lead). Approximate but stable enough —
+ * search/filter is the primary nav once volume is high.
+ */
+export async function getLeadDirectoryPage(args: {
+  shopSlug: string;
+  query: string;
+  status: string;
+  page: number;
+  pageSize?: number;
+}) {
+  const { shopSlug, query: rawQuery, status } = args;
+  const pageSize = args.pageSize ?? DIRECTORY_PAGE_SIZE;
+  const page = Math.max(1, args.page | 0);
+
+  const shop = await getShopBySlug(shopSlug);
+  const supabase = getSupabaseAdminClient();
+
+  const query = escapeForOrFilter(rawQuery);
+
+  // 1. Resolve matching contact ids if there's a search term
+  let contactIdFilter: string[] | null = null;
+  if (query) {
+    const orFilter = [
+      `full_name.ilike.%${query}%`,
+      `first_name.ilike.%${query}%`,
+      `last_name.ilike.%${query}%`,
+      `email.ilike.%${query}%`,
+      `phone.ilike.%${query}%`,
+    ].join(",");
+    const { data, error } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("shop_id", shop.id)
+      .or(orFilter)
+      .limit(2000);
+    if (error) throw error;
+    contactIdFilter = (data ?? []).map((c) => c.id as string);
+    if (contactIdFilter.length === 0) {
+      return await emptyLeadPage(shop);
+    }
+  }
+
+  // 2. Stats (always against the full shop, not the filtered set)
+  const stats = await getLeadStats(shop.id);
+
+  // 3. Page leads
+  const oversample = pageSize * 4;
+  const startRange = (page - 1) * pageSize;
+  let leadsQuery = supabase
+    .from("leads")
+    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, template_key, suggested_size, confidence, reason_code, approved_size, created_at, updated_at, booked_at")
+    .eq("shop_id", shop.id)
+    .not("archived", "eq", true)
+    .order("updated_at", { ascending: false })
+    .range(startRange, startRange + oversample - 1);
+  if (status) leadsQuery = leadsQuery.eq("status", status);
+  if (contactIdFilter) {
+    // Chunk if huge (rare — contactIdFilter usually small after search)
+    if (contactIdFilter.length > IN_BATCH) {
+      // Take only the most-recent matches by limiting upstream search
+      leadsQuery = leadsQuery.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+    } else {
+      leadsQuery = leadsQuery.in("contact_id", contactIdFilter);
+    }
+  }
+  const { data: rawLeads, error: leadsErr } = await leadsQuery;
+  if (leadsErr) throw leadsErr;
+  const leads = (rawLeads ?? []) as LeadRecord[];
+
+  // 4. Dedupe by contact, take pageSize
+  const seen = new Set<string>();
+  const uniqueLeads: LeadRecord[] = [];
+  for (const l of leads) {
+    if (!l.contact_id) continue;
+    if (seen.has(l.contact_id)) continue;
+    seen.add(l.contact_id);
+    uniqueLeads.push(l);
+    if (uniqueLeads.length >= pageSize) break;
+  }
+
+  // 5. Total count of unique contacts with leads matching filter — approximate
+  // via lead count (overestimates when contacts have multiple leads, but
+  // that's fine for "Page X of Y" purposes).
+  let countQ = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shop.id)
+    .not("archived", "eq", true);
+  if (status) countQ = countQ.eq("status", status);
+  if (contactIdFilter) {
+    countQ = countQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+  }
+  const { count: totalMatchingLeads } = await countQ;
+  const totalPages = Math.max(1, Math.ceil((totalMatchingLeads ?? 0) / pageSize));
+
+  // 6. Hydrate contacts + vehicles + per-contact lead counts
+  const contactIds = uniqueLeads.map((l) => l.contact_id as string);
+  const vehicleIds = uniqueLeads.map((l) => l.vehicle_id).filter(Boolean) as string[];
+  const [contacts, vehicles, leadCountByContact] = await Promise.all([
+    getContactsByIds(contactIds),
+    getVehiclesByIds(vehicleIds),
+    getLeadCountsByContact(contactIds),
+  ]);
+  const contactMap = new Map(contacts.map((c) => [c.id, c]));
+  const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
+
+  const entries: LeadDirectoryEntry[] = uniqueLeads
+    .map((lead) => {
+      const contact = contactMap.get(lead.contact_id as string);
+      if (!contact) return null;
+      const latestLead: LeadWithVehicle = {
+        ...lead,
+        vehicle: lead.vehicle_id ? vehicleMap.get(lead.vehicle_id) ?? null : null,
+      };
+      return {
+        contact,
+        latestLead,
+        leadCount: leadCountByContact.get(lead.contact_id as string) ?? 1,
+      } satisfies LeadDirectoryEntry;
+    })
+    .filter((e): e is LeadDirectoryEntry => e !== null);
+
+  return { shop, entries, stats, page, totalPages, pageSize };
+}
+
+async function emptyLeadPage(shop: { id: string; slug: string; name: string; timezone: string }) {
+  const stats = await getLeadStats(shop.id);
+  return { shop, entries: [] as LeadDirectoryEntry[], stats, page: 1, totalPages: 1, pageSize: DIRECTORY_PAGE_SIZE };
+}
+
+async function getLeadStats(shopId: string) {
+  const supabase = getSupabaseAdminClient();
+  const baseFilter = (q: any) => q.eq("shop_id", shopId).not("archived", "eq", true);
+  const [
+    totalRes,
+    wonRes,
+    openRes,
+  ] = await Promise.all([
+    baseFilter(supabase.from("leads").select("id", { count: "exact", head: true })),
+    baseFilter(supabase.from("leads").select("id", { count: "exact", head: true })).eq("status", "won"),
+    baseFilter(supabase.from("leads").select("id", { count: "exact", head: true })).in("status", OPEN_LEAD_STATUS_LIST),
+  ]);
+  const totalLeads = totalRes.count ?? 0;
+  const wonLeads = wonRes.count ?? 0;
+  const openLeads = openRes.count ?? 0;
+  const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
+  return { totalLeads, wonLeads, openLeads, conversionRate };
+}
+
+async function getLeadCountsByContact(contactIds: string[]): Promise<Map<string, number>> {
+  if (contactIds.length === 0) return new Map();
+  const supabase = getSupabaseAdminClient();
+  const counts = new Map<string, number>();
+  for (const batch of chunk(contactIds, IN_BATCH)) {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("contact_id")
+      .in("contact_id", batch)
+      .not("archived", "eq", true);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ contact_id: string | null }>) {
+      if (!row.contact_id) continue;
+      counts.set(row.contact_id, (counts.get(row.contact_id) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * Server-paginated clients directory. Same idea as getLeadDirectoryPage:
+ * search resolves to contact ids, then we fetch one page of bookings,
+ * dedupe by contact (latest booking per contact), hydrate.
+ */
+export async function getClientDirectoryPage(args: {
+  shopSlug: string;
+  query: string;
+  status: string;
+  dateFrom: string;
+  dateTo: string;
+  page: number;
+  pageSize?: number;
+}) {
+  const { shopSlug, query: rawQuery, status, dateFrom, dateTo } = args;
+  const pageSize = args.pageSize ?? DIRECTORY_PAGE_SIZE;
+  const page = Math.max(1, args.page | 0);
+
+  const shop = await getShopBySlug(shopSlug);
+  const supabase = getSupabaseAdminClient();
+
+  const query = escapeForOrFilter(rawQuery);
+  const fromIso = dateFrom ? new Date(dateFrom).toISOString() : null;
+  const toIso = dateTo ? new Date(dateTo + "T23:59:59").toISOString() : null;
+
+  let contactIdFilter: string[] | null = null;
+  if (query) {
+    const orFilter = [
+      `full_name.ilike.%${query}%`,
+      `first_name.ilike.%${query}%`,
+      `last_name.ilike.%${query}%`,
+      `email.ilike.%${query}%`,
+      `phone.ilike.%${query}%`,
+    ].join(",");
+    const { data, error } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("shop_id", shop.id)
+      .or(orFilter)
+      .limit(2000);
+    if (error) throw error;
+    contactIdFilter = (data ?? []).map((c) => c.id as string);
+    if (contactIdFilter.length === 0) {
+      return { shop, entries: [] as ClientDirectoryEntry[], page: 1, totalPages: 1, pageSize, totalRevenue: 0, totalBookings: 0 };
+    }
+  }
+
+  const oversample = pageSize * 4;
+  const startRange = (page - 1) * pageSize;
+  let bookingsQuery = supabase
+    .from("bookings")
+    .select("*")
+    .eq("shop_id", shop.id)
+    .order("scheduled_start", { ascending: false })
+    .range(startRange, startRange + oversample - 1);
+  if (status) bookingsQuery = bookingsQuery.eq("status", status);
+  if (fromIso) bookingsQuery = bookingsQuery.gte("scheduled_start", fromIso);
+  if (toIso) bookingsQuery = bookingsQuery.lte("scheduled_start", toIso);
+  if (contactIdFilter) {
+    bookingsQuery = bookingsQuery.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+  }
+
+  const { data: rawBookings, error: bookingsErr } = await bookingsQuery;
+  if (bookingsErr) throw bookingsErr;
+  const bookings = (rawBookings ?? []) as BookingRecord[];
+
+  // Dedupe by contact
+  const seen = new Set<string>();
+  const uniqueBookings: BookingRecord[] = [];
+  for (const b of bookings) {
+    if (!b.contact_id) continue;
+    if (seen.has(b.contact_id)) continue;
+    seen.add(b.contact_id);
+    uniqueBookings.push(b);
+    if (uniqueBookings.length >= pageSize) break;
+  }
+
+  // Total + page count (approximate: count bookings, not unique contacts)
+  let countQ = supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shop.id);
+  if (status) countQ = countQ.eq("status", status);
+  if (fromIso) countQ = countQ.gte("scheduled_start", fromIso);
+  if (toIso) countQ = countQ.lte("scheduled_start", toIso);
+  if (contactIdFilter) countQ = countQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+  const { count: totalMatchingBookings } = await countQ;
+  const totalPages = Math.max(1, Math.ceil((totalMatchingBookings ?? 0) / pageSize));
+
+  // Aggregate revenue across the FULL filtered set (not just this page) so
+  // the summary cards stay informative.
+  let revQ = supabase
+    .from("bookings")
+    .select("price_estimate")
+    .eq("shop_id", shop.id)
+    .limit(5000);
+  if (status) revQ = revQ.eq("status", status);
+  if (fromIso) revQ = revQ.gte("scheduled_start", fromIso);
+  if (toIso) revQ = revQ.lte("scheduled_start", toIso);
+  if (contactIdFilter) revQ = revQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+  const { data: revRows } = await revQ;
+  const totalRevenue = (revRows ?? []).reduce((sum, r: any) => sum + (r.price_estimate ?? 0), 0);
+
+  // Hydrate contacts + vehicles + bookingCount per contact
+  const contactIds = uniqueBookings.map((b) => b.contact_id as string);
+  const vehicleIds = uniqueBookings.map((b) => b.vehicle_id).filter(Boolean) as string[];
+  const [contacts, vehicles, bookingCountByContact, revenueByContact] = await Promise.all([
+    getContactsByIds(contactIds),
+    getVehiclesByIds(vehicleIds),
+    getBookingCountsByContact(contactIds),
+    getRevenueByContact(contactIds),
+  ]);
+  const contactMap = new Map(contacts.map((c) => [c.id, c]));
+  const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
+
+  const entries: ClientDirectoryEntry[] = uniqueBookings
+    .map((booking) => {
+      const contact = contactMap.get(booking.contact_id as string);
+      if (!contact) return null;
+      const latestBooking: BookingWithRelations = {
+        ...booking,
+        contact: contact ?? null,
+        vehicle: booking.vehicle_id ? vehicleMap.get(booking.vehicle_id) ?? null : null,
+      };
+      return {
+        contact,
+        latestBooking,
+        bookingCount: bookingCountByContact.get(booking.contact_id as string) ?? 1,
+        totalRevenue: revenueByContact.get(booking.contact_id as string) ?? (booking.price_estimate ?? 0),
+      } satisfies ClientDirectoryEntry;
+    })
+    .filter((e): e is ClientDirectoryEntry => e !== null);
+
+  return {
+    shop,
+    entries,
+    page,
+    totalPages,
+    pageSize,
+    totalRevenue,
+    totalBookings: totalMatchingBookings ?? 0,
+  };
+}
+
+async function getBookingCountsByContact(contactIds: string[]): Promise<Map<string, number>> {
+  if (contactIds.length === 0) return new Map();
+  const supabase = getSupabaseAdminClient();
+  const counts = new Map<string, number>();
+  for (const batch of chunk(contactIds, IN_BATCH)) {
+    const { data, error } = await supabase.from("bookings").select("contact_id").in("contact_id", batch);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ contact_id: string | null }>) {
+      if (!row.contact_id) continue;
+      counts.set(row.contact_id, (counts.get(row.contact_id) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+async function getRevenueByContact(contactIds: string[]): Promise<Map<string, number>> {
+  if (contactIds.length === 0) return new Map();
+  const supabase = getSupabaseAdminClient();
+  const revenue = new Map<string, number>();
+  for (const batch of chunk(contactIds, IN_BATCH)) {
+    const { data, error } = await supabase.from("bookings").select("contact_id, price_estimate").in("contact_id", batch);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ contact_id: string | null; price_estimate: number | null }>) {
+      if (!row.contact_id) continue;
+      revenue.set(row.contact_id, (revenue.get(row.contact_id) ?? 0) + (row.price_estimate ?? 0));
+    }
+  }
+  return revenue;
 }
 
 export async function getClientDirectory(shopSlug: string) {
