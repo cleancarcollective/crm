@@ -166,12 +166,11 @@ export async function getLeadDirectoryPage(args: {
     }
   }
 
-  // 2. Stats (always against the full shop, not the filtered set)
-  const stats = await getLeadStats(shop.id);
-
-  // 3. Page leads
+  // 2-4 fired in parallel: stats, page-leads, count.
   const oversample = pageSize * 4;
   const startRange = (page - 1) * pageSize;
+  const inFilter = contactIdFilter ? contactIdFilter.slice(0, IN_BATCH) : null;
+
   let leadsQuery = supabase
     .from("leads")
     .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, template_key, suggested_size, confidence, reason_code, approved_size, created_at, updated_at, booked_at")
@@ -180,20 +179,27 @@ export async function getLeadDirectoryPage(args: {
     .order("updated_at", { ascending: false })
     .range(startRange, startRange + oversample - 1);
   if (status) leadsQuery = leadsQuery.eq("status", status);
-  if (contactIdFilter) {
-    // Chunk if huge (rare — contactIdFilter usually small after search)
-    if (contactIdFilter.length > IN_BATCH) {
-      // Take only the most-recent matches by limiting upstream search
-      leadsQuery = leadsQuery.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
-    } else {
-      leadsQuery = leadsQuery.in("contact_id", contactIdFilter);
-    }
-  }
-  const { data: rawLeads, error: leadsErr } = await leadsQuery;
-  if (leadsErr) throw leadsErr;
-  const leads = (rawLeads ?? []) as LeadRecord[];
+  if (inFilter) leadsQuery = leadsQuery.in("contact_id", inFilter);
 
-  // 4. Dedupe by contact, take pageSize
+  let countQ = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shop.id)
+    .not("archived", "eq", true);
+  if (status) countQ = countQ.eq("status", status);
+  if (inFilter) countQ = countQ.in("contact_id", inFilter);
+
+  const [statsResult, leadsResult, countResult] = await Promise.all([
+    getLeadStats(shop.id),
+    leadsQuery,
+    countQ,
+  ]);
+  if (leadsResult.error) throw leadsResult.error;
+  const stats = statsResult;
+  const leads = (leadsResult.data ?? []) as LeadRecord[];
+  const totalMatchingLeads = countResult.count ?? 0;
+
+  // Dedupe by contact, take pageSize
   const seen = new Set<string>();
   const uniqueLeads: LeadRecord[] = [];
   for (const l of leads) {
@@ -204,20 +210,7 @@ export async function getLeadDirectoryPage(args: {
     if (uniqueLeads.length >= pageSize) break;
   }
 
-  // 5. Total count of unique contacts with leads matching filter — approximate
-  // via lead count (overestimates when contacts have multiple leads, but
-  // that's fine for "Page X of Y" purposes).
-  let countQ = supabase
-    .from("leads")
-    .select("id", { count: "exact", head: true })
-    .eq("shop_id", shop.id)
-    .not("archived", "eq", true);
-  if (status) countQ = countQ.eq("status", status);
-  if (contactIdFilter) {
-    countQ = countQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
-  }
-  const { count: totalMatchingLeads } = await countQ;
-  const totalPages = Math.max(1, Math.ceil((totalMatchingLeads ?? 0) / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalMatchingLeads / pageSize));
 
   // 6. Hydrate contacts + vehicles + per-contact lead counts
   const contactIds = uniqueLeads.map((l) => l.contact_id as string);
@@ -341,22 +334,58 @@ export async function getClientDirectoryPage(args: {
 
   const oversample = pageSize * 4;
   const startRange = (page - 1) * pageSize;
+  const inFilter = contactIdFilter ? contactIdFilter.slice(0, IN_BATCH) : null;
+
+  // Build the three independent queries (page, count, revenue-sum) and fire
+  // them in parallel — they don't depend on each other's results.
   let bookingsQuery = supabase
     .from("bookings")
     .select("*")
     .eq("shop_id", shop.id)
     .order("scheduled_start", { ascending: false })
     .range(startRange, startRange + oversample - 1);
-  if (status) bookingsQuery = bookingsQuery.eq("status", status);
-  if (fromIso) bookingsQuery = bookingsQuery.gte("scheduled_start", fromIso);
-  if (toIso) bookingsQuery = bookingsQuery.lte("scheduled_start", toIso);
-  if (contactIdFilter) {
-    bookingsQuery = bookingsQuery.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
+  let countQ = supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shop.id);
+  let revQ = supabase
+    .from("bookings")
+    .select("price_estimate")
+    .eq("shop_id", shop.id)
+    .limit(5000);
+  if (status) {
+    bookingsQuery = bookingsQuery.eq("status", status);
+    countQ = countQ.eq("status", status);
+    revQ = revQ.eq("status", status);
+  }
+  if (fromIso) {
+    bookingsQuery = bookingsQuery.gte("scheduled_start", fromIso);
+    countQ = countQ.gte("scheduled_start", fromIso);
+    revQ = revQ.gte("scheduled_start", fromIso);
+  }
+  if (toIso) {
+    bookingsQuery = bookingsQuery.lte("scheduled_start", toIso);
+    countQ = countQ.lte("scheduled_start", toIso);
+    revQ = revQ.lte("scheduled_start", toIso);
+  }
+  if (inFilter) {
+    bookingsQuery = bookingsQuery.in("contact_id", inFilter);
+    countQ = countQ.in("contact_id", inFilter);
+    revQ = revQ.in("contact_id", inFilter);
   }
 
-  const { data: rawBookings, error: bookingsErr } = await bookingsQuery;
-  if (bookingsErr) throw bookingsErr;
-  const bookings = (rawBookings ?? []) as BookingRecord[];
+  const [bookingsResult, countResult, revResult] = await Promise.all([
+    bookingsQuery,
+    countQ,
+    revQ,
+  ]);
+  if (bookingsResult.error) throw bookingsResult.error;
+  const bookings = (bookingsResult.data ?? []) as BookingRecord[];
+  const totalMatchingBookings = countResult.count ?? 0;
+  const totalRevenue = ((revResult.data ?? []) as Array<{ price_estimate: number | null }>).reduce(
+    (sum, r) => sum + (r.price_estimate ?? 0),
+    0
+  );
 
   // Dedupe by contact
   const seen = new Set<string>();
@@ -369,31 +398,7 @@ export async function getClientDirectoryPage(args: {
     if (uniqueBookings.length >= pageSize) break;
   }
 
-  // Total + page count (approximate: count bookings, not unique contacts)
-  let countQ = supabase
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("shop_id", shop.id);
-  if (status) countQ = countQ.eq("status", status);
-  if (fromIso) countQ = countQ.gte("scheduled_start", fromIso);
-  if (toIso) countQ = countQ.lte("scheduled_start", toIso);
-  if (contactIdFilter) countQ = countQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
-  const { count: totalMatchingBookings } = await countQ;
-  const totalPages = Math.max(1, Math.ceil((totalMatchingBookings ?? 0) / pageSize));
-
-  // Aggregate revenue across the FULL filtered set (not just this page) so
-  // the summary cards stay informative.
-  let revQ = supabase
-    .from("bookings")
-    .select("price_estimate")
-    .eq("shop_id", shop.id)
-    .limit(5000);
-  if (status) revQ = revQ.eq("status", status);
-  if (fromIso) revQ = revQ.gte("scheduled_start", fromIso);
-  if (toIso) revQ = revQ.lte("scheduled_start", toIso);
-  if (contactIdFilter) revQ = revQ.in("contact_id", contactIdFilter.slice(0, IN_BATCH));
-  const { data: revRows } = await revQ;
-  const totalRevenue = (revRows ?? []).reduce((sum, r: any) => sum + (r.price_estimate ?? 0), 0);
+  const totalPages = Math.max(1, Math.ceil(totalMatchingBookings / pageSize));
 
   // Hydrate contacts + vehicles + bookingCount per contact
   const contactIds = uniqueBookings.map((b) => b.contact_id as string);
