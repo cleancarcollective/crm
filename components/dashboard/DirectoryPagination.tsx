@@ -1,9 +1,11 @@
-import Link from "next/link";
-
 /**
  * Stateless pagination strip for directory pages. Renders prev/next plus
  * Page X of Y. Preserves query params via the buildHref callback so search
  * + status filters survive the navigation.
+ *
+ * Uses plain <a> rather than next/link — Next.js 15 typed routes don't
+ * accept dynamically-built strings, and full navigation is fine here
+ * (we want the server query to re-run with the new page number anyway).
  */
 type Props = {
   page: number;
@@ -18,23 +20,23 @@ export function DirectoryPagination({ page, totalPages, buildHref }: Props) {
 
   return (
     <nav className="directoryPagination" aria-label="Directory pagination">
-      <Link
-        href={prev !== null ? buildHref(prev) : "#"}
+      <a
+        href={prev !== null ? buildHref(prev) : undefined}
         aria-disabled={prev === null}
         className={`directoryPaginationLink${prev === null ? " directoryPaginationLink--disabled" : ""}`}
       >
         ← Previous
-      </Link>
+      </a>
       <span className="directoryPaginationLabel">
         Page {page} of {totalPages}
       </span>
-      <Link
-        href={next !== null ? buildHref(next) : "#"}
+      <a
+        href={next !== null ? buildHref(next) : undefined}
         aria-disabled={next === null}
         className={`directoryPaginationLink${next === null ? " directoryPaginationLink--disabled" : ""}`}
       >
         Next →
-      </Link>
+      </a>
     </nav>
   );
 }
