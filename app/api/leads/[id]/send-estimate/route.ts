@@ -173,16 +173,15 @@ export async function POST(
 }
 
 function buildHtml(plain: string): string {
-  const bookingUrl = "https://cleancarcollective.co.nz/make-a-booking/";
-  let html = plain
+  // No inline links — they push the message into Gmail's Promotions folder.
+  // If staff wants to point a customer somewhere, they should include the
+  // text in the email and the customer can copy/paste. Same trade-off as
+  // the auto-respond templates.
+  const html = plain
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-  html = html.replace(
-    bookingUrl.replace(/&/g, "&amp;"),
-    `<a href="${bookingUrl}" style="color:#1a73e8;text-decoration:underline;">make a booking here</a>`
-  );
   return `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;white-space:pre-wrap;">${html}</div>`;
 }

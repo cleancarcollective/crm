@@ -50,7 +50,7 @@ export const SMS_TEMPLATE_DEFAULTS: SmsTemplateDefault[] = [
   {
     template_key: "lead_followup_5day",
     name: "Lead follow-up SMS — 5 days after estimate",
-    body_text: `Hi {{name}}, just checking - any questions about the {{vehicle}} detailing estimate? Happy to chat or lock in a slot: cleancarcollective.co.nz/make-a-booking - {{senderName}}`,
+    body_text: `Hi {{name}}, just checking - any questions about the {{vehicle}} detailing estimate? Reply to this message to lock in a slot or have a chat - {{senderName}}`,
   },
 ];
 

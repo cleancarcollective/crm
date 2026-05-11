@@ -25,7 +25,13 @@ export type EstimateDraft = {
 
 export type PricingMap = Map<string, number>; // "ServiceName|Size" -> price_ex_gst
 
-const BOOKING_URL = "https://cleancarcollective.co.nz/make-a-booking/";
+// Booking URLs were removed from customer-facing email copy in 2026-04 —
+// inline links pushed the messages into Gmail's Promotions folder. Kept the
+// constant value here only because htmlBody() below still has substring-
+// replace logic that references it; the constant points at the homepage
+// (no /make-a-booking path) so even if any dead path emits it, it stays
+// promotional-folder-safe.
+const BOOKING_URL = "https://cleancarcollective.co.nz/";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -84,7 +90,7 @@ function fmtPrice(price: number | null): string {
   return `$${price} + GST`;
 }
 
-const CTA = `If you'd like to make a booking, you can do so here: ${BOOKING_URL}`;
+const CTA = `Just reply to this email if you'd like to lock in a slot or have any other questions.`;
 
 // ── Template picker ────────────────────────────────────────────────────────
 
