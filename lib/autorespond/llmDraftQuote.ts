@@ -1,23 +1,26 @@
 /**
- * LLM-drafted quote fallback. Called when the deterministic auto-respond
- * can't confidently send (vague vehicle, complex notes, low size confidence).
+ * LLM-assisted note-response generator. The deterministic templates handle
+ * the bulk of the email (greeting, pricing, sign-off). When a customer
+ * leaves notes, this generates ONLY a short paragraph addressing those
+ * notes that gets injected into the template body just before the
+ * "Please let me know if you have any questions..." line.
  *
- * Phase 1 (current): drafts the email body + suggested price + confidence
- * score. The lead still lands in `needs_approval` so a human one-click
- * sends it. This builds trust in the LLM's calibration over a few weeks
- * before we flip on auto-send.
+ * The LLM does NOT:
+ *   - Write greetings (template already says "Hi {{name}}").
+ *   - Add signatures or "Clean Car Collective ..." (template handles).
+ *   - Rewrite pricing (template has the canonical pricing).
+ *   - Mention services we don't offer.
  *
- * Phase 2 (later): when shop_settings.llm_auto_send_threshold is set and
- * confidence ≥ threshold, schedule a 5-minute-delayed auto-send (same
- * pattern as the existing high-confidence path). For now we always store
- * the draft and stay in approval queue.
+ * The LLM does:
+ *   - Acknowledge any specific question/request in the customer's notes.
+ *   - Address availability/timing/location questions if asked.
+ *   - Clarify what we offer if their request is adjacent but not exact.
+ *   - Stay 1-3 sentences max.
  *
- * Cost: ~$0.003 per draft uncached, ~$0.0002 cached (95% reduction). At
- * 30 leads/week needing LLM that's ~$0.10/week per shop.
+ * Cost: ~$0.002 per call uncached, ~$0.0001 cached. Negligible.
  */
 
 import { callOpenRouter } from "@/lib/llm/openrouterClient";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const LLM_MODEL = "anthropic/claude-sonnet-4.5";
 
@@ -25,230 +28,242 @@ export type LlmDraftInput = {
   shopId: string;
   shopName: string;
   shopSlug: string;
-  /** Sender first name baked into signature (Ben / Max). */
   senderFirstName: string;
   bookingUrl: string;
-  /** Reason the deterministic path bailed. Helps the LLM focus. */
   reason: "low_confidence" | "vehicle_size_unknown" | "notes_present" | "draft_error" | "other";
-  /** Lead context the LLM uses to draft. */
   firstName: string;
   serviceRequested: string | null;
   vehicleMake: string | null;
   vehicleModel: string | null;
   vehicleYear: string | null;
   customerNotes: string | null;
-  /** The deterministic draft, if there was one. The LLM uses it as a starting
-   *  point for tone but rewrites freely. */
+  /** The deterministic-rendered draft. Read for context, NOT rewritten. */
   deterministicSubject: string;
   deterministicBody: string;
 };
 
 export type LlmDraftResult = {
-  /** 0.0–1.0 — LLM's own assessment of how confident it is in the quote. */
+  /** 0.0–1.0 — confidence the note-response is appropriate. */
   confidence: number;
+  /** Final subject — same as the deterministic subject (LLM doesn't rewrite). */
   subject: string;
+  /** Final body — deterministic body with the LLM paragraph injected. */
   body: string;
-  /** Plain-text body wrapped in minimal HTML for the email. */
+  /** Same body, minimal HTML wrap. */
   htmlBody: string;
-  /** May be null if the LLM decides to ask for more info instead of quoting. */
+  /** The injected paragraph itself, for logging/audit. */
+  noteResponse: string | null;
+  /** Always null in this flow — pricing comes from the template. */
   suggestedPriceEstimate: number | null;
+  /** Always null in this flow. */
   sizeAssumption: "small" | "medium" | "large" | "xl" | null;
-  /** Set when LLM thinks we should ask for clarification. The body will be a
-   *  polite info-request rather than a quote. */
+  /** Set if LLM thinks the customer's request needs a phone call / clarification. */
   needsMoreInfo: string | null;
   internalNotes: string;
   usage: { promptTokens?: number; completionTokens?: number };
 };
 
-/**
- * Static system-prompt portion. Cached on Anthropic via cache_control.
- */
-const RESPONSE_FRAMEWORK = `You are the customer-quote assistant for Clean Car Collective, a NZ vehicle detailing business. You draft email replies to website enquiries when the deterministic auto-respond can't handle them confidently.
+const RESPONSE_FRAMEWORK = `You write SHORT paragraphs that get inserted into pre-written quote emails for Clean Car Collective, a NZ vehicle detailing business.
 
-Tone & style:
-- Warm, casual, NZ — match the customer's casualness if they were casual.
-- Conversational, not corporate. Don't sound like a chatbot.
-- NZ English: colour, customise, organise, kerb, neighbour, etc.
-- Keep emails short — under 12 short lines. Customers don't read long emails.
-- Sign off with the sender's first name + "Clean Car Collective {shop}". The senderFirstName is provided in each request.
+You are NOT writing the whole email. The template already handles:
+- Greeting ("Hi {{name}}")
+- Service description + pricing
+- Sign-off ("Cheers, Ben/Max")
 
-What every quote should include:
-- A clear price or price range. If unsure on size, give a RANGE and explain why ("roughly $X–$Y depending on the {make/model}'s size").
-- One clear next step: book online (URL provided per request), reply with a photo, or reply to confirm.
-- Address the customer by their first name.
+You are ONLY writing 1-3 sentences that address the customer's specific notes/questions. The paragraph gets injected into the template body just before the closing line. Your output must:
 
-When to ask for info instead of quoting (set needs_more_info, leave price null):
-- Vehicle is genuinely unclear ("car", "my vehicle", obvious typo we can't decode).
-- Customer asked for something we don't offer (engine work, mechanical, panel beating).
-- Notes contain a complex multi-part request that needs phone discussion.
-- Anything where guessing the price would be unprofessional.
+- Be 1-3 short sentences. Max.
+- NEVER include a greeting (no "Hi", no "Hey").
+- NEVER include a signature, sign-off, or the words "Clean Car Collective" anywhere.
+- NEVER repeat pricing — the template already shows it.
+- NEVER mention services we don't offer (we ONLY do: detailing, paint correction, ceramic coatings, paint protection film). If the customer asked for something else (engine bay, panel beating, mechanical, etc.), politely note we don't offer it.
+- Use NZ English (colour, customise, etc.) and a warm casual tone.
+- Address whatever the customer actually asked.
 
-Confidence scoring (be honest):
-- 0.95+ : clear vehicle, standard service, pricing table covers it cleanly.
-- 0.80–0.94 : minor ambiguity but quote is still defensible.
-- 0.60–0.79 : meaningful uncertainty, range given, staff should sanity-check before sending.
-- <0.60 : we should probably ask for more info instead.
-
-Hard rules:
-- Never promise something not in the pricing table.
-- Never quote without a price unless needs_more_info is set with the missing piece.
-- Never make up services we don't offer.
-- For high-value vehicles (Range Rover, Tesla Model S/X, Porsche, etc.) be conservative with the price and flag in internal_notes.
-- For very-large jobs (>$1500 estimate) lower confidence to <0.75 — we want a human to glance at it.
+If the customer's notes contain a question we can't confidently answer (specific timing/availability, complex multi-part request, custom pricing), set needs_more_info to flag it and write a paragraph that gently invites them to reply or call.
 
 Output: ONLY a JSON object with these exact keys:
 {
   "confidence": number 0.0-1.0,
-  "subject": "string",
-  "body": "string with \\n line breaks",
-  "suggested_price_estimate": number | null,
-  "size_assumption": "small" | "medium" | "large" | "xl" | null,
+  "paragraph": "the 1-3 sentence response to insert",
   "needs_more_info": null | "string explaining what we need",
-  "internal_notes": "1-2 sentences for staff explaining your reasoning"
+  "internal_notes": "1 sentence for staff explaining your reasoning"
 }
 
-No prose. No markdown. No explanation. Just the JSON.`;
-
-type PricingRow = { service_name: string; size: string | null; price_ex_gst: number | null };
-
-async function loadPricingForPrompt(shopId: string): Promise<PricingRow[]> {
-  const supabase = getSupabaseAdminClient();
-  const { data } = await supabase
-    .from("pricing")
-    .select("service_name, size, price_ex_gst")
-    .eq("shop_id", shopId);
-  return (data ?? []) as PricingRow[];
-}
-
-function formatPricingTable(rows: PricingRow[]): string {
-  if (rows.length === 0) return "(no pricing rows on file — be very cautious)";
-  // Group by service for readability
-  const byService = new Map<string, PricingRow[]>();
-  for (const r of rows) {
-    const list = byService.get(r.service_name) ?? [];
-    list.push(r);
-    byService.set(r.service_name, list);
-  }
-  const lines: string[] = [];
-  for (const [service, prices] of byService) {
-    lines.push(`${service}:`);
-    for (const p of prices) {
-      lines.push(`  - ${p.size ?? "any size"}: $${p.price_ex_gst ?? "?"}`);
-    }
-  }
-  return lines.join("\n");
-}
+No prose. No markdown fences. Just the JSON.`;
 
 /**
- * Build the system prompt with the static framework + per-shop pricing.
- * The whole thing gets `cache_control: ephemeral` so re-invocations within
- * the 5-minute prompt-cache window only pay for the user message.
+ * Build the per-shop system prompt. Smaller now that we're only writing
+ * paragraphs — no pricing table needed (template has prices), no
+ * signature instructions (template has them).
  */
 async function buildSystemPrompt(input: LlmDraftInput): Promise<string> {
-  const pricing = await loadPricingForPrompt(input.shopId);
   return [
     RESPONSE_FRAMEWORK,
     "",
     `Shop: ${input.shopName} (slug: ${input.shopSlug})`,
-    `Sender first name (use in signature): ${input.senderFirstName}`,
-    `Booking URL: ${input.bookingUrl}`,
-    "",
-    "Current pricing (ex GST):",
-    formatPricingTable(pricing),
   ].join("\n");
 }
 
+
 function buildUserPrompt(input: LlmDraftInput): string {
   const lines = [
-    "Draft a reply to this enquiry.",
+    "Write the paragraph to inject into the template below.",
     "",
-    "WHY THE DETERMINISTIC SYSTEM BAILED:",
-    `  ${input.reason}`,
-    "",
-    "ENQUIRY:",
-    `  Customer: ${input.firstName}`,
+    "CUSTOMER:",
+    `  Name: ${input.firstName}`,
     `  Service requested: ${input.serviceRequested ?? "(not specified)"}`,
     `  Vehicle: ${[input.vehicleYear, input.vehicleMake, input.vehicleModel].filter(Boolean).join(" ") || "(not specified)"}`,
   ];
   if (input.customerNotes && input.customerNotes.trim()) {
     lines.push(`  Customer notes: ${input.customerNotes.trim()}`);
+  } else {
+    lines.push(`  Customer notes: (none — return paragraph: "" and confidence: 0)`);
   }
   lines.push("");
-  if (input.deterministicSubject || input.deterministicBody) {
-    lines.push("REFERENCE — what the deterministic system was about to send (you can borrow tone/structure but rewrite freely):");
-    lines.push(`Subject: ${input.deterministicSubject}`);
-    lines.push("---");
-    lines.push(input.deterministicBody);
-  }
+  lines.push("TEMPLATE BEING SENT (read for context only — do NOT rewrite, just write the paragraph that will be inserted before the closing 'Please let me know...' line):");
+  lines.push(input.deterministicBody);
   return lines.join("\n");
 }
 
 function plainTextToHtml(text: string): string {
-  // Minimal — wrap paragraphs, preserve line breaks, no fancy styling. The
-  // existing HTML email wrapper does the chrome; this is just the body.
   const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   return paragraphs
     .map((p) => `<p>${p.replace(/\n/g, "<br />")}</p>`)
     .join("\n");
 }
 
+/**
+ * Strip any sneaky signatures or brand-name additions the model might still
+ * emit despite instructions. Belt-and-braces — we already told it not to,
+ * but a single stray "Clean Car Collective" line would slip through if we
+ * trusted blindly.
+ */
+function sanitiseParagraph(p: string): string {
+  return p
+    .split("\n")
+    .filter((line) => {
+      const lower = line.toLowerCase().trim();
+      if (lower.startsWith("hi ") || lower.startsWith("hey ") || lower.startsWith("hello ")) return false;
+      if (lower.startsWith("cheers")) return false;
+      if (lower.startsWith("thanks,") || lower === "thanks") return false;
+      if (lower.includes("clean car collective")) return false;
+      return true;
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Insert the LLM paragraph into the deterministic body. We look for the
+ * canonical "Please let me know if you have any questions" line and insert
+ * before it. If that line isn't found (template variant changed), we
+ * insert before the first "Cheers,"/"Thanks," sign-off. If neither, we
+ * append before the last paragraph.
+ */
+function injectParagraph(body: string, paragraph: string): string {
+  if (!paragraph) return body;
+  const lines = body.split("\n");
+  const closingMarkers = [
+    /^please let me know/i,
+    /^let me know/i,
+  ];
+  const signatureMarkers = [
+    /^cheers,?\s*$/i,
+    /^thanks,?\s*$/i,
+    /^kind regards/i,
+    /^regards,?\s*$/i,
+  ];
+
+  // Find first closing-marker line
+  let insertAt = lines.findIndex((l) => closingMarkers.some((re) => re.test(l.trim())));
+  if (insertAt === -1) {
+    insertAt = lines.findIndex((l) => signatureMarkers.some((re) => re.test(l.trim())));
+  }
+  if (insertAt === -1) {
+    // Fallback: just before the last non-empty line
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim()) {
+        insertAt = i;
+        break;
+      }
+    }
+  }
+  if (insertAt < 0) return body + "\n\n" + paragraph;
+
+  const before = lines.slice(0, insertAt).join("\n").replace(/\s+$/, "");
+  const after = lines.slice(insertAt).join("\n");
+  return `${before}\n\n${paragraph}\n\n${after}`;
+}
+
 export async function llmDraftQuote(input: LlmDraftInput): Promise<LlmDraftResult> {
+  // Short-circuit: no notes, no need to call the LLM. The template handles
+  // everything by itself.
+  const hasNotes = !!(input.customerNotes && input.customerNotes.trim());
+
+  if (!hasNotes) {
+    return {
+      confidence: 1,
+      subject: input.deterministicSubject,
+      body: input.deterministicBody,
+      htmlBody: plainTextToHtml(input.deterministicBody),
+      noteResponse: null,
+      suggestedPriceEstimate: null,
+      sizeAssumption: null,
+      needsMoreInfo: null,
+      internalNotes: "No customer notes — using template as-is, no LLM call.",
+      usage: {},
+    };
+  }
+
   const systemPrompt = await buildSystemPrompt(input);
   const userPrompt = buildUserPrompt(input);
 
   const response = await callOpenRouter({
     model: LLM_MODEL,
     response_format: { type: "json_object" },
-    temperature: 0.4,
-    max_tokens: 1200,
+    temperature: 0.3,
+    max_tokens: 400,
     messages: [
       {
         role: "system",
         content: [
-          {
-            type: "text",
-            text: systemPrompt,
-            // Cache the entire system prompt (framework + pricing). Per-shop,
-            // stable across leads. Cuts cost on every subsequent call.
-            cache_control: { type: "ephemeral" },
-          },
+          { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
         ],
       },
       { role: "user", content: userPrompt },
     ],
   });
 
-  // Parse — the model is instructed to return raw JSON. Be defensive.
   let parsed: any;
   try {
     parsed = JSON.parse(response.content);
   } catch {
-    // Sometimes models wrap JSON in code fences despite instructions
     const fenced = response.content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
     if (fenced) parsed = JSON.parse(fenced[1]!);
     else throw new Error(`LLM returned non-JSON: ${response.content.slice(0, 200)}`);
   }
 
-  const subject = String(parsed.subject ?? "");
-  const body = String(parsed.body ?? "");
-  if (!subject || !body) {
-    throw new Error("LLM response missing subject or body");
-  }
+  const rawParagraph = String(parsed.paragraph ?? "").trim();
+  const noteResponse = sanitiseParagraph(rawParagraph);
+
+  // Compose final body = template with paragraph injected before sign-off
+  const finalBody = noteResponse
+    ? injectParagraph(input.deterministicBody, noteResponse)
+    : input.deterministicBody;
 
   return {
     confidence: typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
-    subject,
-    body,
-    htmlBody: plainTextToHtml(body),
-    suggestedPriceEstimate:
-      typeof parsed.suggested_price_estimate === "number" ? parsed.suggested_price_estimate : null,
-    sizeAssumption: ["small", "medium", "large", "xl"].includes(parsed.size_assumption)
-      ? parsed.size_assumption
-      : null,
+    subject: input.deterministicSubject,
+    body: finalBody,
+    htmlBody: plainTextToHtml(finalBody),
+    noteResponse: noteResponse || null,
+    suggestedPriceEstimate: null,
+    sizeAssumption: null,
     needsMoreInfo: typeof parsed.needs_more_info === "string" && parsed.needs_more_info.trim()
       ? parsed.needs_more_info.trim()
       : null,
-    internalNotes: String(parsed.internal_notes ?? "").slice(0, 1000),
+    internalNotes: String(parsed.internal_notes ?? "").slice(0, 500),
     usage: {
       promptTokens: response.usage?.prompt_tokens,
       completionTokens: response.usage?.completion_tokens,

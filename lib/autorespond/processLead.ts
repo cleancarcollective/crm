@@ -297,24 +297,25 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     approvalReason = "low_confidence";
   }
 
-  // ── LLM fallback ─────────────────────────────────────────────────────────
-  // When the deterministic path bailed and we'd otherwise hand a thin draft
-  // to staff, ask Claude (via OpenRouter) to draft a real reply with proper
-  // pricing reasoning. Lead still lands in needs_approval — staff one-click
-  // sends it via the existing approval-email flow. Failures are non-fatal
-  // (the deterministic draft remains as the fallback).
+  // ── LLM note-response injection ──────────────────────────────────────────
+  // The deterministic template handles greeting + pricing + sign-off.
+  // When the customer left notes, ask Claude to write a 1-3 sentence
+  // paragraph addressing those notes; we inject it into the template body
+  // before the "Please let me know..." line. The template itself is
+  // never rewritten.
+  //
+  // Only runs when notes are present AND we have a deterministic draft.
+  // Failures are non-fatal — the deterministic draft remains as-is.
   let llmConfidence: number | null = null;
   if (
     newStatus === "needs_approval" &&
     process.env.OPENROUTER_API_KEY &&
-    (approvalReason === "low_confidence" ||
-      approvalReason === "vehicle_size_unknown" ||
-      approvalReason === "notes_present")
+    hasNotes &&
+    !draftError &&
+    draftBody
   ) {
     try {
       const contacts = await getShopContactsById(shopId);
-      // Look up shop name/slug + vehicle year on the side. Cheap and keeps
-      // the input type unchanged for callers.
       const { data: shopRow } = await supabase
         .from("shops")
         .select("name, slug")
@@ -334,7 +335,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
         shopSlug: shopRow?.slug ?? "",
         senderFirstName: contacts.sender_name,
         bookingUrl: `${contacts.website}/make-a-booking`,
-        reason: approvalReason as LlmDraftInput["reason"],
+        reason: "notes_present",
         firstName,
         serviceRequested,
         vehicleMake: makeRaw,
@@ -346,20 +347,19 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       };
       const llm = await llmDraftQuote(llmInput);
 
-      // If LLM decided to ask for info instead of quoting, body will already
-      // reflect that. Either way, replace the deterministic draft with the
-      // LLM's output so staff sees the better version.
-      draftSubject = llm.subject;
+      // Template stays canonical; we only swap the body to the version
+      // with the LLM's paragraph injected. Subject is unchanged from
+      // the deterministic render.
       draftBody = llm.body;
       draftHtml = llm.htmlBody;
       llmConfidence = llm.confidence;
-      internalNote = `LLM-drafted (confidence ${Math.round(llm.confidence * 100)}%${
-        llm.suggestedPriceEstimate !== null ? `, ~$${llm.suggestedPriceEstimate}` : ""
-      }${llm.needsMoreInfo ? ", asking for info" : ""}). ${llm.internalNotes}`;
-      console.info("LLM draft generated", {
+      internalNote = llm.noteResponse
+        ? `LLM injected note-response (confidence ${Math.round(llm.confidence * 100)}%): "${llm.noteResponse.slice(0, 140)}"${llm.needsMoreInfo ? ` · ${llm.needsMoreInfo}` : ""}`
+        : `LLM ran but produced no note-response. ${llm.internalNotes}`;
+      console.info("LLM note-response generated", {
         leadId,
         confidence: llm.confidence,
-        suggestedPrice: llm.suggestedPriceEstimate,
+        injected: !!llm.noteResponse,
         needsMoreInfo: !!llm.needsMoreInfo,
         promptTokens: llm.usage.promptTokens,
         completionTokens: llm.usage.completionTokens,

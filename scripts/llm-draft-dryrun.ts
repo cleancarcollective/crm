@@ -28,6 +28,10 @@ loadEnv(".env.local");
 loadEnv(".env.vercel.local");
 
 import { llmDraftQuote, type LlmDraftInput } from "@/lib/autorespond/llmDraftQuote";
+import { buildTemplateContext, loadAndRenderTemplate } from "@/lib/autorespond/templateRenderer";
+import { pickTemplateKey, templateNeedsSize } from "@/lib/autorespond/templates";
+import { classifyVehicle } from "@/lib/autorespond/vehicleSizing";
+import type { VehicleSize } from "@/lib/autorespond/vehicleSizing";
 import { getShopContactsById } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -57,7 +61,44 @@ async function main() {
     const shop = l.shop ?? {};
     const contacts = await getShopContactsById(l.shop_id);
 
-    const reason: LlmDraftInput["reason"] = l.reason_code === "unknown_model" ? "vehicle_size_unknown" : "low_confidence";
+    const reason: LlmDraftInput["reason"] = "notes_present";
+
+    // Render the actual deterministic template so we can show the injection
+    // in context. Mirrors what processLead does live.
+    const templateKey = pickTemplateKey(l.service_requested ?? "");
+    const needsSize = templateNeedsSize(templateKey);
+    let suggestedSize: VehicleSize | null = null;
+    if (v.make && v.model) {
+      const cls = classifyVehicle(v.make, v.model);
+      suggestedSize = cls?.size ?? null;
+    }
+    const supabase2 = getSupabaseAdminClient();
+    const { data: pricingRows } = await supabase2
+      .from("pricing")
+      .select("service_name, size, price_ex_gst")
+      .eq("shop_id", l.shop_id);
+    const pricing = new Map<string, number>();
+    for (const r of (pricingRows ?? []) as Array<{ service_name: string; size: string | null; price_ex_gst: number | null }>) {
+      const key = r.size ? `${r.service_name}|${r.size}` : r.service_name;
+      pricing.set(key, r.price_ex_gst ?? 0);
+    }
+    const ctx = buildTemplateContext(
+      templateKey,
+      c.first_name ?? "there",
+      v.make ?? "",
+      v.model ?? "",
+      needsSize ? suggestedSize : null,
+      pricing
+    );
+    let deterministicSubject = "";
+    let deterministicBody = "";
+    try {
+      const rendered = await loadAndRenderTemplate(l.shop_id, templateKey, ctx);
+      deterministicSubject = rendered.subject;
+      deterministicBody = rendered.textBody;
+    } catch (e) {
+      console.warn(`  Could not render template (${(e as Error).message}) — passing empty.`);
+    }
 
     const input: LlmDraftInput = {
       shopId: l.shop_id,
@@ -72,8 +113,8 @@ async function main() {
       vehicleModel: v.model ?? null,
       vehicleYear: v.year ?? null,
       customerNotes: l.notes,
-      deterministicSubject: "",
-      deterministicBody: "",
+      deterministicSubject,
+      deterministicBody,
     };
 
     console.log("\n" + "=".repeat(80));
@@ -83,11 +124,16 @@ async function main() {
 
     try {
       const result = await llmDraftQuote(input);
-      console.log(`\n→ Confidence: ${(result.confidence * 100).toFixed(0)}%   Suggested price: ${result.suggestedPriceEstimate ? `$${result.suggestedPriceEstimate}` : "—"}   Size: ${result.sizeAssumption ?? "—"}`);
-      if (result.needsMoreInfo) console.log(`  ⚠ Asking for: ${result.needsMoreInfo}`);
+      console.log(`\n→ Confidence: ${(result.confidence * 100).toFixed(0)}%`);
+      if (result.noteResponse) {
+        console.log(`  Injected paragraph: "${result.noteResponse}"`);
+      } else {
+        console.log(`  (No paragraph injected — no notes or LLM declined.)`);
+      }
+      if (result.needsMoreInfo) console.log(`  ⚠ Needs more info: ${result.needsMoreInfo}`);
       console.log(`  Internal: ${result.internalNotes}`);
-      console.log(`  Tokens: prompt=${result.usage.promptTokens}, completion=${result.usage.completionTokens}`);
-      console.log("\n--- DRAFT ---");
+      console.log(`  Tokens: prompt=${result.usage.promptTokens ?? 0}, completion=${result.usage.completionTokens ?? 0}`);
+      console.log("\n--- FINAL DRAFT ---");
       console.log("Subject:", result.subject);
       console.log("");
       console.log(result.body);
