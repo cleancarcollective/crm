@@ -296,5 +296,11 @@ export async function loadAndRenderTemplate(
   variant?: string
 ): Promise<RenderedTemplate> {
   const template = await loadTemplate(shopId, templateKey, variant);
-  return renderTemplate(template, ctx);
+  // Inject per-shop sender first name so templates can sign off correctly
+  // (Ben for Christchurch, Max for Wellington) using {{sender_first_name}}
+  // without needing per-shop template bodies.
+  const { getShopContactsById } = await import("@/lib/email/shopContacts");
+  const contacts = await getShopContactsById(shopId);
+  const enrichedCtx = { sender_first_name: contacts.sender_name, ...ctx };
+  return renderTemplate(template, enrichedCtx);
 }

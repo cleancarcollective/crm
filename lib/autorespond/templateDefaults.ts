@@ -37,14 +37,14 @@ export const TEMPLATE_DEFAULTS: TemplateDefault[] = [
 
 Thanks for getting in touch about a detail on your {{vehicle}}. We've got two main inside-and-out packages:
 
-Deluxe Detail — {{deluxe_price}} (approx. 3.5-4 hours)
+Deluxe Detail: {{deluxe_price}} (approx. 3.5-4 hours)
 - Exterior hand wash & dry
 - Wheel faces, barrels & tyres cleaned
 - Interior vacuum & plastics detailed
 - Door jambs & windows cleaned
 - 3-month paint sealant
 
-Premium Detail — {{premium_price}} (approx. 5.5-6.5 hours)
+Premium Detail: {{premium_price}} (approx. 5.5-6.5 hours)
 - Everything in the Deluxe, plus:
 - Full interior shampoo (carpets, seats, mats)
 - Clay-bar paint decontamination
@@ -58,7 +58,7 @@ If you're after long-term protection, ask about paint correction (swirl/scratch 
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "interior_only",
@@ -69,13 +69,13 @@ Max`,
 
 Thanks for getting in touch about an interior detail on your {{vehicle}}. Two main options:
 
-Deluxe Interior — {{deluxe_interior_price}} (approx. 2.5-3 hours)
+Deluxe Interior: {{deluxe_interior_price}} (approx. 2.5-3 hours)
 - Full interior vacuum (carpets, mats, seats)
 - Crevice detail
 - Plastics cleaned & protected
 - Door jambs & interior windows
 
-Premium Interior — {{premium_interior_price}} (approx. 3.5-4.5 hours)
+Premium Interior: {{premium_interior_price}} (approx. 3.5-4.5 hours)
 - Everything in the Deluxe, plus:
 - Full shampoo & extraction of seats, carpets & mats
 - Double vacuum & stain extraction
@@ -86,7 +86,7 @@ Happy to customise too. Seats only, leather protection coating, whatever you nee
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "exterior_only",
@@ -97,13 +97,13 @@ Max`,
 
 Thanks for getting in touch about an exterior clean on your {{vehicle}}. Two options depending on what you're after:
 
-Deluxe Exterior — {{deluxe_exterior_price}} (approx. 1.5-2 hours)
+Deluxe Exterior: {{deluxe_exterior_price}} (approx. 1.5-2 hours)
 - Hand wash & dry
 - Wheel faces, barrels & tyres cleaned
 - Windows & mirrors
 - 3-month wax/paint sealant
 
-Premium Exterior — {{premium_exterior_price}} (approx. 2.5-3 hours)
+Premium Exterior: {{premium_exterior_price}} (approx. 2.5-3 hours)
 - Everything in the Deluxe, plus:
 - Clay-bar treatment to remove bonded contaminants
 - Full paint decontamination for a smoother, glossier finish
@@ -113,7 +113,7 @@ If your paint has visible swirls or scratches, ask about paint correction and ce
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "ceramic",
@@ -124,15 +124,15 @@ Max`,
 
 Thanks for reaching out about ceramic coating for your {{vehicle}}. We're CarPro authorised installers and run three coating levels:
 
-Bronze — {{bronze_price}}
+Bronze: {{bronze_price}}
 - 1-year protection
 - Gloss enhancement & strong hydrophobic properties
 
-Silver — {{silver_price}}
+Silver: {{silver_price}}
 - 3-year protection
 - Added chemical resistance & easy-clean surface
 
-Gold — {{gold_price}}
+Gold: {{gold_price}}
 - 5-year protection (backed by our company warranty)
 - Maximum gloss retention, hardness improvement & top-tier hydrophobic performance
 
@@ -141,7 +141,7 @@ All three include full surface prep (wash, decontamination, and spot polishing i
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "paint_correction",
@@ -152,11 +152,11 @@ Max`,
 
 Thanks for reaching out about paint correction for your {{vehicle}}. It removes swirls, oxidation, and scratches, and brings a lot of depth and gloss back to the paint.
 
-1-Step Correction — {{one_step_price}}
+1-Step Correction: {{one_step_price}}
 - Removes up to 90% of light swirls & micro-marring
 - Great for most daily drivers
 
-2-Step Correction — {{two_step_price}}
+2-Step Correction: {{two_step_price}}
 - Removes deeper scratches and watermarks
 - Maximum clarity and reflection for high-end results
 
@@ -165,7 +165,7 @@ Correction is the ideal prep step before a ceramic coating, so happy to bundle t
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "other",
@@ -183,7 +183,7 @@ If you can tell me what you're after, I'll send pricing through today.
 ${CTA}
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "lead_followup_3day",
@@ -199,7 +199,7 @@ Happy to answer any questions about the packages, help pick the right option, or
 Just reply to this email and I'll get you booked in.
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "lead_followup_7day",
@@ -213,7 +213,7 @@ Just one last check-in. Let me know if you're still keen for a detail on your {{
 Otherwise no worries, I'll leave you be. Feel free to reach out anytime.
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
   {
     template_key: "lead_followup_30day",
@@ -229,7 +229,7 @@ If a detail for your {{vehicle}} is still on the to-do list, just hit reply and 
 If not, no stress — won't follow up again from here.
 
 Cheers,
-Max`,
+{{sender_first_name}}`,
   },
 ];
 

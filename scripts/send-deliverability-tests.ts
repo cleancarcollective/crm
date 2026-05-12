@@ -38,10 +38,18 @@ import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopContactsById } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-const TEST_RECIPIENTS = [
+/**
+ * Recipient list. Override at the CLI with --to <comma,separated,addresses>
+ * for one-off tests (e.g. a fresh mail-tester.com address).
+ */
+const DEFAULT_RECIPIENTS = [
   "tebbs.max@gmail.com",
   "joetrebble1@gmail.com",
 ];
+const toFlag = process.argv.indexOf("--to");
+const TEST_RECIPIENTS = toFlag !== -1 && process.argv[toFlag + 1]
+  ? process.argv[toFlag + 1]!.split(",").map((s) => s.trim())
+  : DEFAULT_RECIPIENTS;
 
 function substitute(template: string, ctx: Record<string, string>): string {
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) =>
@@ -84,7 +92,13 @@ async function main() {
 
   for (const recipient of TEST_RECIPIENTS) {
     const name = recipient.split("@")[0]!.split(/[._-]/)[0]!;
-    const personalCtx = { ...ctx, name: name.charAt(0).toUpperCase() + name.slice(1) };
+    // Inject per-shop sender name so {{sender_first_name}} substitutes
+    // — mirrors what loadAndRenderTemplate does at real send time.
+    const personalCtx = {
+      ...ctx,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      sender_first_name: contacts.sender_name,
+    };
     const subject = `[TEST ${sentAt.slice(11, 16)}] ` + substitute(template.subject, personalCtx);
     const textBody = substitute(template.body_text, personalCtx);
     // Send via the same path real customer estimates use now (Gmail SMTP).
