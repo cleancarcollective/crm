@@ -80,14 +80,27 @@ function titleCase(str: string): string {
     .join(" ");
 }
 
+/**
+ * Strip garbage characters that customers sometimes paste into the make /
+ * model fields. Leading slashes ("/Toyota/Atara S"), trailing punctuation,
+ * stray quotes, etc. Whatever's left gets title-cased properly so the
+ * subject line never reads "for your i10" or "for your /toyota/atara".
+ */
+function cleanField(s: string): string {
+  return (s || "")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function vehicleDisplay(makeRaw: string, modelRaw: string): string {
-  let model = (modelRaw || "").toLowerCase();
+  let model = cleanField(modelRaw).toLowerCase();
   model = model.replace(/\b(19|20)\d{2}\b/g, "");
   model = model.replace(/\b(white|black|silver|grey|gray|blue|red|green|gold|beige)\b/g, "");
   model = model.replace(/\b(hatch|hatchback|wagon|estate|sedan|saloon|coupe|convertible|ute|van|station)\b/g, "");
   model = model.replace(/\b(auto|automatic|manual|petrol|diesel|hybrid|awd|fwd|rwd)\b/g, "");
   model = titleCase(model.replace(/\s+/g, " ").trim());
-  const make = titleCase(makeRaw || "");
+  const make = titleCase(cleanField(makeRaw));
   return [make, model].filter(Boolean).join(" ").trim() || "your vehicle";
 }
 

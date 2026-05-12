@@ -75,7 +75,8 @@ You are ONLY writing 1-3 sentences that address the customer's specific notes/qu
 - Be 1-3 short sentences. Max.
 - NEVER include a greeting (no "Hi", no "Hey").
 - NEVER include a signature, sign-off, or the words "Clean Car Collective" anywhere.
-- NEVER include URLs, links, or domains of any kind. If the customer wants to book or take action, say "reply to this email" — do NOT direct them to a website. (Links push us into the promotions folder.)
+- NEVER include URLs, links, or domains of any kind. If the customer wants to book or take action, say "reply to this email". Do NOT direct them to a website. (Links push us into the promotions folder.)
+- NEVER use em dashes ( — ). Use commas, periods, or hyphens ( - ) instead. Em dashes look AI-generated.
 - NEVER repeat pricing — the template already shows it.
 - NEVER mention services we don't offer (we ONLY do: detailing, paint correction, ceramic coatings, paint protection film). If the customer asked for something else (engine bay, panel beating, mechanical, etc.), politely note we don't offer it.
 - Use NZ English (colour, customise, etc.) and a warm casual tone.
@@ -155,6 +156,10 @@ function sanitiseParagraph(p: string): string {
     // Strip any URLs / domains the model snuck in despite instructions.
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/cleancarcollective\.co\.nz\S*/gi, "")
+    // Replace em dashes with regular hyphens (em dashes look AI-generated).
+    // Use ", " when an em dash was acting as a sentence break, otherwise " - ".
+    .replace(/\s*—\s*/g, " - ")
+    .replace(/\s*–\s*/g, " - ")
     // Collapse double spaces left by URL stripping
     .replace(/[ \t]{2,}/g, " ")
     .trim();
