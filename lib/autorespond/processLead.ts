@@ -188,15 +188,23 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let templateId: string | null = null;
   let templateVariant: string = "A";
 
+  // Vehicle size fallback. Most cars not in MODEL_DB are medium sedans,
+  // so we default to Medium rather than block on needs_approval. This
+  // matches the old Google-Sheets flow ("notes-free leads always auto-send").
+  // We log the fallback so staff know the quote used a default.
+  const sizeUsedFallback = needsSize && !suggestedSize;
+  const effectiveSize: VehicleSize | null = needsSize
+    ? (suggestedSize ?? ("Medium" as VehicleSize))
+    : null;
+
   try {
     const pricing = await loadPricing(shopId);
-    const sizeForTemplate: VehicleSize | null = needsSize ? suggestedSize : null;
     const ctx = buildTemplateContext(
       templateKey,
       firstName,
       makeRaw ?? "",
       modelRaw ?? "",
-      sizeForTemplate,
+      effectiveSize,
       pricing
     );
     // No variant passed — picker will weighted-random pick across active A/B variants
@@ -220,15 +228,11 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let approvalReason: ApprovalReason = "other";
   let approvalReasonDetail: string | null = null;
 
-  // Size-independent templates (ceramic, paint_correction, other) use the
-  // vehicle name only as a display string — they don't need size confidence.
-  // So for those, we can auto-send even with low confidence.
-  const canAutoSendDespiteLowConfidence = !needsSize;
-  const shouldAutoSend =
-    !draftError &&
-    !hasNotes &&
-    !(needsSize && !suggestedSize) &&
-    (confidence === "high" || canAutoSendDespiteLowConfidence);
+  // No-notes leads ALWAYS auto-send — even if the vehicle wasn't in the
+  // sizing DB, we've already defaulted to Medium above. Old Google-Sheets
+  // flow worked the same way: notes-free leads always got an estimate;
+  // human approval was only for notes-present cases.
+  const shouldAutoSend = !draftError && !hasNotes;
 
   if (draftError) {
     newStatus = "needs_approval";
@@ -239,10 +243,6 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     newStatus = "needs_approval";
     internalNote = "Needs approval: notes present.";
     approvalReason = "notes_present";
-  } else if (needsSize && !suggestedSize) {
-    newStatus = "needs_approval";
-    internalNote = "Needs approval: vehicle size unknown.";
-    approvalReason = "vehicle_size_unknown";
   } else if (shouldAutoSend) {
     // Schedule the estimate send for 3 minutes from now — feels more human
     // than an instant auto-reply, gives the customer time to read the
@@ -270,7 +270,10 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
         },
       });
       newStatus = "scheduled";
-      internalNote = `Auto-send scheduled for ${scheduledFor}`;
+      const fallbackNote = sizeUsedFallback
+        ? ` (size defaulted to Medium — vehicle ${makeRaw}/${modelRaw} not in DB)`
+        : "";
+      internalNote = `Auto-send scheduled for ${scheduledFor}${fallbackNote}`;
       emailSent = false; // not yet — will flip when the job runs
     } catch (e) {
       newStatus = "needs_approval";
@@ -279,10 +282,6 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       approvalReason = "send_failed";
       approvalReasonDetail = errMsg;
     }
-  } else {
-    newStatus = "needs_approval";
-    internalNote = `Needs approval: confidence ${confidence} (${Math.round(confNumeric * 100)}%, reason: ${reasonCode}).`;
-    approvalReason = "low_confidence";
   }
 
   // ── LLM note-response injection ──────────────────────────────────────────
