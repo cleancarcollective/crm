@@ -15,6 +15,7 @@ import { getShopContactsById } from "@/lib/email/shopContacts";
 import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
 import { scheduleLeadJob } from "@/lib/scheduling/leadJobs";
 import { llmDraftQuote, type LlmDraftInput } from "./llmDraftQuote";
+import { classifyVehicleViaLlm } from "./llmVehicleSize";
 import { classifyVehicle } from "./vehicleSizing";
 import {
   pickTemplateKey,
@@ -174,11 +175,30 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     sizingResult = classifyVehicle(makeRaw, modelRaw);
   }
 
-  const suggestedSize = sizingResult?.size ?? null;
-  const confidence = sizingResult?.confidence ?? "low";
-  const confNumeric = sizingResult?.confNumeric ?? 0;
-  const reasonCode = sizingResult?.reasonCode ?? "unknown_model";
-  const canonicalKey = sizingResult?.canonicalKey ?? "";
+  let suggestedSize = sizingResult?.size ?? null;
+  let confidence = sizingResult?.confidence ?? "low";
+  let confNumeric = sizingResult?.confNumeric ?? 0;
+  let reasonCode = sizingResult?.reasonCode ?? "unknown_model";
+  let canonicalKey = sizingResult?.canonicalKey ?? "";
+
+  // LLM size lookup when DB miss. Old Sheets flow had a web-lookup
+  // equivalent — using Claude here gives us coverage for every make
+  // (Porsche, Tesla, Lexus, Volvo, etc.) without maintaining a huge
+  // model database. Failures fall through to the Medium-render fallback
+  // below + needs_approval gate.
+  let llmSize: Awaited<ReturnType<typeof classifyVehicleViaLlm>> = null;
+  if (needsSize && !suggestedSize && makeRaw && modelRaw) {
+    const lookupInput = input as ProcessLeadInput & { vehicleYear?: string | null };
+    llmSize = await classifyVehicleViaLlm(makeRaw, modelRaw, lookupInput.vehicleYear ?? null);
+    if (llmSize && llmSize.confidence >= 0.6) {
+      suggestedSize = llmSize.size;
+      confidence = llmSize.confidence >= 0.85 ? "high" : "medium";
+      confNumeric = llmSize.confidence;
+      reasonCode = "llm_size_lookup";
+      canonicalKey = `llm|${makeRaw}|${modelRaw}`;
+      console.info("LLM resolved vehicle size", { makeRaw, modelRaw, size: llmSize.size, confidence: llmSize.confidence, rationale: llmSize.rationale });
+    }
+  }
 
   // Build draft (always — so staff can review/edit even for approvals)
   let draftSubject = "";
@@ -188,10 +208,10 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let templateId: string | null = null;
   let templateVariant: string = "A";
 
-  // Vehicle size fallback. Most cars not in MODEL_DB are medium sedans,
-  // so we default to Medium rather than block on needs_approval. This
-  // matches the old Google-Sheets flow ("notes-free leads always auto-send").
-  // We log the fallback so staff know the quote used a default.
+  // Size fallback for RENDERING only — guarantees no "price on request"
+  // ever appears in a customer-facing draft. Uses Medium as the safest
+  // default. Auto-send is gated separately on actual size confidence,
+  // so this fallback only affects emails staff still review.
   const sizeUsedFallback = needsSize && !suggestedSize;
   const effectiveSize: VehicleSize | null = needsSize
     ? (suggestedSize ?? ("Medium" as VehicleSize))
@@ -228,11 +248,14 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let approvalReason: ApprovalReason = "other";
   let approvalReasonDetail: string | null = null;
 
-  // No-notes leads ALWAYS auto-send — even if the vehicle wasn't in the
-  // sizing DB, we've already defaulted to Medium above. Old Google-Sheets
-  // flow worked the same way: notes-free leads always got an estimate;
-  // human approval was only for notes-present cases.
-  const shouldAutoSend = !draftError && !hasNotes;
+  // Auto-send only when we're confident in the quote. Three gates:
+  //   - no draft error
+  //   - no customer notes (those always need human judgement)
+  //   - size is actually known (DB hit, fuzzy match, or LLM resolved)
+  // The Medium-render fallback above means staff-reviewed approvals
+  // still show real prices, but we never blast a wrong-size quote.
+  const sizeIsKnown = !needsSize || !!suggestedSize;
+  const shouldAutoSend = !draftError && !hasNotes && sizeIsKnown;
 
   if (draftError) {
     newStatus = "needs_approval";
@@ -243,6 +266,10 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
     newStatus = "needs_approval";
     internalNote = "Needs approval: notes present.";
     approvalReason = "notes_present";
+  } else if (!sizeIsKnown) {
+    newStatus = "needs_approval";
+    internalNote = `Needs approval: vehicle size unknown (${makeRaw}/${modelRaw}). Draft uses Medium pricing as fallback.`;
+    approvalReason = "vehicle_size_unknown";
   } else if (shouldAutoSend) {
     // Schedule the estimate send for 3 minutes from now — feels more human
     // than an instant auto-reply, gives the customer time to read the

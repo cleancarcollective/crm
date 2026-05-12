@@ -84,7 +84,7 @@ async function main() {
     "there", // generic salutation — substitute per-recipient below
     "Toyota",
     "Camry",
-    "medium" as VehicleSize,
+    "Medium" as VehicleSize,
     pricing
   );
 
