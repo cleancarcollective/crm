@@ -35,7 +35,10 @@ const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
     website: "https://cleancarcollective.co.nz/christchurch",
     sender_name: "Ben",
     from_email: "info@cleancarcollective.co.nz",
-    from_line: "Ben from Clean Car Collective <info@cleancarcollective.co.nz>",
+    // From line uses first-name only (no "Clean Car Collective" suffix) —
+    // personal-looking senders skip Gmail's Promotions classifier more often
+    // than corporate-looking ones.
+    from_line: "Ben <info@cleancarcollective.co.nz>",
   },
   wellington: {
     team_email: "hello@cleancarcollective.co.nz",
@@ -44,7 +47,7 @@ const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
     website: "https://cleancarcollective.co.nz",
     sender_name: "Max",
     from_email: "hello@cleancarcollective.co.nz",
-    from_line: "Max from Clean Car Collective <hello@cleancarcollective.co.nz>",
+    from_line: "Max <hello@cleancarcollective.co.nz>",
   },
 };
 
@@ -55,7 +58,7 @@ const DEFAULT_SHOP_CONTACTS: ShopContactDetails = {
   website: "https://cleancarcollective.co.nz/christchurch",
   sender_name: "Ben",
   from_email: "info@cleancarcollective.co.nz",
-  from_line: "Ben from Clean Car Collective <info@cleancarcollective.co.nz>",
+  from_line: "Ben <info@cleancarcollective.co.nz>",
 };
 
 export function getShopContacts(shop: ShopRecord): ShopContactDetails {

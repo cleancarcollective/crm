@@ -306,16 +306,14 @@ export async function POST(request: Request) {
     const vehicleLabel = [parsedVehicle.year, parsedVehicle.make, parsedVehicle.model].filter(Boolean).join(" ") || null;
 
     // ── 4. Emails + auto-respond (all in parallel to stay within timeout) ──
+    // NOTE: lead-confirmation auto-reply intentionally OFF. It trained Gmail
+    // to classify our sends as promotional (immediate templated reply to a
+    // form submission is the classic Promotions signal). The customer gets
+    // the actual estimate within ~3 minutes from the auto-respond path,
+    // which is the email that actually matters.
     const results = await Promise.allSettled([
-      sendLeadConfirmationEmail({
-        shop,
-        firstName: payload.first_name,
-        email: payload.email,
-        vehicleLabel,
-        serviceRequested: payload.service_requested ?? null,
-        leadId,
-        contactId,
-      }),
+      // sendLeadConfirmationEmail intentionally disabled — see comment above
+      Promise.resolve({ skipped: true as const }),
 
       sendLeadTeamNotification({
         shop,
