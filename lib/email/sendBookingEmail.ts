@@ -61,6 +61,7 @@ import { formatCurrency } from "@/lib/dashboard/format";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 import { signActionToken } from "@/lib/auth/signedTokens";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { renderTemplate } from "@/lib/email/templateRenderer";
 import type { BookingConfirmationEmailContext, EmailTemplateKey, EmailTemplateRecord } from "@/lib/email/types";
@@ -178,26 +179,41 @@ export async function sendBookingEmail({
   });
 
   try {
-    const postmark = getPostmarkClient();
-    const response = await postmark.sendEmail({
-      From: getShopContacts(shop).from_line,
-      To: recipient,
-      Subject: rendered.subject,
-      TextBody: rendered.textBody,
-      HtmlBody: rendered.htmlBody,
-      MessageStream: "booking-emails",
-      // Open + click tracking off — pixels and link rewriting hurt
-      // deliverability and the data is unreliable (Apple Mail prefetch
-      // skews opens, etc.). Conversion is measured via booking presence.
-      TrackOpens: false,
-      TrackLinks: "None" as never,
-      Metadata: {
-        email_message_id: messageRecord.id,
-        booking_id: booking.id,
-        shop_id: shop.id,
-        template_key: templateKey
-      }
-    });
+    // Route customer-facing templates via Gmail SMTP (Primary tab); keep
+    // the booking-team-notification on Postmark since it's internal and
+    // benefits from event tracking.
+    const isInternal = templateKey === "booking-team-notification";
+    const fromLine = getShopContacts(shop).from_line;
+    const response = isInternal
+      ? await getPostmarkClient().sendEmail({
+          From: fromLine,
+          To: recipient,
+          Subject: rendered.subject,
+          TextBody: rendered.textBody,
+          HtmlBody: rendered.htmlBody,
+          MessageStream: "booking-emails",
+          TrackOpens: false,
+          TrackLinks: "None" as never,
+          Metadata: {
+            email_message_id: messageRecord.id,
+            booking_id: booking.id,
+            shop_id: shop.id,
+            template_key: templateKey,
+          },
+        })
+      : await sendViaGmailSmtp({
+          From: fromLine,
+          To: recipient,
+          Subject: rendered.subject,
+          TextBody: rendered.textBody,
+          HtmlBody: rendered.htmlBody,
+          Metadata: {
+            email_message_id: messageRecord.id,
+            booking_id: booking.id,
+            shop_id: shop.id,
+            template_key: templateKey,
+          },
+        });
 
     await updateEmailMessageSent({
       id: messageRecord.id,

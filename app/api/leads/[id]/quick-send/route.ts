@@ -61,9 +61,7 @@ export async function GET(
     return redirectTo(url, `/lead-action/error?reason=no_draft`);
   }
 
-  const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
-  if (!postmarkToken) return redirectTo(url, `/lead-action/error?reason=server_misconfigured`);
-
+  const { sendViaGmailSmtp } = await import("@/lib/email/smtpClient");
   const shopContacts = await getShopContactsById(lead.shop_id);
 
   // Record outbound email for tracking
@@ -86,22 +84,14 @@ export async function GET(
     return redirectTo(url, `/lead-action/error?reason=insert_failed`);
   }
 
-  const res = await fetch("https://api.postmarkapp.com/email", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Postmark-Server-Token": postmarkToken,
-    },
-    body: JSON.stringify({
+  let smtpResponse: { MessageID?: string };
+  try {
+    smtpResponse = await sendViaGmailSmtp({
       From: shopContacts.from_line,
       To: contact.email,
       Subject: lead.quote_subject,
       TextBody: lead.quote_body,
       HtmlBody: lead.quote_html ?? lead.quote_body,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None",
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: lead.shop_id,
@@ -111,19 +101,17 @@ export async function GET(
         auto_template_id: lead.template_id ?? "none",
         send_mode: "approval_quick_send",
       },
-    }),
-  });
-
-  if (!res.ok) {
+    });
+  } catch (err) {
+    console.error("quick-send SMTP error", err);
     await supabase.from("email_messages").update({ status: "failed" }).eq("id", messageRecord.id);
     return redirectTo(url, `/lead-action/error?reason=send_failed`);
   }
 
-  const response = (await res.json()) as { MessageID?: string };
   await supabase
     .from("email_messages")
     .update({
-      provider_message_id: response.MessageID ?? null,
+      provider_message_id: smtpResponse.MessageID ?? null,
       status: "sent",
       sent_at: new Date().toISOString(),
     })

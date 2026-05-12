@@ -35,15 +35,25 @@ export const TEMPLATE_DEFAULTS: TemplateDefault[] = [
     subject: "Detailing estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for getting in touch about your {{vehicle}}. We've got two main inside-and-out packages depending on how deep you want to go.
+Thanks for getting in touch about a detail on your {{vehicle}}. We've got two main inside-and-out packages:
 
-Our Deluxe Detail is {{deluxe_price}} and runs about 3 to 4 hours. It covers a full exterior hand wash and dry, wheel faces, barrels and tyres, interior vacuum and plastics, door jambs, windows, and a 3-month paint sealant.
+Deluxe Detail — {{deluxe_price}} (approx. 3.5-4 hours)
+- Exterior hand wash & dry
+- Wheel faces, barrels & tyres cleaned
+- Interior vacuum & plastics detailed
+- Door jambs & windows cleaned
+- 3-month paint sealant
 
-The Premium Detail is {{premium_price}} and takes 5 to 6 hours. It includes everything in the Deluxe plus a full interior shampoo (carpets, seats, mats), clay-bar paint decontamination, engine bay clean, and a 6-month sealant.
+Premium Detail — {{premium_price}} (approx. 5.5-6.5 hours)
+- Everything in the Deluxe, plus:
+- Full interior shampoo (carpets, seats, mats)
+- Clay-bar paint decontamination
+- Engine bay cleaning
+- 6-month paint sealant
 
-We can tweak either one to your budget. Shampoo seats only, skip the engine bay, whatever works.
+We can tailor either one. Just shampoo the seats, skip the engine bay, whatever works.
 
-If you're after long-term protection, ask me about paint correction (removes swirls and scratches) and our ceramic coatings (2 to 5+ years).
+If you're after long-term protection, ask about paint correction (swirl/scratch removal) and ceramic coatings (2-5+ years).
 
 ${CTA}
 
@@ -57,13 +67,21 @@ Max`,
     subject: "Interior detailing estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for getting in touch about an interior detail on your {{vehicle}}. Two main interior options:
+Thanks for getting in touch about an interior detail on your {{vehicle}}. Two main options:
 
-Deluxe Interior is {{deluxe_interior_price}}, about 2.5 to 3 hours. Full vacuum, crevice detail, plastics cleaned and protected, door jambs and interior windows.
+Deluxe Interior — {{deluxe_interior_price}} (approx. 2.5-3 hours)
+- Full interior vacuum (carpets, mats, seats)
+- Crevice detail
+- Plastics cleaned & protected
+- Door jambs & interior windows
 
-Premium Interior is {{premium_interior_price}}, about 3.5 to 4.5 hours. Everything in the Deluxe plus a full shampoo and extraction of seats, carpets and mats, double vacuum and stain extraction, plus an interior deodorising treatment.
+Premium Interior — {{premium_interior_price}} (approx. 3.5-4.5 hours)
+- Everything in the Deluxe, plus:
+- Full shampoo & extraction of seats, carpets & mats
+- Double vacuum & stain extraction
+- Interior deodorising treatment
 
-Happy to flex on this. Seats only, leather protection coating, whatever you're after.
+Happy to customise too. Seats only, leather protection coating, whatever you need.
 
 ${CTA}
 
@@ -79,11 +97,18 @@ Max`,
 
 Thanks for getting in touch about an exterior clean on your {{vehicle}}. Two options depending on what you're after:
 
-Deluxe Exterior is {{deluxe_exterior_price}}, takes about 1.5 to 2 hours. Hand wash and dry, wheels, windows, and a 3-month wax sealant.
+Deluxe Exterior — {{deluxe_exterior_price}} (approx. 1.5-2 hours)
+- Hand wash & dry
+- Wheel faces, barrels & tyres cleaned
+- Windows & mirrors
+- 3-month wax/paint sealant
 
-Premium Exterior is {{premium_exterior_price}}, around 2.5 to 3 hours. Everything in the Deluxe plus clay-bar treatment and full paint decontamination, for a smoother, glossier finish.
+Premium Exterior — {{premium_exterior_price}} (approx. 2.5-3 hours)
+- Everything in the Deluxe, plus:
+- Clay-bar treatment to remove bonded contaminants
+- Full paint decontamination for a smoother, glossier finish
 
-If your paint has visible swirls or scratches, ask me about paint correction and ceramic coating packages for longer-term protection.
+If your paint has visible swirls or scratches, ask about paint correction and ceramic coating packages for longer-term protection.
 
 ${CTA}
 
@@ -99,11 +124,17 @@ Max`,
 
 Thanks for reaching out about ceramic coating for your {{vehicle}}. We're CarPro authorised installers and run three coating levels:
 
-Bronze is {{bronze_price}} for 1-year protection. Gloss enhancement and strong hydrophobic performance.
+Bronze — {{bronze_price}}
+- 1-year protection
+- Gloss enhancement & strong hydrophobic properties
 
-Silver is {{silver_price}} for 3-year protection. Adds chemical resistance and an easy-clean surface.
+Silver — {{silver_price}}
+- 3-year protection
+- Added chemical resistance & easy-clean surface
 
-Gold is {{gold_price}} for 5-year protection, backed by our company warranty. Maximum gloss retention, hardness improvement, top-tier hydrophobic performance.
+Gold — {{gold_price}}
+- 5-year protection (backed by our company warranty)
+- Maximum gloss retention, hardness improvement & top-tier hydrophobic performance
 
 All three include full surface prep (wash, decontamination, and spot polishing if needed).
 
@@ -121,9 +152,13 @@ Max`,
 
 Thanks for reaching out about paint correction for your {{vehicle}}. It removes swirls, oxidation, and scratches, and brings a lot of depth and gloss back to the paint.
 
-The 1-Step Correction is {{one_step_price}} and removes up to 90% of light swirls and micro-marring. Right for most daily drivers.
+1-Step Correction — {{one_step_price}}
+- Removes up to 90% of light swirls & micro-marring
+- Great for most daily drivers
 
-The 2-Step Correction is {{two_step_price}} and removes deeper scratches and watermarks, for the highest clarity and reflection.
+2-Step Correction — {{two_step_price}}
+- Removes deeper scratches and watermarks
+- Maximum clarity and reflection for high-end results
 
 Correction is the ideal prep step before a ceramic coating, so happy to bundle the two if you're interested.
 

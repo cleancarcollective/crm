@@ -34,7 +34,7 @@ loadEnv(".env.vercel.local");
 import { TEMPLATE_DEFAULTS } from "@/lib/autorespond/templateDefaults";
 import { buildTemplateContext } from "@/lib/autorespond/templateRenderer";
 import type { VehicleSize } from "@/lib/autorespond/vehicleSizing";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopContactsById } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -78,25 +78,20 @@ async function main() {
     pricing
   );
 
-  const postmark = getPostmarkClient();
   const sentAt = new Date().toISOString();
 
   for (const recipient of TEST_RECIPIENTS) {
-    // First-name-ish from local part
     const name = recipient.split("@")[0]!.split(/[._-]/)[0]!;
     const personalCtx = { ...ctx, name: name.charAt(0).toUpperCase() + name.slice(1) };
     const subject = `[TEST ${sentAt.slice(11, 16)}] ` + substitute(template.subject, personalCtx);
     const textBody = substitute(template.body_text, personalCtx);
-    // Mirror what the real send path does: no HTML body, no opens, no links
-    const result = await postmark.sendEmail({
+    // Send via the same path real customer estimates use now (Gmail SMTP).
+    const result = await sendViaGmailSmtp({
       From: contacts.from_line,
       To: recipient,
       ReplyTo: contacts.reply_email,
       Subject: subject,
       TextBody: textBody,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None" as never,
       Metadata: {
         shop_id: shop.id,
         template_key: "inside_out",

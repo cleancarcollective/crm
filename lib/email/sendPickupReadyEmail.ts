@@ -9,9 +9,9 @@
 import { formatInTimeZone } from "date-fns-tz";
 
 import type { ShopRecord } from "@/lib/dashboard/types";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type PickupEmailArgs = {
@@ -191,16 +191,13 @@ export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sen
 
   if (insertError) throw insertError;
 
-  const postmark = getPostmarkClient();
-  const response = await postmark.sendEmail({
+  // Customer-facing — send via Gmail SMTP for Primary placement
+  const response = await sendViaGmailSmtp({
     From: fromEmail,
     To: args.customerEmail,
     Subject: subject,
     TextBody: textBody,
     HtmlBody: htmlBody,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
     Metadata: {
       email_message_id: messageRecord.id,
       booking_id: args.bookingId,

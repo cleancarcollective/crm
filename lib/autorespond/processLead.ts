@@ -95,8 +95,9 @@ export type SendEstimateArgs = {
  * on without the deliverability cost.
  */
 export async function sendEstimateEmail(args: SendEstimateArgs) {
-  const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
-  if (!postmarkToken) throw new Error("POSTMARK_SERVER_TOKEN not set");
+  // Customer-facing estimate emails now go via Gmail SMTP (Primary tab).
+  // Postmark is still used for internal team notifications and webhooks.
+  const { sendViaGmailSmtp } = await import("@/lib/email/smtpClient");
 
   const supabase = getSupabaseAdminClient();
 
@@ -124,23 +125,15 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
   // Resolve the per-shop sender name (Christchurch = Ben, Wellington = Max).
   const shopContacts = await getShopContactsById(args.shopId);
 
-  // 2. Send via Postmark with full tracking + attribution metadata.
-  const res = await fetch("https://api.postmarkapp.com/email", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Postmark-Server-Token": postmarkToken,
-    },
-    body: JSON.stringify({
+  // 2. Send via Gmail SMTP (Primary-tab placement).
+  let response: { MessageID?: string };
+  try {
+    response = await sendViaGmailSmtp({
       From: shopContacts.from_line,
       To: args.to,
       Subject: args.subject,
       TextBody: args.textBody,
       HtmlBody: args.htmlBody,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None",
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: args.shopId,
@@ -149,16 +142,11 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
         template_variant: args.templateVariant,
         auto_template_id: args.templateId ?? "none",
       },
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
+    });
+  } catch (err) {
     await supabase.from("email_messages").update({ status: "failed" }).eq("id", messageRecord.id);
-    throw new Error(`Postmark send failed ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`SMTP send failed: ${err instanceof Error ? err.message : String(err)}`);
   }
-
-  const response = (await res.json()) as { MessageID?: string };
 
   // 3. Mark email_messages as sent + record provider id
   await supabase

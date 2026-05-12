@@ -47,11 +47,7 @@ export async function POST(
     return NextResponse.json({ error: "Contact has no email" }, { status: 400 });
   }
 
-  const postmarkToken = process.env.POSTMARK_SERVER_TOKEN;
-  if (!postmarkToken) {
-    return NextResponse.json({ error: "POSTMARK_SERVER_TOKEN not set" }, { status: 500 });
-  }
-
+  const { sendViaGmailSmtp } = await import("@/lib/email/smtpClient");
   const htmlBody = buildHtml(textBody);
 
   // 1. Record the outbound email with full attribution
@@ -77,24 +73,16 @@ export async function POST(
     );
   }
 
-  // 2. Resolve per-shop sender + send via Postmark with tracking + metadata
+  // 2. Resolve per-shop sender + send via Gmail SMTP (Primary placement).
   const shopContacts = await getShopContactsById(lead.shop_id);
-  const res = await fetch("https://api.postmarkapp.com/email", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Postmark-Server-Token": postmarkToken,
-    },
-    body: JSON.stringify({
+  let response: { MessageID?: string };
+  try {
+    response = await sendViaGmailSmtp({
       From: shopContacts.from_line,
       To: contact.email,
       Subject: subject,
       TextBody: textBody,
       HtmlBody: htmlBody,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None",
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: lead.shop_id,
@@ -104,19 +92,14 @@ export async function POST(
         auto_template_id: lead.template_id ?? "none",
         send_mode: "manual_approval",
       },
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
+    });
+  } catch (err) {
     await supabase.from("email_messages").update({ status: "failed" }).eq("id", messageRecord.id);
     return NextResponse.json(
-      { error: `Email send failed: ${text.slice(0, 200)}` },
+      { error: `Email send failed: ${err instanceof Error ? err.message : String(err)}` },
       { status: 500 }
     );
   }
-
-  const response = (await res.json()) as { MessageID?: string };
 
   // 3. Mark email as sent
   await supabase

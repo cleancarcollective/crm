@@ -1,7 +1,7 @@
 import type { ShopRecord } from "@/lib/dashboard/types";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type LeadConfirmationArgs = {
@@ -186,16 +186,12 @@ export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Pro
   if (insertError) throw insertError;
 
   try {
-    const postmark = getPostmarkClient();
-    const response = await postmark.sendEmail({
+    const response = await sendViaGmailSmtp({
       From: fromLine,
       To: args.email,
       Subject: subject,
       TextBody: textBody,
       HtmlBody: htmlBody,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: args.shop.id,
