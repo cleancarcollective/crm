@@ -33,7 +33,12 @@ const transports: TransportCache = new Map();
 
 function appPasswordFor(fromEmail: string): string | null {
   const lower = fromEmail.toLowerCase();
-  if (lower.includes("info@cleancarcollective.co.nz")) {
+  // Christchurch customer-facing sender is ben@; info@ kept as a fallback
+  // mapping in case anything still tries to send from the team mailbox.
+  if (
+    lower.includes("ben@cleancarcollective.co.nz") ||
+    lower.includes("info@cleancarcollective.co.nz")
+  ) {
     return process.env.GMAIL_APP_PASSWORD_CHRISTCHURCH ?? null;
   }
   if (lower.includes("hello@cleancarcollective.co.nz")) {

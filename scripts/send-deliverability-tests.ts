@@ -51,8 +51,10 @@ function substitute(template: string, ctx: Record<string, string>): string {
 
 async function main() {
   const supabase = getSupabaseAdminClient();
-  const { data: shop } = await supabase.from("shops").select("id, slug, name, timezone").eq("slug", "wellington").single();
-  if (!shop) throw new Error("no wellington shop");
+  const slug = process.argv[2] === "chch" ? "christchurch" : "wellington";
+  const { data: shop } = await supabase.from("shops").select("id, slug, name, timezone").eq("slug", slug).single();
+  if (!shop) throw new Error(`no ${slug} shop`);
+  console.log(`Sending as ${slug}…`);
 
   const contacts = await getShopContactsById(shop.id);
 

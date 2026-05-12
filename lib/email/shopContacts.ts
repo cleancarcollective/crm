@@ -29,16 +29,17 @@ type ShopContactDetails = {
 // the same address per shop.
 const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
   christchurch: {
+    // Internal team notifications still go to info@ (group inbox).
     team_email: "info@cleancarcollective.co.nz",
-    reply_email: "info@cleancarcollective.co.nz",
+    // Customer-facing sender is ben@ — fresh mailbox with clean Gmail
+    // reputation. info@ had accumulated a poor sender history (likely
+    // bulk/templated sends over time, putting CHC test emails in spam).
+    reply_email: "ben@cleancarcollective.co.nz",
     phone: "0221537335",
     website: "https://cleancarcollective.co.nz/christchurch",
     sender_name: "Ben",
-    from_email: "info@cleancarcollective.co.nz",
-    // From line uses first-name only (no "Clean Car Collective" suffix) —
-    // personal-looking senders skip Gmail's Promotions classifier more often
-    // than corporate-looking ones.
-    from_line: "Ben <info@cleancarcollective.co.nz>",
+    from_email: "ben@cleancarcollective.co.nz",
+    from_line: "Ben <ben@cleancarcollective.co.nz>",
   },
   wellington: {
     team_email: "hello@cleancarcollective.co.nz",
@@ -53,12 +54,12 @@ const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
 
 const DEFAULT_SHOP_CONTACTS: ShopContactDetails = {
   team_email: "info@cleancarcollective.co.nz",
-  reply_email: "info@cleancarcollective.co.nz",
+  reply_email: "ben@cleancarcollective.co.nz",
   phone: "0221537335",
   website: "https://cleancarcollective.co.nz/christchurch",
   sender_name: "Ben",
-  from_email: "info@cleancarcollective.co.nz",
-  from_line: "Ben <info@cleancarcollective.co.nz>",
+  from_email: "ben@cleancarcollective.co.nz",
+  from_line: "Ben <ben@cleancarcollective.co.nz>",
 };
 
 export function getShopContacts(shop: ShopRecord): ShopContactDetails {
