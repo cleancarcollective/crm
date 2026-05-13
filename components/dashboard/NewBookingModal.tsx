@@ -81,6 +81,10 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
   // Notifications
   const [sendEmail, setSendEmail] = useState(true);
   const [sendSms, setSendSms] = useState(true);
+  // Silent mode for importing historical bookings (e.g. Orbis migration).
+  // When on, every other notification toggle is forced off and no scheduled
+  // reminders are queued for the booking.
+  const [silentMigration, setSilentMigration] = useState(false);
 
   // Submit state
   const [submitting, setSubmitting] = useState(false);
@@ -161,8 +165,9 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
       location_type: locationType || undefined,
       notes: notes || undefined,
       status,
-      send_confirmation_email: sendEmail,
-      send_confirmation_sms: sendSms,
+      send_confirmation_email: silentMigration ? false : sendEmail,
+      send_confirmation_sms: silentMigration ? false : sendSms,
+      silent_migration: silentMigration,
     };
 
     if (selectedContact) {
@@ -447,12 +452,39 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
             <h3>Notifications</h3>
             <div className="modalCheckboxRow">
               <label className="modalCheckbox">
-                <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={sendEmail && !silentMigration}
+                  disabled={silentMigration}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                />
                 Send confirmation email to customer
               </label>
               <label className="modalCheckbox">
-                <input type="checkbox" checked={sendSms} onChange={(e) => setSendSms(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={sendSms && !silentMigration}
+                  disabled={silentMigration}
+                  onChange={(e) => setSendSms(e.target.checked)}
+                />
                 Send confirmation SMS to customer
+              </label>
+              <label
+                className="modalCheckbox"
+                style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.08)" }}
+                title="Use this when migrating historical bookings from another system. Skips ALL customer/team emails, SMS, and future reminders for this booking."
+              >
+                <input
+                  type="checkbox"
+                  checked={silentMigration}
+                  onChange={(e) => setSilentMigration(e.target.checked)}
+                />
+                <span style={{ display: "inline-flex", flexDirection: "column" }}>
+                  <strong>Silent migration mode</strong>
+                  <small style={{ color: "#5c5148", fontWeight: 400 }}>
+                    Skip every email/SMS + reminder for this booking. Use when importing past jobs from another CRM.
+                  </small>
+                </span>
               </label>
             </div>
           </section>

@@ -55,6 +55,13 @@ type ManualBookingPayload = {
   // Notifications
   send_confirmation_email?: boolean;
   send_confirmation_sms?: boolean;
+  /**
+   * Silent migration mode — used when staff is bulk-importing historical
+   * bookings from another CRM (e.g. Orbis). When true, every notification
+   * for this booking is suppressed: no customer email, no customer SMS,
+   * no team notification, no scheduled email/SMS reminders.
+   */
+  silent_migration?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -254,35 +261,39 @@ export async function POST(request: Request) {
   }
 
   // ── 4. Reminder jobs (email + SMS) ───────────────────────────────────
-  try {
-    await createReminderJobsForBooking({
-      shop,
-      bookingId: booking.id,
-      contactId,
-      scheduledStart: booking.scheduled_start,
-    });
-  } catch (err) {
-    console.error("Failed to schedule reminder jobs", err);
-  }
-
-  if (contactPhone) {
+  // Skip entirely in silent-migration mode: imported historical bookings
+  // shouldn't trigger week/day/hour reminders.
+  if (!payload.silent_migration) {
     try {
-      await scheduleBookingReminderSms({
+      await createReminderJobsForBooking({
+        shop,
         bookingId: booking.id,
         contactId,
-        shopId: shop.id,
-        phone: contactPhone,
-        firstName: contactFirstName ?? "there",
         scheduledStart: booking.scheduled_start,
-        timezone: shop.timezone,
       });
     } catch (err) {
-      console.error("Failed to schedule booking reminder SMS", err);
+      console.error("Failed to schedule reminder jobs", err);
+    }
+
+    if (contactPhone) {
+      try {
+        await scheduleBookingReminderSms({
+          bookingId: booking.id,
+          contactId,
+          shopId: shop.id,
+          phone: contactPhone,
+          firstName: contactFirstName ?? "there",
+          scheduledStart: booking.scheduled_start,
+          timezone: shop.timezone,
+        });
+      } catch (err) {
+        console.error("Failed to schedule booking reminder SMS", err);
+      }
     }
   }
 
   // ── 5. Confirmation email ─────────────────────────────────────────────
-  if (payload.send_confirmation_email !== false) {
+  if (!payload.silent_migration && payload.send_confirmation_email !== false) {
     try {
       const { data: contact } = await supabase
         .from("contacts")
@@ -311,7 +322,7 @@ export async function POST(request: Request) {
   }
 
   // ── 6. Confirmation SMS ───────────────────────────────────────────────
-  if (payload.send_confirmation_sms !== false && contactPhone) {
+  if (!payload.silent_migration && payload.send_confirmation_sms !== false && contactPhone) {
     try {
       const firstName = contactFirstName ?? "there";
       const dateLabel = formatInTimeZone(booking.scheduled_start, shop.timezone, "EEE d MMM 'at' h:mm a");
