@@ -5,10 +5,15 @@ export function formatCurrency(amount: number | null) {
     return "-";
   }
 
+  // Always show cents. Whole-dollar rounding misrepresented $99.75 as
+  // "$100" on customer-facing booking emails — the difference matters
+  // both for customer trust and our own internal numbers (revenue
+  // rollups, analytics).
   return new Intl.NumberFormat("en-NZ", {
     style: "currency",
     currency: "NZD",
-    maximumFractionDigits: 0
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
