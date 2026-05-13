@@ -123,10 +123,41 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     ? `
       <tr>
         <td style="padding: 13px 0; border-bottom: 1px solid #ede6dc;">
-          <span style="display: block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9e9189; margin-bottom: 3px;">Notes</span>
+          <span style="display: block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9e9189; margin-bottom: 3px;">Customer Notes</span>
           <span style="display: block; font-size: 15px; line-height: 1.55; color: #1a1713;">${nl2br(context.notes!)}</span>
         </td>
       </tr>
+    `
+    : "";
+
+  // Standalone promo / discount-code callout. Yellow accent so the customer
+  // can't miss the value (and it's visually distinct from their own notes).
+  const promoBlock = context.promo_note
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; background: #fff8e6; border-radius: 12px; border-left: 3px solid #f4b942;">
+        <tr>
+          <td style="padding: 16px 22px;">
+            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8a5a00;">🎁 Promo applied</p>
+            <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #1a1713;">${nl2br(context.promo_note)}</p>
+          </td>
+        </tr>
+      </table>
+    `
+    : "";
+
+  // Team-only "Open in CRM" CTA. Only emitted when crm_booking_url is set
+  // (which sendBookingEmail does only for team-facing templates).
+  const crmButton = context.crm_booking_url
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 12px 0 24px;">
+        <tr>
+          <td align="center">
+            <a href="${escapeHtml(context.crm_booking_url)}" style="display: inline-block; padding: 12px 24px; background: #1a1713; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 10px;">
+              Open in CRM →
+            </a>
+          </td>
+        </tr>
+      </table>
     `
     : "";
 
@@ -217,6 +248,8 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                 </table>
                 ` : ""}
 
+                ${promoBlock}
+                ${crmButton}
                 ${updateSummaryBlock}
                 ${entranceNoticeBlock(context, heading)}
 

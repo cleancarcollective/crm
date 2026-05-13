@@ -293,6 +293,26 @@ function buildTemplateContext({
     }
   }
 
+  // Deep link to the booking in the CRM — only emitted for team-facing
+  // emails so staff can jump straight to the record. Customer emails get
+  // the manage_booking_url instead.
+  const crmBookingUrl = includeCustomerDetails
+    ? `${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/bookings/${booking.id}`
+    : undefined;
+
+  // Split promo/discount note from customer notes. The intake route
+  // prepends a promo note (if any) to booking.notes joined by "\n\n".
+  // Render the promo as its own styled block so the "Notes" section
+  // shows only the customer's own text.
+  const rawNotesSource = booking.notes || booking.service_details || "";
+  let promoNote: string | undefined;
+  let remainingNotes = rawNotesSource;
+  const promoMatch = rawNotesSource.match(/^(Promo code [^\n]+(?:\n[^\n]+)*?)(?:\n{2,}|\n*$)/);
+  if (promoMatch) {
+    promoNote = promoMatch[1];
+    remainingNotes = rawNotesSource.slice(promoMatch[0].length);
+  }
+
   return {
     first_name: capitalise(firstName ?? booking.contact?.first_name ?? "there"),
     full_name: fullNameOverride ?? getBookingDisplayName(booking),
@@ -305,9 +325,11 @@ function buildTemplateContext({
     location_type: humaniseLocation(booking.location_type),
     price_estimate: formatCurrency(booking.price_estimate),
     notes: cleanNotesForRecipient(
-      booking.notes || booking.service_details,
+      remainingNotes,
       includeCustomerDetails ?? false
     ),
+    promo_note: promoNote,
+    crm_booking_url: crmBookingUrl,
     intro_line: introLine,
     action_line: actionLine,
     shop_name: shop.name,

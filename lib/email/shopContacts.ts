@@ -39,7 +39,10 @@ const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
     website: "https://cleancarcollective.co.nz/christchurch",
     sender_name: "Ben",
     from_email: "ben@cleancarcollective.co.nz",
-    from_line: "Ben <ben@cleancarcollective.co.nz>",
+    // Display name is the brand name (not a first name). User feedback after
+    // first round of customer-facing sends: "Max" / "Ben" in the inbox looked
+    // unfamiliar to customers; the business name is the trust anchor.
+    from_line: "Clean Car Collective <ben@cleancarcollective.co.nz>",
   },
   wellington: {
     team_email: "hello@cleancarcollective.co.nz",
@@ -48,7 +51,7 @@ const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
     website: "https://cleancarcollective.co.nz",
     sender_name: "Max",
     from_email: "hello@cleancarcollective.co.nz",
-    from_line: "Max <hello@cleancarcollective.co.nz>",
+    from_line: "Clean Car Collective <hello@cleancarcollective.co.nz>",
   },
 };
 
@@ -59,7 +62,7 @@ const DEFAULT_SHOP_CONTACTS: ShopContactDetails = {
   website: "https://cleancarcollective.co.nz/christchurch",
   sender_name: "Ben",
   from_email: "ben@cleancarcollective.co.nz",
-  from_line: "Ben <ben@cleancarcollective.co.nz>",
+  from_line: "Clean Car Collective <ben@cleancarcollective.co.nz>",
 };
 
 export function getShopContacts(shop: ShopRecord): ShopContactDetails {

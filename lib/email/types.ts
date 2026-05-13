@@ -57,6 +57,12 @@ export type BookingConfirmationEmailContext = {
   customer_phone?: string;
   // Optional — signed self-service link for customer-facing emails
   manage_booking_url?: string;
+  // Optional — promo / discount-code note to render as its own styled
+  // callout block, separate from the customer's own notes
+  promo_note?: string;
+  // Optional — deep link to the booking in the CRM (only on team-facing
+  // emails, so staff can jump straight to the record)
+  crm_booking_url?: string;
 };
 
 export type RenderedEmail = {
