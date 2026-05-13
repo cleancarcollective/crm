@@ -2,6 +2,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 
 import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
+import { applyPercentOff, resolvePromoCode } from "@/lib/bookingIntake/promoCodes";
 import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
@@ -137,6 +138,21 @@ export async function POST(request: Request) {
       }));
     }
 
+    // ── Promo code resolution (e.g. CCC5) ────────────────────────────────
+    // Resolved server-side so the client can't fabricate a discount. Applies
+    // percent-off to price_estimate, prepends a note to booking.notes, and
+    // queues credit rows to insert after the booking has an id.
+    const promo = resolvePromoCode(
+      normalized.data.booking.promoCode,
+      (shop as ShopRow).slug
+    );
+    const discountedPrice = promo
+      ? applyPercentOff(normalized.data.booking.priceEstimate, promo.percentOff)
+      : normalized.data.booking.priceEstimate;
+    const notesWithPromo = promo
+      ? [promo.noteForBooking, normalized.data.booking.notes].filter(Boolean).join("\n\n")
+      : normalized.data.booking.notes;
+
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
@@ -150,8 +166,8 @@ export async function POST(request: Request) {
         scheduled_start: normalized.data.booking.scheduledStart,
         scheduled_end: normalized.data.booking.scheduledEnd,
         status: normalized.data.booking.status,
-        price_estimate: normalized.data.booking.priceEstimate,
-        notes: normalized.data.booking.notes,
+        price_estimate: discountedPrice,
+        notes: notesWithPromo,
         service_id: normalized.data.booking.serviceId,
         duration_minutes: normalized.data.booking.durationMinutes,
         location_type: normalized.data.booking.locationType,
@@ -166,6 +182,31 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       throw bookingError;
+    }
+
+    // Insert customer_credits rows for any "free future service" the promo
+    // granted. Failures are non-fatal — the booking is already saved.
+    if (promo && promo.credits.length > 0) {
+      try {
+        await supabase.from("customer_credits").insert(
+          promo.credits.map((c) => ({
+            shop_id: shop.id,
+            contact_id: contact.id,
+            credit_type: "free_service",
+            service_name: c.serviceName,
+            description: c.description,
+            source: c.source,
+            source_booking_id: booking.id,
+          }))
+        );
+        console.info("Customer credits granted via promo", {
+          bookingId: booking.id,
+          contactId: contact.id,
+          count: promo.credits.length,
+        });
+      } catch (creditErr) {
+        console.error("customer_credits insert failed (non-fatal)", creditErr);
+      }
     }
 
     if (existingLead) {

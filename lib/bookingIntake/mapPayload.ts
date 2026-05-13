@@ -125,6 +125,11 @@ export function mapBookingPayload(
         serviceId: cleanString(payload["Service ID"]) ?? cleanString(payload.service_ids),
         durationMinutes: durationMinutesValue,
         locationType: cleanString(payload.location_type),
+        // Promo code from the website booking form. Two field names
+        // accepted: `promo_code` (clean) and `discount_code` (alias).
+        promoCode:
+          cleanString(payload.promo_code as string | undefined) ??
+          cleanString(payload.discount_code as string | undefined),
         gclid: cleanString(payload.gclid),
         gbraid: cleanString(payload.gbraid),
         wbraid: cleanString(payload.wbraid),

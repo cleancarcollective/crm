@@ -118,6 +118,23 @@ export type EmailMessageWithEvents = EmailMessageRecord & {
   events: EmailEventRecord[];
 };
 
+export type CustomerCreditRecord = {
+  id: string;
+  shop_id: string;
+  contact_id: string;
+  credit_type: string;
+  service_name: string;
+  description: string | null;
+  source: string;
+  source_booking_id: string | null;
+  redeemed: boolean;
+  redeemed_booking_id: string | null;
+  redeemed_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ContactProfile = {
   shop: ShopRecord;
   contact: ContactRecord;
@@ -125,6 +142,10 @@ export type ContactProfile = {
   leads: LeadWithVehicle[];
   bookings: BookingWithRelations[];
   emails: EmailMessageWithEvents[];
+  /** Outstanding (not redeemed) customer credits — vouchers, free services
+   *  owed via promo codes, etc. Display prominently on the profile so
+   *  staff remember to redeem them. */
+  credits: CustomerCreditRecord[];
 };
 
 export type LeadDirectoryEntry = {

@@ -53,10 +53,11 @@ export async function getContactProfileById(id: string) {
   const typedContact = contact as ContactRecord;
   const shop = await getShopById(String(typedContact.shop_id));
 
-  const [vehicles, leads, bookings] = await Promise.all([
+  const [vehicles, leads, bookings, credits] = await Promise.all([
     getVehiclesForContact(typedContact.id),
     getLeadsForContact(typedContact.id),
     getBookingsForContact(typedContact),
+    getCreditsForContact(typedContact.id),
   ]);
 
   const emails = await getEmailsForContact({
@@ -71,7 +72,24 @@ export async function getContactProfileById(id: string) {
     leads,
     bookings,
     emails,
+    credits,
   } satisfies ContactProfile;
+}
+
+async function getCreditsForContact(contactId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("customer_credits")
+    .select("*")
+    .eq("contact_id", contactId)
+    .eq("redeemed", false)
+    .order("created_at", { ascending: false });
+  if (error) {
+    // If the table doesn't exist yet (migration not run) treat as no credits
+    if (error.code === "PGRST205" || error.message?.includes("does not exist")) return [];
+    throw error;
+  }
+  return (data ?? []) as import("@/lib/dashboard/types").CustomerCreditRecord[];
 }
 
 export async function getLeadDirectory(shopSlug: string) {

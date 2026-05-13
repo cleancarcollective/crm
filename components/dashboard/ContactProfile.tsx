@@ -25,7 +25,7 @@ function readPreview(html: string) {
 }
 
 export function ContactProfile({ profile }: ContactProfileProps) {
-  const { contact, shop, vehicles, bookings, leads, emails } = profile;
+  const { contact, shop, vehicles, bookings, leads, emails, credits } = profile;
   const displayName =
     contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Unknown contact";
 
@@ -59,6 +59,33 @@ export function ContactProfile({ profile }: ContactProfileProps) {
           <strong>{emails.length}</strong>
         </div>
       </div>
+
+      {credits && credits.length > 0 ? (
+        <section
+          className="detailPanel"
+          style={{
+            borderLeft: "3px solid #f4b942",
+            background: "linear-gradient(90deg, rgba(244,185,66,0.10) 0%, rgba(255,255,255,0.86) 320px)",
+            marginBottom: 16,
+          }}
+        >
+          <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            🎁 Outstanding credits
+            <span className="directoryBadge directoryBadge--needsApproval">{credits.length}</span>
+          </h2>
+          <div className="profileStack">
+            {credits.map((c) => (
+              <div key={c.id} className="profileCard">
+                <strong>{c.service_name}</strong>
+                {c.description ? <span>{c.description}</span> : null}
+                <span style={{ color: "#9e9189", fontSize: 12 }}>
+                  Granted {formatDateTime(c.created_at, shop.timezone, "d MMM yyyy")} · {c.source}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <ContactNotesEditor contactId={contact.id} initialNotes={contact.notes ?? null} />
 
