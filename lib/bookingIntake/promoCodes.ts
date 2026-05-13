@@ -33,9 +33,16 @@ type PromoCodeDef = PromoEffect & {
 
 const PROMO_CODES: PromoCodeDef[] = [
   {
+    // CCC5: 5% off the current booking, plus a free Deluxe Exterior Detail
+    // on the customer's next visit. The 5% discount is applied client-side
+    // by the Wellington booking app (matching how it handles CCC10/KEEKS),
+    // so the server-side percentOff is 0 to avoid double-discounting. The
+    // server's job for this code is purely (a) record the note on the
+    // booking and (b) grant the customer_credits row for the free future
+    // detail.
     code: "CCC5",
     shopSlugs: ["wellington"],
-    percentOff: 5,
+    percentOff: 0,
     credits: [
       {
         serviceName: "Deluxe Exterior Detail",
@@ -45,7 +52,7 @@ const PROMO_CODES: PromoCodeDef[] = [
       },
     ],
     noteForBooking:
-      "Promo code CCC5 applied: 5% off this booking, plus a free Deluxe Exterior Detail on your next visit.",
+      "Promo code CCC5 applied: 5% off this booking (already in the price), plus a free Deluxe Exterior Detail on your next visit.",
   },
 ];
 
