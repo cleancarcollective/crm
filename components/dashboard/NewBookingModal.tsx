@@ -219,24 +219,37 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
 
   const vehicles = selectedContact?.vehicles ?? [];
 
-  // Ensure the modal body opens scrolled to the top (showing Contact +
-  // tabs). Previously the search input's autoFocus jumped past the top
-  // sections, so users were seeing only price/location/notifications and
-  // assumed those were the only fields.
-  const modalBodyRef = useRef<HTMLFormElement>(null);
+  // Force the modal's header into view on every open. The overlay is the
+  // scroll container — if any nested control on the form auto-focuses
+  // itself and scrolls past the header, this puts us back at the top.
+  // Also locks page-body scroll while the modal is open so the calendar
+  // behind doesn't steal scroll events.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+    // Wait one tick so the layout has settled (covers React batching).
+    const t = requestAnimationFrame(() => {
+      if (overlayRef.current) overlayRef.current.scrollTop = 0;
+      if (headerRef.current) headerRef.current.scrollIntoView({ block: "start" });
+    });
+    // Disable background scroll
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      cancelAnimationFrame(t);
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   return (
-    <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div ref={overlayRef} className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modalPanel" role="dialog" aria-modal="true" aria-label="New booking">
-        <div className="modalHeader">
+        <div ref={headerRef} className="modalHeader">
           <h2>New Booking</h2>
           <button className="modalClose" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <form ref={modalBodyRef} onSubmit={handleSubmit} className="modalBody">
+        <form onSubmit={handleSubmit} className="modalBody">
 
           {/* ── Contact ── */}
           <section className="modalSection">
