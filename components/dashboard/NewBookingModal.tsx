@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -219,7 +220,17 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
 
   const vehicles = selectedContact?.vehicles ?? [];
 
-  return (
+  // Render via portal at document.body to escape any ancestor containing-
+  // block. Without this, when the modal is launched from the global nav
+  // button, the nav's backdrop-filter creates a containing block that
+  // clips the modal's position:fixed overlay to the nav's 56px height.
+  // The day-page button doesn't have that ancestor, which is why it
+  // worked.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  const modalContent = (
     <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modalPanel" role="dialog" aria-modal="true" aria-label="New booking">
         <div className="modalHeader">
@@ -529,4 +540,6 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
