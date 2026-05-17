@@ -186,6 +186,23 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
         </div>
       </section>
 
+      {/* ── Users link ───────────────────────────────────────────── */}
+      <section className="detailPanel settingsSection">
+        <div className="settingsPricingHeader">
+          <div>
+            <h2>Users</h2>
+            <p className="settingsDescription">
+              Invite team members or contractors. Contractors get bookings + leads + customers; admins also see settings + analytics.
+            </p>
+          </div>
+          <div className="settingsPricingActions">
+            <a href="/settings/users" className="buttonPrimary">
+              Manage users →
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* ── Pricing table ───────────────────────────────────────── */}
       <section className="detailPanel settingsSection">
         <div className="settingsPricingHeader">

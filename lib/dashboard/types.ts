@@ -21,6 +21,8 @@ export type BookingRecord = {
   service_id: string | null;
   duration_minutes: number | null;
   location_type: string | null;
+  /** Customer service address (mobile bookings). Empty for shop bookings. */
+  service_address: string | null;
   raw_payload: Record<string, unknown>;
   created_at: string;
   updated_at: string;

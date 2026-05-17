@@ -125,6 +125,12 @@ export function mapBookingPayload(
         serviceId: cleanString(payload["Service ID"]) ?? cleanString(payload.service_ids),
         durationMinutes: durationMinutesValue,
         locationType: cleanString(payload.location_type),
+        // Service address for mobile bookings — accept several field names
+        // since different upstream forms use different conventions.
+        serviceAddress:
+          cleanString(payload.service_address as string | undefined) ??
+          cleanString(payload.address as string | undefined) ??
+          cleanString(payload["Event Address"] as string | undefined),
         // Promo code from the website booking form. Two field names
         // accepted: `promo_code` (clean) and `discount_code` (alias).
         promoCode:

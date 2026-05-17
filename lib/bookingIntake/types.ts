@@ -84,6 +84,9 @@ export type NormalizedBookingInput = {
   serviceId: string | null;
   durationMinutes: number | null;
   locationType: string | null;
+  /** Customer service address — only set for mobile bookings. Comes from the
+   *  booking-form payload `address` or `service_address` field. */
+  serviceAddress: string | null;
   /** Promo / discount code from the booking form. Resolved server-side via
    *  lib/bookingIntake/promoCodes — invalid codes are silently dropped. */
   promoCode: string | null;

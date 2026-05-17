@@ -50,6 +50,8 @@ type ManualBookingPayload = {
   duration_minutes?: number;
   price_estimate?: number;
   location_type?: string;
+  /** Customer service address — only meaningful for mobile bookings. */
+  service_address?: string;
   notes?: string;
   status?: string;
   // Notifications
@@ -209,6 +211,7 @@ export async function POST(request: Request) {
       duration_minutes: durationMinutes,
       price_estimate: payload.price_estimate ?? null,
       location_type: payload.location_type ?? null,
+      service_address: payload.service_address?.trim() || null,
       notes: payload.notes ?? null,
       status: payload.status ?? "confirmed",
       raw_payload: {},

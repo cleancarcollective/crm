@@ -1,5 +1,8 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
 import { SettingsClient } from "@/components/dashboard/SettingsClient";
-import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { getCurrentUser } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 // Default pricing rows shown if none set yet
@@ -36,7 +39,27 @@ const DEFAULT_PRICING_ROWS = [
 ];
 
 export default async function SettingsPage() {
-  const shop = await requireCurrentShop();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "admin") {
+    return (
+      <main className="pageShell">
+        <div className="pageTopbar">
+          <div>
+            <h1 className="pageTitle">Settings</h1>
+            <p className="detailSubtitle">{user.shop.name}</p>
+          </div>
+        </div>
+        <section className="detailPanel">
+          <p>Settings are admin-only. Ask the shop owner if you need a change here.</p>
+          <p style={{ marginTop: 12 }}>
+            <Link href="/settings/account" className="textLink">Change my password →</Link>
+          </p>
+        </section>
+      </main>
+    );
+  }
+  const shop = user.shop;
   const supabase = getSupabaseAdminClient();
 
   const { data: settings } = await supabase

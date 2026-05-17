@@ -171,6 +171,7 @@ export async function POST(request: Request) {
         service_id: normalized.data.booking.serviceId,
         duration_minutes: normalized.data.booking.durationMinutes,
         location_type: normalized.data.booking.locationType,
+        service_address: normalized.data.booking.serviceAddress,
         gclid: normalized.data.booking.gclid,
         gbraid: normalized.data.booking.gbraid,
         wbraid: normalized.data.booking.wbraid,

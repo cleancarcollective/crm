@@ -75,6 +75,7 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
   const [durationMinutes, setDurationMinutes] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
   const [locationType, setLocationType] = useState("shop");
+  const [serviceAddress, setServiceAddress] = useState("");
   const [status, setStatus] = useState("confirmed");
   const [notes, setNotes] = useState("");
 
@@ -163,6 +164,7 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
       duration_minutes: durationMinutes ? Number(durationMinutes) : undefined,
       price_estimate: priceEstimate ? Number(priceEstimate) : undefined,
       location_type: locationType || undefined,
+      service_address: locationType === "mobile" && serviceAddress.trim() ? serviceAddress.trim() : undefined,
       notes: notes || undefined,
       status,
       send_confirmation_email: silentMigration ? false : sendEmail,
@@ -242,7 +244,33 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
                   Change
                 </button>
               </div>
-            ) : showNewContact ? (
+            ) : (
+              <>
+                {/* Tabs so it's obvious you can pick existing OR add new.
+                    Previously the search box opened by default with the
+                    "create new" link buried below as helper text — staff
+                    were missing it and submitting bookings without contact
+                    details. */}
+                <div className="contactModeTabs">
+                  <button
+                    type="button"
+                    className={`contactModeTab${!showNewContact ? " contactModeTab--active" : ""}`}
+                    onClick={() => setShowNewContact(false)}
+                  >
+                    Existing customer
+                  </button>
+                  <button
+                    type="button"
+                    className={`contactModeTab${showNewContact ? " contactModeTab--active" : ""}`}
+                    onClick={() => setShowNewContact(true)}
+                  >
+                    + New customer
+                  </button>
+                </div>
+              </>
+            )}
+
+            {!selectedContact && showNewContact ? (
               <div className="newContactFields">
                 <div className="modalRow2">
                   <div className="modalField">
@@ -264,11 +292,8 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
                     <input className="detailInput" type="tel" value={ncPhone} onChange={(e) => setNcPhone(e.target.value)} placeholder="021 000 0000" />
                   </div>
                 </div>
-                <button type="button" className="buttonGhost buttonNeutral" onClick={() => setShowNewContact(false)}>
-                  ← Search existing
-                </button>
               </div>
-            ) : (
+            ) : !selectedContact ? (
               <div className="contactSearch">
                 <input
                   className="detailInput"
@@ -290,22 +315,11 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
                 )}
                 {query.length >= 2 && !searching && results.length === 0 && (
                   <div className="contactSearchHint">
-                    No contacts found.{" "}
-                    <button type="button" className="inlineLink" onClick={() => setShowNewContact(true)}>
-                      Create new contact
-                    </button>
-                  </div>
-                )}
-                {query.length < 2 && (
-                  <div className="contactSearchHint">
-                    or{" "}
-                    <button type="button" className="inlineLink" onClick={() => setShowNewContact(true)}>
-                      create a new contact
-                    </button>
+                    No contacts found. Switch to the <strong>+ New customer</strong> tab above to create one.
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
           </section>
 
           {/* ── Vehicle ── */}
@@ -422,6 +436,18 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
                 </select>
               </div>
             </div>
+
+            {locationType === "mobile" && (
+              <div className="modalField">
+                <label>Service address</label>
+                <input
+                  className="detailInput"
+                  value={serviceAddress}
+                  onChange={(e) => setServiceAddress(e.target.value)}
+                  placeholder="e.g. 123 Cuba St, Te Aro, Wellington"
+                />
+              </div>
+            )}
 
             <div className="modalRow2">
               <div className="modalField">

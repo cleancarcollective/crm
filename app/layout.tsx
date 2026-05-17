@@ -80,8 +80,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Link href="/" className="globalNavLink">Calendar</Link>
             <Link href="/leads" className="globalNavLink">Leads</Link>
             <Link href="/clients" className="globalNavLink">Clients</Link>
-            <a href="/analytics" className="globalNavLink">Funnel</a>
-            <a href="/settings" className="globalNavLink">Settings</a>
+            {user.role === "admin" ? (
+              <>
+                <a href="/analytics" className="globalNavLink">Funnel</a>
+                <a href="/settings" className="globalNavLink">Settings</a>
+              </>
+            ) : null}
           </div>
           <div className="globalNavRight">
             <NewBookingButton className="buttonPrimary globalNavCta" />

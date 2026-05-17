@@ -12,7 +12,9 @@
 
 import Link from "next/link";
 
-import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { redirect } from "next/navigation";
+
+import { getCurrentUser } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const WINDOW_DAYS = 30;
@@ -195,7 +197,24 @@ function formatCurrency(value: number): string {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default async function AnalyticsPage() {
-  const shop = await requireCurrentShop();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "admin") {
+    return (
+      <main className="pageShell">
+        <div className="pageTopbar">
+          <div>
+            <h1 className="pageTitle">Analytics</h1>
+            <p className="detailSubtitle">{user.shop.name}</p>
+          </div>
+        </div>
+        <section className="detailPanel">
+          <p>Funnel + revenue analytics are admin-only.</p>
+        </section>
+      </main>
+    );
+  }
+  const shop = user.shop;
 
   const [leads, bookings] = await Promise.all([
     loadLeadFunnel(shop.id),

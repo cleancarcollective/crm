@@ -11,12 +11,17 @@ export type SessionShop = {
   timezone: string;
 };
 
+export type StaffRole = "admin" | "contractor";
+
 export type SessionUser = {
   userId: string;
   email: string;
   name: string;
   /** True if this user can switch between shops via the nav. */
   isSuperAdmin: boolean;
+  /** Permissions tier. "admin" = full access. "contractor" = read-only view
+   *  of bookings/calendar/contacts; no settings, analytics, or staff admin. */
+  role: StaffRole;
   /** The shop the user belongs to (their permanent home). */
   homeShop: SessionShop;
   /**
@@ -60,7 +65,7 @@ export async function verifySession(
   const { data, error } = await supabase
     .from("staff_sessions")
     .select(
-      "user_id, expires_at, staff_users(id, email, name, is_super_admin, shop_id, shop:shops(id, slug, name, timezone))"
+      "user_id, expires_at, staff_users(id, email, name, is_super_admin, role, shop_id, shop:shops(id, slug, name, timezone))"
     )
     .eq("id", sessionId)
     .maybeSingle();
@@ -78,6 +83,7 @@ export async function verifySession(
         email: string;
         name: string;
         is_super_admin: boolean | null;
+        role: string | null;
         shop_id: string;
         shop: { id: string; slug: string; name: string; timezone: string } | null;
       }
@@ -113,11 +119,14 @@ export async function verifySession(
     }
   }
 
+  const role: StaffRole = user.role === "contractor" ? "contractor" : "admin";
+
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
     isSuperAdmin,
+    role,
     homeShop,
     shop: effectiveShop,
   };

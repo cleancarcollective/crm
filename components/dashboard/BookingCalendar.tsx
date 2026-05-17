@@ -61,16 +61,28 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               )}
             </Link>
 
-            {day.bookings.slice(0, 3).map((booking) => (
-              <div key={booking.id} className="calendarPreview">
-                <span>{booking.service_name}</span>
-                <ContactNameLink
-                  contactId={booking.contact?.id ?? booking.contact_id}
-                  name={booking.contact?.full_name ?? booking.contact?.first_name ?? "Customer"}
-                  className="profileNameLink"
-                />
-              </div>
-            ))}
+            {day.bookings.slice(0, 3).map((booking) => {
+              // Mobile jobs get a distinct red bar so staff can spot them
+              // at a glance (matches the van livery).
+              const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
+              return (
+                <div
+                  key={booking.id}
+                  className={`calendarPreview${isMobile ? " calendarPreview--mobile" : ""}`}
+                  title={isMobile && booking.service_address ? `Mobile — ${booking.service_address}` : undefined}
+                >
+                  <span>
+                    {isMobile ? "🚐 " : ""}
+                    {booking.service_name}
+                  </span>
+                  <ContactNameLink
+                    contactId={booking.contact?.id ?? booking.contact_id}
+                    name={booking.contact?.full_name ?? booking.contact?.first_name ?? "Customer"}
+                    className="profileNameLink"
+                  />
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
