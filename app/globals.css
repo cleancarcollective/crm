@@ -1622,10 +1622,15 @@ textarea {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  /* align-items: flex-start so a tall modal's top stays visible — center
+     alignment was pushing the modal header above the viewport on shorter
+     screens. The overlay itself is scrollable as a safety net. */
+  align-items: flex-start;
   justify-content: center;
   z-index: 200;
   padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modalPanel {
@@ -1634,10 +1639,16 @@ textarea {
   box-shadow: 0 24px 64px rgba(17, 17, 17, 0.18);
   width: 100%;
   max-width: 640px;
+  /* Inner-scroll cap so very tall content doesn't overflow the panel. */
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Small top margin so the modal sits comfortably below the browser
+     chrome on tall screens. Combined with overflow-y on the overlay,
+     short and tall modals both behave: short = sits near top with air,
+     tall = scrolls inside the modal body. */
+  margin-block: 24px;
 }
 
 .modalHeader {
