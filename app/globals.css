@@ -1615,22 +1615,24 @@ textarea {
 
 /* ── Modal ─────────────────────────────────────────────── */
 
+/* Modal layout strategy:
+ * - Overlay is fixed full-screen and scrollable. ANY modal content can
+ *   scroll within the overlay, so even a wildly tall modal never hides
+ *   its top behind the browser chrome.
+ * - Panel sits at the top of the overlay (block-start), centered
+ *   horizontally. No flex centering — center-alignment is what was
+ *   pushing tall modals off-screen previously.
+ */
 .modalOverlay {
   position: fixed;
   inset: 0;
   background: rgba(17, 17, 17, 0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  /* align-items: flex-start so a tall modal's top stays visible — center
-     alignment was pushing the modal header above the viewport on shorter
-     screens. The overlay itself is scrollable as a safety net. */
-  align-items: flex-start;
-  justify-content: center;
   z-index: 200;
-  padding: 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 32px 24px;
 }
 
 .modalPanel {
@@ -1639,16 +1641,12 @@ textarea {
   box-shadow: 0 24px 64px rgba(17, 17, 17, 0.18);
   width: 100%;
   max-width: 640px;
-  /* Inner-scroll cap so very tall content doesn't overflow the panel. */
-  max-height: calc(100vh - 48px);
+  /* No max-height — the overlay scrolls. Letting the panel grow to its
+     content height means there's never an inner-scroll/outer-scroll
+     conflict. */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  /* Small top margin so the modal sits comfortably below the browser
-     chrome on tall screens. Combined with overflow-y on the overlay,
-     short and tall modals both behave: short = sits near top with air,
-     tall = scrolls inside the modal body. */
-  margin-block: 24px;
+  margin: 0 auto;
 }
 
 .modalHeader {
@@ -1683,12 +1681,12 @@ textarea {
 }
 
 .modalBody {
-  overflow-y: auto;
+  /* No internal scroll — the overlay scrolls instead. Prevents the
+     nested-scroll situation that hid the top of the modal. */
   padding: 0 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex: 1;
 }
 
 .modalSection {
@@ -1872,12 +1870,10 @@ textarea {
 @media (max-width: 600px) {
   .modalOverlay {
     padding: 12px;
-    align-items: flex-end;
   }
 
   .modalPanel {
-    max-height: calc(100vh - 24px);
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px;
   }
 
   .modalRow2,
