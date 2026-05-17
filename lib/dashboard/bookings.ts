@@ -146,6 +146,9 @@ async function getBookingsForRange(shopId: string, startIso: string, endIso: str
     .eq("shop_id", shopId)
     .gte("scheduled_start", startIso)
     .lt("scheduled_start", endIso)
+    // Hide cancelled bookings — they stay in the DB for history but
+    // shouldn't clutter the calendar.
+    .neq("status", "cancelled")
     .order("scheduled_start", { ascending: true });
 
   if (error) {

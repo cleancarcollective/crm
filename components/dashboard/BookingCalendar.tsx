@@ -65,13 +65,26 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               // Mobile jobs get a distinct red bar so staff can spot them
               // at a glance (matches the van livery).
               const isMobile = (booking.location_type ?? "").toLowerCase().includes("mobile");
+              // Reschedule requested via customer self-service: the
+              // booking-action route writes "[Reschedule requested]" into
+              // notes. Flag visually so staff knows to action it.
+              const needsReschedule = !!booking.notes?.includes("[Reschedule requested]");
+              const classes = [
+                "calendarPreview",
+                isMobile ? "calendarPreview--mobile" : "",
+                needsReschedule ? "calendarPreview--reschedule" : "",
+              ].filter(Boolean).join(" ");
+              const tooltipParts: string[] = [];
+              if (isMobile && booking.service_address) tooltipParts.push(`Mobile — ${booking.service_address}`);
+              if (needsReschedule) tooltipParts.push("Customer requested a reschedule — open booking to confirm");
               return (
                 <div
                   key={booking.id}
-                  className={`calendarPreview${isMobile ? " calendarPreview--mobile" : ""}`}
-                  title={isMobile && booking.service_address ? `Mobile — ${booking.service_address}` : undefined}
+                  className={classes}
+                  title={tooltipParts.length ? tooltipParts.join(" · ") : undefined}
                 >
                   <span>
+                    {needsReschedule ? "🔄 " : ""}
                     {isMobile ? "🚐 " : ""}
                     {booking.service_name}
                   </span>
