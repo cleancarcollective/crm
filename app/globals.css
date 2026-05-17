@@ -1641,12 +1641,13 @@ textarea {
   box-shadow: 0 24px 64px rgba(17, 17, 17, 0.18);
   width: 100%;
   max-width: 640px;
-  /* No max-height — the overlay scrolls. Letting the panel grow to its
-     content height means there's never an inner-scroll/outer-scroll
-     conflict. */
-  display: flex;
-  flex-direction: column;
+  /* Plain block layout. Children (header + form) stack naturally.
+     Flex on the panel was causing the body to collapse to 0 height in
+     some cases — block layout side-steps that entirely. */
+  display: block;
   margin: 0 auto;
+  /* Clip border-radius corners on the header. */
+  overflow: hidden;
 }
 
 .modalHeader {
@@ -1681,12 +1682,11 @@ textarea {
 }
 
 .modalBody {
-  /* No internal scroll — the overlay scrolls instead. Prevents the
-     nested-scroll situation that hid the top of the modal. */
+  /* Block layout (was flex column). The overlay handles scroll; the
+     panel grows to its content. Flex was causing the body to collapse
+     to its smallest content size when the panel had no max-height. */
   padding: 0 24px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: block;
 }
 
 .modalSection {
