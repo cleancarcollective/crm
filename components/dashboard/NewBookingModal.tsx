@@ -219,6 +219,15 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
 
   const vehicles = selectedContact?.vehicles ?? [];
 
+  // Ensure the modal body opens scrolled to the top (showing Contact +
+  // tabs). Previously the search input's autoFocus jumped past the top
+  // sections, so users were seeing only price/location/notifications and
+  // assumed those were the only fields.
+  const modalBodyRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+  }, []);
+
   return (
     <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modalPanel" role="dialog" aria-modal="true" aria-label="New booking">
@@ -227,7 +236,7 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
           <button className="modalClose" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modalBody">
+        <form ref={modalBodyRef} onSubmit={handleSubmit} className="modalBody">
 
           {/* ── Contact ── */}
           <section className="modalSection">
@@ -300,7 +309,6 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by name, email, or phone…"
-                  autoFocus
                 />
                 {searching && <div className="contactSearchHint">Searching…</div>}
                 {results.length > 0 && (
