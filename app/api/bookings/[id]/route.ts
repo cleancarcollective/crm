@@ -100,7 +100,7 @@ export async function PATCH(
 
   const scheduledStart = payload.scheduled_start ?? existingBooking.scheduled_start;
   const durationMinutes = payload.duration_minutes ?? existingBooking.duration_minutes;
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     service_name: payload.service_name ?? existingBooking.service_name,
     status: payload.status ?? existingBooking.status,
     scheduled_start: scheduledStart,
@@ -113,6 +113,13 @@ export async function PATCH(
     location_type: payload.location_type ?? existingBooking.location_type,
     notes: payload.notes ?? existingBooking.notes
   };
+
+  // "Just this one" semantics for recurring series: a per-booking edit
+  // (incl. a cancel via status='cancelled') protects this occurrence from
+  // future series-wide overwrites.
+  if (existingBooking.series_id) {
+    updateData.series_overridden = true;
+  }
 
   const { data: booking, error: updateError } = await supabase
     .from("bookings")

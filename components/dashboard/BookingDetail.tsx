@@ -6,12 +6,15 @@ import { useState, useTransition } from "react";
 
 import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
+import { SeriesEditFormModal, SeriesScopeChoiceModal } from "@/components/dashboard/SeriesScopeModals";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 
 type BookingDetailProps = {
   booking: BookingWithRelations;
   shop: ShopRecord;
+  /** Parent series status (active/paused/cancelled). null if not in a series. */
+  seriesStatus?: string | null;
 };
 
 function toDateTimeLocal(iso: string) {
@@ -38,9 +41,17 @@ function EditItem({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-export function BookingDetail({ booking, shop }: BookingDetailProps) {
+export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Series-scope modal state. "edit" / "cancel" pick which flow runs after
+  // the scope-choice resolves. seriesEditOpen drives the bulk-edit form.
+  const inSeries = Boolean(booking.series_id);
+  const seriesCancelled = seriesStatus === "cancelled";
+  const [scopeChoice, setScopeChoice] = useState<null | "edit" | "cancel">(null);
+  const [seriesEditOpen, setSeriesEditOpen] = useState(false);
+  const [seriesBanner, setSeriesBanner] = useState<string>("");
 
   const [serviceName, setServiceName] = useState(booking.service_name);
   const [status, setStatus] = useState(booking.status);
@@ -175,17 +186,32 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
           <div className="detailActions">
             {savedMessage && !isPending && <span className="editorSaved">{savedMessage}</span>}
             {pickupMessage && !pickupPending && <span className="editorSaved">{pickupMessage}</span>}
+            {seriesBanner && <span className="editorSaved">{seriesBanner}</span>}
             {errorMessage && <span className="editorError">{errorMessage}</span>}
-            <button className="buttonGhost" onClick={handleDelete} disabled={isPending || pickupPending}>
-              Delete
+            {/* When the parent series is cancelled, this occurrence is in the
+                past or has been left as a tombstone — disable mutation. */}
+            <button
+              className="buttonGhost"
+              onClick={() => (inSeries ? setScopeChoice("cancel") : handleDelete())}
+              disabled={isPending || pickupPending || seriesCancelled}
+            >
+              {inSeries ? "Cancel booking" : "Delete"}
             </button>
-            <button className="buttonGhost buttonNeutral" onClick={() => handleSave(true)} disabled={isPending || pickupPending}>
-              {isPending ? "Saving…" : "Save + email update"}
+            <button
+              className="buttonGhost buttonNeutral"
+              onClick={() => (inSeries ? setScopeChoice("edit") : handleSave(true))}
+              disabled={isPending || pickupPending || seriesCancelled}
+            >
+              {inSeries ? "Edit booking" : isPending ? "Saving…" : "Save + email update"}
             </button>
-            <button className="buttonPrimary" onClick={() => handleSave(false)} disabled={isPending || pickupPending}>
+            <button
+              className="buttonPrimary"
+              onClick={() => (inSeries ? setScopeChoice("edit") : handleSave(false))}
+              disabled={isPending || pickupPending || seriesCancelled}
+            >
               {isPending ? "Saving…" : "Save"}
             </button>
-            <button className="buttonPickup" onClick={handlePickupReady} disabled={isPending || pickupPending}>
+            <button className="buttonPickup" onClick={handlePickupReady} disabled={isPending || pickupPending || seriesCancelled}>
               {pickupPending ? "Sending…" : "🚗 Pick-up Ready"}
             </button>
           </div>
@@ -288,6 +314,73 @@ export function BookingDetail({ booking, shop }: BookingDetailProps) {
         <h2>Raw Payload</h2>
         <pre className="payloadBox">{JSON.stringify(booking.raw_payload, null, 2)}</pre>
       </div>
+
+      {/* ── Recurring-series scope modals ── */}
+      {scopeChoice ? (
+        <SeriesScopeChoiceModal
+          action={scopeChoice}
+          onClose={() => setScopeChoice(null)}
+          onChoose={(scope, reason) => {
+            const action = scopeChoice;
+            setScopeChoice(null);
+            if (scope === "single") {
+              // Single-occurrence flow: existing per-booking endpoint (which
+              // auto-flips series_overridden = true on the booking).
+              if (action === "cancel") {
+                if (!window.confirm("Cancel this booking only? Future occurrences in the series stay.")) return;
+                setErrorMessage("");
+                startTransition(async () => {
+                  const res = await fetch(`/api/bookings/${booking.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "cancelled" }),
+                  });
+                  if (!res.ok) { setErrorMessage("Failed to cancel."); return; }
+                  setStatus("cancelled");
+                  router.refresh();
+                });
+              } else {
+                // Inline save with whatever's already in the form.
+                handleSave(false);
+              }
+            } else {
+              // Series-wide flow.
+              if (action === "cancel") {
+                if (!booking.series_id) return;
+                setErrorMessage("");
+                startTransition(async () => {
+                  const res = await fetch(`/api/booking-series/${booking.series_id}/cancel`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scope: "series", reason: reason ?? null }),
+                  });
+                  const data = (await res.json()) as { ok?: boolean; error?: string; bookingsCancelled?: number };
+                  if (!res.ok || !data.ok) {
+                    setErrorMessage(data.error ?? "Failed to cancel series.");
+                    return;
+                  }
+                  setSeriesBanner(`Series cancelled — ${data.bookingsCancelled ?? 0} future booking${(data.bookingsCancelled ?? 0) === 1 ? "" : "s"} cancelled.`);
+                  router.refresh();
+                });
+              } else {
+                setSeriesEditOpen(true);
+              }
+            }
+          }}
+        />
+      ) : null}
+
+      {seriesEditOpen ? (
+        <SeriesEditFormModal
+          booking={booking}
+          onClose={() => setSeriesEditOpen(false)}
+          onSaved={(count) => {
+            setSeriesEditOpen(false);
+            setSeriesBanner(`Series updated — ${count} future booking${count === 1 ? "" : "s"} synced.`);
+            router.refresh();
+          }}
+        />
+      ) : null}
 
     </section>
   );
