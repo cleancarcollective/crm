@@ -155,6 +155,63 @@ async function runChecks(shopId: string): Promise<Check[]> {
     });
   }
 
+  // Recurring series regeneration — the cron tops up occurrences daily so
+  // the calendar stays 12 months ahead. We flag warn if it hasn't run in
+  // >36h (cron likely down) and error if any series has a regen error set.
+  {
+    const { data: activeSeries, error } = await supabase
+      .from("booking_series")
+      .select("id, last_regen_at, last_regen_error, generated_through_date")
+      .eq("shop_id", shopId)
+      .eq("status", "active");
+    if (error) {
+      checks.push({
+        category: "Crons & queues",
+        name: "Recurring series regen",
+        status: "error",
+        message: "Query failed",
+        details: error.message,
+      });
+    } else {
+      const series = activeSeries ?? [];
+      if (series.length === 0) {
+        checks.push({
+          category: "Crons & queues",
+          name: "Recurring series regen",
+          status: "info",
+          message: "No active series",
+        });
+      } else {
+        const errored = series.filter((s) => s.last_regen_error);
+        const lastRegen = series
+          .map((s) => (s.last_regen_at ? new Date(s.last_regen_at).getTime() : 0))
+          .reduce((max, t) => Math.max(max, t), 0);
+        const ageHours = lastRegen > 0 ? (now.getTime() - lastRegen) / (60 * 60 * 1000) : Infinity;
+
+        let status: CheckStatus = "ok";
+        let message = `${series.length} active, last regen ${ageHours.toFixed(1)}h ago`;
+        if (errored.length > 0) {
+          status = "error";
+          message = `${errored.length} series with regen errors (of ${series.length} active)`;
+        } else if (ageHours > 36) {
+          status = "warn";
+          message = `${series.length} active, last regen ${
+            ageHours === Infinity ? "never" : `${ageHours.toFixed(1)}h ago`
+          } — cron may be down`;
+        }
+        checks.push({
+          category: "Crons & queues",
+          name: "Recurring series regen",
+          status,
+          message,
+          details: errored.length > 0
+            ? errored.slice(0, 3).map((s) => `series ${s.id.slice(0, 8)}: ${s.last_regen_error}`).join("\n")
+            : undefined,
+        });
+      }
+    }
+  }
+
   // ── Webhooks ────────────────────────────────────────────────────────────
 
   // Postmark webhook — most recent event

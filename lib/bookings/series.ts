@@ -378,3 +378,240 @@ export async function createSeriesAndOccurrences(
 
   return { seriesId, bookingsCreated: createdCount };
 }
+
+// ── Cron-driven regeneration ─────────────────────────────────────────────
+
+/**
+ * How far ahead we keep the calendar filled. Series creation generates
+ * `HORIZON_MONTHS` of occurrences up front; the cron tops up whenever the
+ * remaining horizon dips below `MIN_BUFFER_MONTHS`.
+ *
+ * With horizon=12 and buffer=6, the cron has to fail for ~6 months before
+ * any customer-facing occurrence is missing — generous safety margin.
+ */
+const HORIZON_MONTHS = 12;
+const MIN_BUFFER_MONTHS = 6;
+
+export type RegenResult = {
+  seriesId: string;
+  status: "ok" | "skipped" | "failed";
+  createdCount: number;
+  generatedThroughDate: string | null;
+  reason?: string;
+  error?: string;
+};
+
+/**
+ * Regenerate occurrences for a single active series, if its horizon has
+ * dipped below the buffer. Idempotent — only inserts sequences that don't
+ * already exist. Writes last_regen_at / last_regen_error to the series row.
+ */
+export async function regenerateSeriesOccurrences(seriesId: string): Promise<RegenResult> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: row, error: loadError } = await supabase
+    .from("booking_series")
+    .select("*")
+    .eq("id", seriesId)
+    .maybeSingle();
+
+  if (loadError || !row) {
+    return {
+      seriesId,
+      status: "failed",
+      createdCount: 0,
+      generatedThroughDate: null,
+      error: loadError?.message ?? "Series not found",
+    };
+  }
+
+  if (row.status !== "active") {
+    return {
+      seriesId,
+      status: "skipped",
+      createdCount: 0,
+      generatedThroughDate: row.generated_through_date,
+      reason: `status=${row.status}`,
+    };
+  }
+
+  const now = new Date();
+  const horizon = addMonths(now, HORIZON_MONTHS);
+  const bufferEdge = addMonths(now, MIN_BUFFER_MONTHS);
+
+  // Skip if we still have plenty of pre-generated occurrences ahead.
+  const generatedThrough = row.generated_through_date
+    ? new Date(`${row.generated_through_date}T23:59:59Z`)
+    : null;
+  if (generatedThrough && generatedThrough >= bufferEdge) {
+    return {
+      seriesId,
+      status: "skipped",
+      createdCount: 0,
+      generatedThroughDate: row.generated_through_date,
+      reason: "still inside buffer",
+    };
+  }
+
+  try {
+    const rule: SeriesRule = {
+      frequency: row.frequency,
+      intervalCount: row.interval_count,
+      nthWeekOfMonth: row.nth_week_of_month,
+      dayOfWeek: row.day_of_week,
+      firstOccurrenceAt: new Date(row.first_occurrence_at),
+      timezone: row.timezone,
+      endType: row.end_type,
+      endAfterN: row.end_after_n,
+      endOnDate: row.end_on_date ? new Date(row.end_on_date) : null,
+    };
+
+    const allOccurrences = computeOccurrences(rule, horizon);
+
+    // Find which sequences already exist so we only insert the missing tail.
+    const { data: existingRows } = await supabase
+      .from("bookings")
+      .select("series_sequence")
+      .eq("series_id", seriesId);
+    const existing = new Set((existingRows ?? []).map((r) => r.series_sequence as number));
+
+    const shop = await getShopById(row.shop_id);
+    const durationMinutes = row.duration_minutes ?? null;
+
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("phone, first_name, full_name")
+      .eq("id", row.contact_id)
+      .maybeSingle();
+    const phone = contact?.phone ?? null;
+    const firstName = contact?.first_name ?? contact?.full_name?.split(" ")[0] ?? "there";
+
+    let createdCount = 0;
+
+    for (let idx = 0; idx < allOccurrences.length; idx += 1) {
+      if (existing.has(idx)) continue;
+      const start = allOccurrences[idx];
+      const end = durationMinutes
+        ? new Date(start.getTime() + durationMinutes * 60_000).toISOString()
+        : null;
+
+      const { data: booking, error: insertError } = await supabase
+        .from("bookings")
+        .insert({
+          shop_id: row.shop_id,
+          contact_id: row.contact_id,
+          vehicle_id: row.vehicle_id,
+          booking_source: "recurring",
+          service_name: row.service_name,
+          service_details: row.service_details,
+          scheduled_start: start.toISOString(),
+          scheduled_end: end,
+          duration_minutes: durationMinutes,
+          price_estimate: row.price_estimate,
+          location_type: row.location_type,
+          service_address: row.service_address,
+          notes: row.notes,
+          status: "confirmed",
+          raw_payload: {},
+          series_id: seriesId,
+          series_sequence: idx,
+          series_overridden: false,
+        })
+        .select("id, scheduled_start")
+        .single();
+
+      if (insertError || !booking) {
+        console.error("Regen: failed to insert occurrence", { seriesId, idx, insertError });
+        continue;
+      }
+      createdCount += 1;
+
+      try {
+        await createReminderJobsForBooking({
+          shop,
+          bookingId: booking.id,
+          contactId: row.contact_id,
+          scheduledStart: booking.scheduled_start,
+        });
+      } catch (err) {
+        console.error("Regen: reminder schedule failed", { seriesId, bookingId: booking.id, err });
+      }
+
+      if (phone) {
+        try {
+          await scheduleBookingReminderSms({
+            bookingId: booking.id,
+            contactId: row.contact_id,
+            shopId: row.shop_id,
+            phone,
+            firstName,
+            scheduledStart: booking.scheduled_start,
+            timezone: shop.timezone,
+          });
+        } catch (err) {
+          console.error("Regen: SMS reminder failed", { seriesId, bookingId: booking.id, err });
+        }
+      }
+    }
+
+    const lastOccurrence = allOccurrences[allOccurrences.length - 1];
+    const newGeneratedThrough = lastOccurrence
+      ? lastOccurrence.toISOString().slice(0, 10)
+      : row.generated_through_date;
+
+    await supabase
+      .from("booking_series")
+      .update({
+        generated_through_date: newGeneratedThrough,
+        occurrences_generated: (row.occurrences_generated ?? 0) + createdCount,
+        last_regen_at: new Date().toISOString(),
+        last_regen_error: null,
+      })
+      .eq("id", seriesId);
+
+    return {
+      seriesId,
+      status: "ok",
+      createdCount,
+      generatedThroughDate: newGeneratedThrough,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await supabase
+      .from("booking_series")
+      .update({
+        last_regen_at: new Date().toISOString(),
+        last_regen_error: msg.slice(0, 500),
+      })
+      .eq("id", seriesId);
+    return {
+      seriesId,
+      status: "failed",
+      createdCount: 0,
+      generatedThroughDate: row.generated_through_date,
+      error: msg,
+    };
+  }
+}
+
+/**
+ * Cron entry point. Loops every active series, regenerates whichever ones
+ * are due. Returns per-series results for logging + health visibility.
+ */
+export async function regenerateAllActiveSeries(): Promise<RegenResult[]> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("booking_series")
+    .select("id")
+    .eq("status", "active");
+
+  if (error) {
+    throw error;
+  }
+
+  const results: RegenResult[] = [];
+  for (const row of data ?? []) {
+    results.push(await regenerateSeriesOccurrences(row.id as string));
+  }
+  return results;
+}
