@@ -185,17 +185,68 @@ async function buildExportRows(args: {
 }
 
 /**
+ * Per-shop webhook URLs. Each shop has its own Google Ads account, so each
+ * gets its own Sheet + Apps Script + scheduled Google Ads import.
+ *
+ * GOOGLE_ADS_SHEETS_WEBHOOK_URL is the historical (Christchurch) URL and
+ * is kept as the default fallback so existing infra keeps working without
+ * any rename. Add new shops as new env vars below.
+ */
+const WEBHOOK_URL_BY_SHOP: Record<string, string | undefined> = {
+  christchurch: process.env.GOOGLE_ADS_SHEETS_WEBHOOK_URL,
+  wellington: process.env.GOOGLE_ADS_SHEETS_WEBHOOK_URL_WELLINGTON,
+};
+
+async function postRowsToShop(args: {
+  shopSlug: string;
+  url: string;
+  rows: ExportRow[];
+  secret: string | undefined;
+}) {
+  // Apps Script POSTs respond with a 302 to a googleusercontent.com URL whose
+  // GET serves the doPost return value. Default fetch redirect following
+  // handles this correctly — the doPost has already run by the time we
+  // follow the redirect. Don't try to re-POST the redirect target; 405.
+  //
+  // Secret goes in the body — Apps Script can't read custom HTTP headers.
+  const response = await fetch(args.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows: args.rows, secret: args.secret }),
+  });
+
+  const responseText = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(`[${args.shopSlug}] Sheets webhook HTTP ${response.status}: ${responseText.slice(0, 300)}`);
+  }
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    throw new Error(`[${args.shopSlug}] Sheets webhook returned non-JSON: ${responseText.slice(0, 300)}`);
+  }
+  if (parsed.ok !== true) {
+    throw new Error(`[${args.shopSlug}] Sheets webhook rejected: ${parsed.error ?? JSON.stringify(parsed).slice(0, 300)}`);
+  }
+  return parsed;
+}
+
+/**
  * Run the export for the previous 24h window. Called by the daily cron.
+ *
+ * Rows are grouped by shop_slug and POSTed to each shop's own Apps Script
+ * webhook. Per-shop URLs are required because each shop runs its own
+ * Google Ads account, importing from its own Sheet on its own schedule.
+ *
+ * Failure of one shop's webhook does NOT block the other — the function
+ * collects per-shop results and surfaces them in the response, so a
+ * misconfigured Wellington URL can't silently drop Christchurch rows
+ * (or vice versa).
  */
 export async function exportRecentBookingsForGoogleAds() {
   const now = new Date();
   const windowEnd = now.toISOString();
   const windowStart = addDays(now, -1).toISOString();
-
-  const webhookUrl = process.env.GOOGLE_ADS_SHEETS_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return { skipped: true as const, reason: "GOOGLE_ADS_SHEETS_WEBHOOK_URL not set" };
-  }
 
   const rows = await buildExportRows({
     windowStartIso: windowStart,
@@ -203,46 +254,69 @@ export async function exportRecentBookingsForGoogleAds() {
   });
 
   if (rows.length === 0) {
-    return { exported: 0, withAttribution: 0 };
+    return { exported: 0, withAttribution: 0, byShop: {} };
   }
 
-  const withAttribution = rows.filter(
-    (r) => r.gclid || r.gbraid || r.wbraid || r.email_sha256
-  ).length;
+  // Group rows by shop
+  const rowsByShop = new Map<string, ExportRow[]>();
+  for (const row of rows) {
+    const arr = rowsByShop.get(row.shop_slug) ?? [];
+    arr.push(row);
+    rowsByShop.set(row.shop_slug, arr);
+  }
 
-  // POST to the Apps Script web app. It validates a shared secret, dedupes
-  // by booking_id, and appends to the Sheet.
-  //
-  // Note: Apps Script POSTs respond with a 302 to a googleusercontent.com
-  // URL whose GET serves the doPost return value. Default fetch redirect
-  // following handles this correctly — the doPost has already run by the
-  // time we follow the redirect. Don't try to re-POST the redirect target;
-  // it returns 405.
-  //
-  // Pass the secret in the body (Apps Script can't read custom HTTP headers).
   const secret = process.env.GOOGLE_ADS_SHEETS_WEBHOOK_SECRET;
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rows, secret }),
-  });
+  const byShop: Record<string, unknown> = {};
+  const errors: string[] = [];
+  let totalExported = 0;
+  let totalWithAttribution = 0;
 
-  // Apps Script can return HTTP 200 even on logical errors (auth fail,
-  // unknown shop, etc) — parse and check for our explicit ok flag so silent
-  // failures surface.
-  const responseText = await response.text().catch(() => "");
-  if (!response.ok) {
-    throw new Error(`Sheets webhook HTTP ${response.status}: ${responseText.slice(0, 300)}`);
-  }
-  let parsed: Record<string, unknown> = {};
-  try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    throw new Error(`Sheets webhook returned non-JSON: ${responseText.slice(0, 300)}`);
-  }
-  if (parsed.ok !== true) {
-    throw new Error(`Sheets webhook rejected: ${parsed.error ?? JSON.stringify(parsed).slice(0, 300)}`);
+  for (const [shopSlug, shopRows] of rowsByShop) {
+    const url = WEBHOOK_URL_BY_SHOP[shopSlug];
+    const withAttribution = shopRows.filter(
+      (r) => r.gclid || r.gbraid || r.wbraid || r.email_sha256
+    ).length;
+
+    if (!url) {
+      // No webhook configured for this shop. Surface it so it's visible in
+      // the cron response and gets fixed, instead of silently dropping rows.
+      byShop[shopSlug] = {
+        skipped: true,
+        reason: `No webhook URL configured for shop ${shopSlug}`,
+        rows: shopRows.length,
+        withAttribution,
+      };
+      errors.push(`No webhook for ${shopSlug} (${shopRows.length} rows dropped)`);
+      continue;
+    }
+
+    try {
+      const sheetsResponse = await postRowsToShop({ shopSlug, url, rows: shopRows, secret });
+      byShop[shopSlug] = {
+        exported: shopRows.length,
+        withAttribution,
+        sheetsResponse,
+      };
+      totalExported += shopRows.length;
+      totalWithAttribution += withAttribution;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      byShop[shopSlug] = {
+        error: message,
+        rows: shopRows.length,
+        withAttribution,
+      };
+      errors.push(message);
+    }
   }
 
-  return { exported: rows.length, withAttribution, sheetsResponse: parsed };
+  if (errors.length > 0 && totalExported === 0) {
+    // Every shop failed — let the cron route return 500 so it shows up as
+    // a failed invocation in Vercel. If at least one shop succeeded, we
+    // return 200 with the per-shop breakdown so partial success is visible
+    // but the cron stays green.
+    throw new Error(errors.join("; "));
+  }
+
+  return { exported: totalExported, withAttribution: totalWithAttribution, byShop };
 }
