@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
+import { ContactDetailsEditor } from "@/components/dashboard/ContactDetailsEditor";
 import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
@@ -90,25 +91,19 @@ export function ContactProfile({ profile }: ContactProfileProps) {
       <ContactNotesEditor contactId={contact.id} initialNotes={contact.notes ?? null} />
 
       <div className="profileGrid">
-        <section className="detailPanel">
-          <h2>Contact</h2>
-          <div className="detailItem">
-            <span>Name</span>
-            <strong>{displayName}</strong>
-          </div>
-          <div className="detailItem">
-            <span>Email</span>
-            <strong>{contact.email ?? "—"}</strong>
-          </div>
-          <div className="detailItem">
-            <span>Phone</span>
-            <strong>{contact.phone ?? "—"}</strong>
-          </div>
-          <div className="detailItem">
-            <span>Created</span>
-            <strong>{contact.created_at ? formatDateTime(contact.created_at, shop.timezone, "EEE d MMM yyyy, h:mm a") : "—"}</strong>
-          </div>
-        </section>
+        <ContactDetailsEditor
+          contactId={contact.id}
+          initialFirstName={contact.first_name ?? null}
+          initialLastName={contact.last_name ?? null}
+          initialFullName={contact.full_name ?? null}
+          initialEmail={contact.email ?? null}
+          initialPhone={contact.phone ?? null}
+          createdLabel={
+            contact.created_at
+              ? formatDateTime(contact.created_at, shop.timezone, "EEE d MMM yyyy, h:mm a")
+              : "—"
+          }
+        />
 
         <section className="detailPanel">
           <h2>Vehicles</h2>

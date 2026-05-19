@@ -2416,6 +2416,49 @@ textarea {
   font-weight: 600;
 }
 
+/* ── Contact details inline editor ───────────────────────── */
+
+.contactEditGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.contactEditField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contactEditField--wide {
+  grid-column: 1 / -1;
+}
+
+.contactEditField input {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.contactEditField input:focus {
+  outline: none;
+  border-color: var(--accent, #1a4d2e);
+  box-shadow: 0 0 0 3px rgba(26, 77, 46, 0.12);
+}
+
 /* ── Lead source editor ──────────────────────────────────── */
 
 .leadSourceDisplay {
