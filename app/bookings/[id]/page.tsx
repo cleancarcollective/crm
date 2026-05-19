@@ -23,6 +23,33 @@ export default async function BookingDetailPage({
         </div>
       </div>
 
+      {booking.series_id ? (
+        <div
+          style={{
+            margin: "0 0 16px 0",
+            padding: "10px 14px",
+            background: "#fef6e7",
+            border: "1px solid #f0d68b",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            fontSize: 14,
+          }}
+        >
+          <span>
+            ↻ Part of a recurring series
+            {booking.series_sequence !== null ? ` — occurrence #${(booking.series_sequence ?? 0) + 1}` : ""}
+          </span>
+          {/* /series/[id] page does not exist yet (step 5 of the build).
+              Cast through unknown because typed routes won't recognise it. */}
+          <Link href={(`/series/${booking.series_id}` as unknown) as never} className="textLink">
+            View series →
+          </Link>
+        </div>
+      ) : null}
+
       <BookingDetail booking={booking} shop={shop} />
     </main>
   );

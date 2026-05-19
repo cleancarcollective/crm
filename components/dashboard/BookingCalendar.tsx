@@ -69,6 +69,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               // booking-action route writes "[Reschedule requested]" into
               // notes. Flag visually so staff knows to action it.
               const needsReschedule = !!booking.notes?.includes("[Reschedule requested]");
+              const isRecurring = !!booking.series_id;
               const classes = [
                 "calendarPreview",
                 isMobile ? "calendarPreview--mobile" : "",
@@ -77,6 +78,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               const tooltipParts: string[] = [];
               if (isMobile && booking.service_address) tooltipParts.push(`Mobile — ${booking.service_address}`);
               if (needsReschedule) tooltipParts.push("Customer requested a reschedule — open booking to confirm");
+              if (isRecurring) tooltipParts.push("Part of recurring series");
               return (
                 <div
                   key={booking.id}
@@ -86,6 +88,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
                   <span>
                     {needsReschedule ? "🔄 " : ""}
                     {isMobile ? "🚐 " : ""}
+                    {isRecurring ? "↻ " : ""}
                     {booking.service_name}
                   </span>
                   <ContactNameLink

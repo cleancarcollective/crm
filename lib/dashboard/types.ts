@@ -24,6 +24,10 @@ export type BookingRecord = {
   /** Customer service address (mobile bookings). Empty for shop bookings. */
   service_address: string | null;
   raw_payload: Record<string, unknown>;
+  /** Set when this booking was generated from a recurring booking_series. */
+  series_id: string | null;
+  series_sequence: number | null;
+  series_overridden: boolean;
   created_at: string;
   updated_at: string;
 };
