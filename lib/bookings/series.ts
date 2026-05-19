@@ -26,6 +26,12 @@ import {
 } from "date-fns";
 
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
+import {
+  buildCadenceLabel,
+  buildEndLabel,
+  sendSeriesConfirmationEmail,
+  sendSeriesTeamNotification,
+} from "@/lib/email/sendSeriesConfirmation";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { getShopById } from "@/lib/dashboard/bookings";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -325,11 +331,11 @@ export async function createSeriesAndOccurrences(
     // (Done inline below — keeps the function self-contained.)
   }
 
-  // SMS reminders need the contact phone. One lookup, applied to every
-  // occurrence we just created.
+  // SMS reminders need phone, the series-confirmation email needs email +
+  // name. One lookup serves both.
   const { data: contact } = await supabase
     .from("contacts")
-    .select("phone, first_name, full_name")
+    .select("phone, first_name, full_name, email")
     .eq("id", input.contactId)
     .maybeSingle();
 
@@ -375,6 +381,52 @@ export async function createSeriesAndOccurrences(
       last_regen_at: new Date().toISOString(),
     })
     .eq("id", seriesId);
+
+  // 4. One series-wide confirmation email to the customer + a team
+  //    notification. The per-occurrence reminders are already scheduled
+  //    above; this is the only upfront email the customer sees.
+  //    Non-fatal — series creation succeeds even if email send fails.
+  if (occurrences.length > 0) {
+    const cadenceLabel = buildCadenceLabel({
+      frequency: input.rule.frequency,
+      intervalCount: input.rule.intervalCount,
+      firstOccurrenceIso: input.rule.firstOccurrenceAt.toISOString(),
+      timezone: input.rule.timezone,
+      nthWeekOfMonth: input.rule.nthWeekOfMonth ?? null,
+    });
+    const endLabel = buildEndLabel({
+      endType: input.rule.endType,
+      endAfterN: input.rule.endAfterN ?? null,
+      endOnDate: input.rule.endOnDate ? input.rule.endOnDate.toISOString() : null,
+      timezone: input.rule.timezone,
+    });
+    const occurrenceDatesIso = occurrences.map((d) => d.toISOString());
+    const emailArgs = {
+      shop,
+      seriesId,
+      contact: {
+        firstName: contact?.first_name ?? contact?.full_name?.split(" ")[0] ?? null,
+        fullName: contact?.full_name ?? null,
+        email: contact?.email ?? null,
+      },
+      serviceName: input.serviceName,
+      priceEstimate: input.priceEstimate ?? null,
+      cadenceLabel,
+      occurrenceDatesIso,
+      bookingsCount: createdCount,
+      endLabel,
+    };
+    try {
+      await sendSeriesConfirmationEmail(emailArgs);
+    } catch (err) {
+      console.error("Series confirmation email failed (non-fatal)", { seriesId, err });
+    }
+    try {
+      await sendSeriesTeamNotification(emailArgs);
+    } catch (err) {
+      console.error("Series team notification failed (non-fatal)", { seriesId, err });
+    }
+  }
 
   return { seriesId, bookingsCreated: createdCount };
 }
