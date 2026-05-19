@@ -243,10 +243,11 @@ async function postRowsToShop(args: {
  * misconfigured Wellington URL can't silently drop Christchurch rows
  * (or vice versa).
  */
-export async function exportRecentBookingsForGoogleAds() {
+export async function exportRecentBookingsForGoogleAds(opts: { windowDays?: number } = {}) {
+  const windowDays = opts.windowDays ?? 1;
   const now = new Date();
   const windowEnd = now.toISOString();
-  const windowStart = addDays(now, -1).toISOString();
+  const windowStart = addDays(now, -windowDays).toISOString();
 
   const rows = await buildExportRows({
     windowStartIso: windowStart,

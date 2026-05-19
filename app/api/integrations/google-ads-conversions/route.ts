@@ -15,7 +15,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   try {
-    const result = await exportRecentBookingsForGoogleAds();
+    // Optional ?days=N widens the export window beyond the default 24h.
+    // Used for one-off backfills (e.g. after fixing a routing bug).
+    // Apps Scripts on the Sheets side dedupe by booking_id so resending
+    // is idempotent. Capped at 90 days to avoid catastrophic accidents.
+    const url = new URL(request.url);
+    const daysParam = url.searchParams.get("days");
+    const days = daysParam ? Math.min(Math.max(parseInt(daysParam, 10) || 1, 1), 90) : 1;
+
+    const result = await exportRecentBookingsForGoogleAds({ windowDays: days });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
