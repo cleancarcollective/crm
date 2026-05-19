@@ -78,9 +78,7 @@ export default async function BookingDetailPage({
               </span>
             ) : null}
           </span>
-          {/* /series/[id] page does not exist yet (step 5 of the build).
-              Cast through unknown because typed routes won't recognise it. */}
-          <Link href={(`/series/${booking.series_id}` as unknown) as never} className="textLink">
+          <Link href={`/series/${booking.series_id}`} className="textLink">
             View series →
           </Link>
         </div>

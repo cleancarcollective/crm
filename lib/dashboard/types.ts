@@ -59,6 +59,41 @@ export type BookingWithRelations = BookingRecord & {
   vehicle: VehicleRecord | null;
 };
 
+export type BookingSeriesRecord = {
+  id: string;
+  shop_id: string;
+  contact_id: string;
+  vehicle_id: string | null;
+  service_name: string;
+  service_details: string | null;
+  size: string | null;
+  price_estimate: number | null;
+  duration_minutes: number | null;
+  location_type: string | null;
+  service_address: string | null;
+  notes: string | null;
+  booking_source: string;
+  /** Recurrence rule. */
+  frequency: "days" | "weeks" | "months_nth_weekday";
+  interval_count: number;
+  nth_week_of_month: number | null;
+  day_of_week: number | null;
+  first_occurrence_at: string;
+  timezone: string;
+  end_type: "never" | "after_n" | "on_date";
+  end_after_n: number | null;
+  end_on_date: string | null;
+  status: "active" | "paused" | "cancelled";
+  /** Regen / horizon bookkeeping written by lib/bookings/series.ts. */
+  generated_through_date: string | null;
+  last_regen_at: string | null;
+  last_regen_error: string | null;
+  created_by_user_id: string | null;
+  series_source: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type LeadRecord = {
   id: string;
   shop_id: string;
