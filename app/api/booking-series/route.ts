@@ -14,6 +14,11 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser, requireCurrentShop } from "@/lib/auth/currentShop";
 import {
+  resolveContactAndVehicle,
+  type NewContactInput,
+  type NewVehicleInput,
+} from "@/lib/bookings/resolveContactAndVehicle";
+import {
   createSeriesAndOccurrences,
   type SeriesEndType,
   type SeriesFrequency,
@@ -32,8 +37,12 @@ type RuleBody = {
 };
 
 type SeriesBody = {
-  contactId: string;
+  // Contact — either existing id OR inline new_contact (matches manual booking endpoint).
+  contactId?: string;
+  newContact?: NewContactInput;
+  // Vehicle — same pattern, optional either way.
   vehicleId?: string | null;
+  newVehicle?: NewVehicleInput;
   serviceName: string;
   serviceDetails?: string;
   size?: string;
@@ -53,8 +62,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "Invalid JSON." }, { status: 400 });
   }
 
-  if (!payload.contactId) {
-    return NextResponse.json({ success: false, error: "contactId is required." }, { status: 400 });
+  if (!payload.contactId && !payload.newContact) {
+    return NextResponse.json({ success: false, error: "contactId or newContact is required." }, { status: 400 });
   }
   if (!payload.serviceName?.trim()) {
     return NextResponse.json({ success: false, error: "serviceName is required." }, { status: 400 });
@@ -72,11 +81,31 @@ export async function POST(request: Request) {
   const shop = await requireCurrentShop();
   const user = await getCurrentUser();
 
+  // Resolve contact + vehicle up front — supports both "pick existing" and
+  // "inline new_contact" payloads, with dedupe-by-email then dedupe-by-phone
+  // so we don't create duplicate contact rows.
+  let resolved;
+  try {
+    resolved = await resolveContactAndVehicle({
+      shopId: shop.id,
+      contactId: payload.contactId ?? null,
+      newContact: payload.newContact ?? null,
+      vehicleId: payload.vehicleId ?? null,
+      newVehicle: payload.newVehicle ?? null,
+    });
+  } catch (err) {
+    console.error("Failed to resolve contact/vehicle for series", err);
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to resolve contact." },
+      { status: 500 }
+    );
+  }
+
   try {
     const result = await createSeriesAndOccurrences({
       shopId: shop.id,
-      contactId: payload.contactId,
-      vehicleId: payload.vehicleId ?? null,
+      contactId: resolved.contactId,
+      vehicleId: resolved.vehicleId,
       serviceName: payload.serviceName.trim(),
       serviceDetails: payload.serviceDetails ?? null,
       size: payload.size ?? null,

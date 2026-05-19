@@ -358,14 +358,6 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
 
     try {
       if (isRecurring) {
-        // Series creation requires an existing contactId — recurring + new
-        // contact in one shot would force us to first POST the contact,
-        // which the series endpoint doesn't do. Block at the UI for now.
-        if (!selectedContact) {
-          setError("Pick an existing customer to create a recurring series. New-customer creation in the same step is coming later.");
-          setSubmitting(false);
-          return;
-        }
         const firstDate = new Date(scheduledStart);
         const monthDesc = describeMonthlyNthWeekdayLocal(firstDate);
         const rule = buildRecurrenceRule({
@@ -382,9 +374,10 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
           setSubmitting(false);
           return;
         }
-        const seriesBody = {
-          contactId: selectedContact.id,
-          vehicleId: selectedVehicleId && selectedVehicleId !== "new" ? selectedVehicleId : null,
+        // Mirror the manual-booking payload shape: either contactId for
+        // existing customers, or newContact (and optionally newVehicle) so
+        // the series endpoint can dedupe + create on the fly.
+        const seriesBody: Record<string, unknown> = {
           serviceName: serviceName.trim(),
           size: nvSize || undefined,
           priceEstimate: priceEstimate ? Number(priceEstimate) : undefined,
@@ -394,6 +387,27 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
           notes: notes || undefined,
           rule,
         };
+        if (selectedContact) {
+          seriesBody.contactId = selectedContact.id;
+        } else {
+          seriesBody.newContact = {
+            first_name: ncFirstName.trim() || undefined,
+            last_name: ncLastName.trim() || undefined,
+            email: ncEmail.trim() || undefined,
+            phone: ncPhone.trim() || undefined,
+          };
+        }
+        if (selectedVehicleId && selectedVehicleId !== "new") {
+          seriesBody.vehicleId = selectedVehicleId;
+        } else if (nvMake || nvModel || nvYear || nvRego) {
+          seriesBody.newVehicle = {
+            make: nvMake || undefined,
+            model: nvModel || undefined,
+            year: nvYear || undefined,
+            rego: nvRego || undefined,
+            size: nvSize || undefined,
+          };
+        }
         const res = await fetch("/api/booking-series", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

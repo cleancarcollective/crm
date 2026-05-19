@@ -2,6 +2,7 @@ import { addMinutes } from "date-fns";
 import { NextResponse } from "next/server";
 
 import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { resolveContactAndVehicle } from "@/lib/bookings/resolveContactAndVehicle";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
 import { sendTeamBookingNotification } from "@/lib/email/sendTeamBookingNotification";
@@ -87,108 +88,29 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdminClient();
   const shop = await requireCurrentShop();
 
-  // ── 1. Resolve contact ──────────────────────────────────────────────
+  // ── 1+2. Resolve contact + vehicle ──────────────────────────────────
+  // Shared helper — keeps dedupe rules identical with /api/booking-series.
   let contactId: string;
-  let contactPhone: string | null = null;
-  let contactFirstName: string | null = null;
-
-  if (payload.contact_id) {
-    contactId = payload.contact_id;
-    // Fetch phone for SMS
-    const { data: ct } = await supabase
-      .from("contacts")
-      .select("phone, first_name, full_name")
-      .eq("id", contactId)
-      .single();
-    contactPhone = ct?.phone ?? null;
-    contactFirstName = ct?.first_name ?? ct?.full_name?.split(" ")[0] ?? null;
-  } else {
-    const nc = payload.new_contact!;
-    const fullName = [nc.first_name, nc.last_name].filter(Boolean).join(" ") || null;
-    const normalizedEmail = nc.email?.toLowerCase().trim() || null;
-    const normalizedPhone = nc.phone?.trim() || null;
-
-    // Look up an existing contact by email (then phone) BEFORE inserting.
-    // Without this, every manual booking creates a duplicate contacts row,
-    // which silently breaks lead → booking attribution because the booking's
-    // contact_id won't match the lead's contact_id.
-    let existing: { id: string; phone: string | null; first_name: string | null; full_name: string | null } | null = null;
-
-    if (normalizedEmail) {
-      const { data } = await supabase
-        .from("contacts")
-        .select("id, phone, first_name, full_name")
-        .eq("shop_id", shop.id)
-        .ilike("email", normalizedEmail)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      existing = data;
-    }
-    if (!existing && normalizedPhone) {
-      const { data } = await supabase
-        .from("contacts")
-        .select("id, phone, first_name, full_name")
-        .eq("shop_id", shop.id)
-        .eq("phone", normalizedPhone)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      existing = data;
-    }
-
-    if (existing) {
-      contactId = existing.id;
-      contactPhone = existing.phone ?? normalizedPhone;
-      contactFirstName = existing.first_name ?? existing.full_name?.split(" ")[0] ?? nc.first_name ?? null;
-    } else {
-      const { data: created, error } = await supabase
-        .from("contacts")
-        .insert({
-          shop_id: shop.id,
-          first_name: nc.first_name ?? null,
-          last_name: nc.last_name ?? null,
-          full_name: fullName,
-          email: normalizedEmail,
-          phone: normalizedPhone,
-        })
-        .select("id, phone, first_name")
-        .single();
-
-      if (error || !created) {
-        return NextResponse.json({ success: false, error: "Failed to create contact." }, { status: 500 });
-      }
-      contactId = created.id;
-      contactPhone = created.phone ?? null;
-      contactFirstName = created.first_name ?? null;
-    }
-  }
-
-  // ── 2. Resolve vehicle (optional) ───────────────────────────────────
-  let vehicleId: string | null = null;
-
-  if (payload.vehicle_id) {
-    vehicleId = payload.vehicle_id;
-  } else if (payload.new_vehicle && Object.values(payload.new_vehicle).some(Boolean)) {
-    const nv = payload.new_vehicle;
-    const { data: created, error } = await supabase
-      .from("vehicles")
-      .insert({
-        shop_id: shop.id,
-        contact_id: contactId,
-        make: nv.make ?? null,
-        model: nv.model ?? null,
-        year: nv.year ?? null,
-        rego: nv.rego ?? null,
-        size: nv.size ?? null,
-      })
-      .select("id")
-      .single();
-
-    if (error || !created) {
-      return NextResponse.json({ success: false, error: "Failed to create vehicle." }, { status: 500 });
-    }
-    vehicleId = created.id;
+  let contactPhone: string | null;
+  let contactFirstName: string | null;
+  let vehicleId: string | null;
+  try {
+    const resolved = await resolveContactAndVehicle({
+      shopId: shop.id,
+      contactId: payload.contact_id ?? null,
+      newContact: payload.new_contact ?? null,
+      vehicleId: payload.vehicle_id ?? null,
+      newVehicle: payload.new_vehicle ?? null,
+    });
+    contactId = resolved.contactId;
+    contactPhone = resolved.contactPhone;
+    contactFirstName = resolved.contactFirstName;
+    vehicleId = resolved.vehicleId;
+  } catch (err) {
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to resolve contact/vehicle." },
+      { status: 500 }
+    );
   }
 
   // ── 3. Create booking ────────────────────────────────────────────────
