@@ -17,7 +17,12 @@ import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 
 import { verifyActionToken } from "@/lib/auth/signedTokens";
+import { cancelSeriesCore } from "@/lib/bookings/cancelSeries";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import {
+  sendSeriesCancelCustomerEmail,
+  sendSeriesCancelTeamNotification,
+} from "@/lib/email/sendSeriesEditCancelEmails";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -27,6 +32,13 @@ type Body = {
   reason?: string | null;
   new_date?: string;
   new_time?: string;
+  /**
+   * For action='cancel' only. Defaults to 'one'. 'series' cancels the
+   * whole recurring series — booking must have a series_id. Rejected for
+   * reschedule (customers can't reschedule a series via the public form;
+   * that's a phone call).
+   */
+  scope?: "one" | "series";
 };
 
 const CRM_BASE_URL = process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz";
@@ -54,7 +66,7 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdminClient();
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, shop_id, service_name, scheduled_start, status, contact:contacts(first_name, last_name, email, phone)")
+    .select("id, shop_id, series_id, service_name, scheduled_start, status, contact:contacts(first_name, last_name, email, phone)")
     .eq("id", verify.payload.r)
     .eq("shop_id", verify.payload.s)
     .maybeSingle();
@@ -75,6 +87,56 @@ export async function POST(request: Request) {
   const customerName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "Customer";
 
   if (body.action === "cancel") {
+    // Whole-series cancel — only valid when the booking is part of a series.
+    if (body.scope === "series") {
+      if (!booking.series_id) {
+        return NextResponse.json(
+          { error: "This booking is not part of a recurring series." },
+          { status: 400 }
+        );
+      }
+      const result = await cancelSeriesCore({
+        seriesId: booking.series_id as string,
+        shopId: booking.shop_id,
+        reason: body.reason ?? null,
+        actor: "customer",
+      });
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+
+      // Emails — non-fatal.
+      try {
+        await sendSeriesCancelCustomerEmail({
+          shopId: booking.shop_id,
+          seriesId: booking.series_id as string,
+          serviceName: result.series.service_name,
+          remainingCancelled: result.bookingsCancelled,
+          reason: body.reason ?? null,
+          customerEmail: result.contact?.email ?? null,
+          customerFirstName: result.contact?.firstName ?? null,
+        });
+      } catch (err) {
+        console.error("Self-service series cancel customer email failed", err);
+      }
+      try {
+        await sendSeriesCancelTeamNotification({
+          shopId: booking.shop_id,
+          seriesId: booking.series_id as string,
+          serviceName: result.series.service_name,
+          remainingCancelled: result.bookingsCancelled,
+          reason: body.reason ?? null,
+          customerName: result.contact?.fullName ?? null,
+          customerEmail: result.contact?.email ?? null,
+        });
+      } catch (err) {
+        console.error("Self-service series cancel team notification failed", err);
+      }
+
+      return NextResponse.json({ ok: true, bookingsCancelled: result.bookingsCancelled });
+    }
+
+    // Single-booking cancel (default).
     // Flip booking status — auto-zeros price via the DB trigger and gets
     // filtered out of the calendar by the cancelled-status query filter.
     await supabase
@@ -118,7 +180,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Reschedule
+  // Reschedule — series-scope not supported via self-service. Reschedule
+  // a whole series is a cadence change, which requires staff to cancel +
+  // recreate the series.
+  if (body.scope === "series") {
+    return NextResponse.json(
+      { error: "Reschedule a recurring series isn't available here — please call us or reply to the email." },
+      { status: 400 }
+    );
+  }
   if (!body.new_date || !body.new_time) {
     return NextResponse.json({ error: "Missing new_date or new_time" }, { status: 400 });
   }

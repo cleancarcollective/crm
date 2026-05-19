@@ -64,7 +64,7 @@ export default async function ManageBookingPage({
   const supabase = getSupabaseAdminClient();
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, shop_id, service_name, scheduled_start, scheduled_end, duration_minutes, location_type, status, contact:contacts(first_name)")
+    .select("id, shop_id, series_id, service_name, scheduled_start, scheduled_end, duration_minutes, location_type, status, contact:contacts(first_name)")
     .eq("id", verify.payload.r)
     .eq("shop_id", verify.payload.s)
     .maybeSingle();
@@ -112,6 +112,7 @@ export default async function ManageBookingPage({
       token={token}
       booking={{
         id: booking.id,
+        series_id: booking.series_id ?? null,
         service_name: booking.service_name,
         scheduled_start: booking.scheduled_start,
         scheduled_end: booking.scheduled_end,
