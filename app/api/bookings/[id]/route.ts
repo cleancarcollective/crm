@@ -136,6 +136,34 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Failed to update booking." }, { status: 500 });
   }
 
+  // TERMINAL STATUS: if the booking just flipped to cancelled / completed
+  // / no_show, proactively cancel pending booking-reminder jobs so the
+  // queue is clean. The workers also have a status guard at send-time as
+  // a safety net, but cancelling at write-time keeps the audit trail
+  // tidy and removes one class of "queue still says pending" confusion.
+  const TERMINAL_STATUSES = new Set(["cancelled", "completed", "no_show"]);
+  if (
+    TERMINAL_STATUSES.has(booking.status) &&
+    !TERMINAL_STATUSES.has(existingBooking.status)
+  ) {
+    try {
+      await supabase
+        .from("scheduled_email_jobs")
+        .update({ status: "cancelled", last_error: `Booking status -> ${booking.status}` })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending")
+        .is("job_type", null);
+      await supabase
+        .from("scheduled_sms_jobs")
+        .update({ status: "cancelled", last_error: `Booking status -> ${booking.status}` })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending")
+        .is("template_key", null);
+    } catch (err) {
+      console.error("Failed to cancel reminders after status change", { bookingId: booking.id, err });
+    }
+  }
+
   // RESCHEDULE: if scheduled_start changed, the existing pending reminder
   // jobs (email + SMS) are now wrong on two axes:
   //   1. Their scheduled_for is relative to the OLD start (so a
