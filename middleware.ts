@@ -38,15 +38,32 @@ const TOKEN_AUTHED_PATTERNS = [
   /^\/api\/leads\/[^/]+\/quick-send/,
 ];
 
+// Customer-facing pages: even if a staff user happens to be logged in,
+// these should render WITHOUT the staff nav (which overflows mobile and
+// looks wrong on a customer-facing screen). The layout reads this flag.
+const CUSTOMER_PAGE_PREFIXES = [
+  "/lead-action/",
+  "/manage-booking",
+  "/lock-in-recurring",
+];
+
+function makeNext(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+  const isCustomerPage = CUSTOMER_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
+  const res = NextResponse.next();
+  if (isCustomerPage) res.headers.set("x-customer-page", "1");
+  return res;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+    return makeNext(request);
   }
 
   if (TOKEN_AUTHED_PATTERNS.some((re) => re.test(pathname))) {
-    return NextResponse.next();
+    return makeNext(request);
   }
 
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
@@ -57,7 +74,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return makeNext(request);
 }
 
 export const config = {

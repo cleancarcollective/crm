@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
@@ -42,6 +43,20 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Customer-facing pages (lock-in-recurring, manage-booking, lead-action)
+  // render WITHOUT the staff nav even when a staff user happens to be
+  // logged in. Middleware sets x-customer-page=1 for those paths. Skipping
+  // the nav avoids the mobile horizontal-overflow we hit on the lock-in
+  // page where staff testers refresh and see a broken layout.
+  const isCustomerPage = (await headers()).get("x-customer-page") === "1";
+  if (isCustomerPage) {
+    return (
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    );
+  }
+
   const user = await getCurrentUser();
 
   if (!user) {
