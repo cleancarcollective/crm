@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { formatCurrency } from "@/lib/dashboard/format";
+import {
+  fetchAvailableDates,
+  fetchTimeSlots,
+  formatDatePillLabel,
+  formatTimeLabel,
+  type LocationKind,
+  type TimeSlot,
+} from "@/lib/customer/availability";
 
 type CadenceMonths = 2 | 3 | 4;
 
@@ -18,6 +26,8 @@ type BookingSummary = {
   scheduled_label: string;
   vehicle_label: string;
   base_price: number | null;
+  duration_minutes: number;
+  location_type: "in-store" | "mobile";
 };
 
 type ShopRef = { name: string; slug: string };
@@ -35,8 +45,22 @@ type Props = {
 
 type Mode = "view" | "done" | "error";
 
+type DateEntry = {
+  date: Date;
+  ymd: string;
+  hasAvailability: boolean;
+  isSunday: boolean;
+};
+
+const INITIAL_DAYS_VISIBLE = 14;
+const EXPANDED_DAYS_VISIBLE = 60;
+
 function cadenceLabel(months: CadenceMonths): string {
   return `Every ${months} months`;
+}
+
+function locationToKind(loc: "in-store" | "mobile"): LocationKind {
+  return loc === "mobile" ? "mobile" : "shop";
 }
 
 export function LockInRecurringClient({
@@ -56,7 +80,101 @@ export function LockInRecurringClient({
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  // Availability state.
+  const [dates, setDates] = useState<DateEntry[]>([]);
+  const [datesLoading, setDatesLoading] = useState(true);
+  const [datesFailed, setDatesFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsFailed, setSlotsFailed] = useState(false);
+
+  const locationKind = locationToKind(booking.location_type);
+  const duration = booking.duration_minutes;
+
+  // Fetch the date strip once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    setDatesLoading(true);
+    setDatesFailed(false);
+    fetchAvailableDates(shop.slug, locationKind, duration, EXPANDED_DAYS_VISIBLE)
+      .then((result) => {
+        if (cancelled) return;
+        setDates(result);
+        setDatesLoading(false);
+        // If the current startDate isn't a viable pick, swap to the soonest one.
+        const isViable = result.find(
+          (d) => d.ymd === startDate && d.hasAvailability && !d.isSunday,
+        );
+        if (!isViable) {
+          const soonest = result.find((d) => d.hasAvailability && !d.isSunday);
+          if (soonest) {
+            setStartDate(soonest.ymd);
+            setStartTime("");
+          }
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDatesFailed(true);
+        setDatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop.slug, locationKind, duration]);
+
+  // Fetch time slots whenever the chosen date changes (and we have live data).
+  useEffect(() => {
+    if (datesFailed) return;
+    if (!startDate) return;
+    const picked = dates.find((d) => d.ymd === startDate);
+    if (!picked) return;
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSlotsFailed(false);
+    fetchTimeSlots(picked.date, shop.slug, locationKind, duration)
+      .then((result) => {
+        if (cancelled) return;
+        setSlots(result);
+        setSlotsLoading(false);
+        // Auto-select an available slot if the current one isn't valid.
+        const current = result.find((s) => s.time === startTime && s.available);
+        if (!current) {
+          const first = result.find((s) => s.available);
+          setStartTime(first ? first.time : "");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSlotsFailed(true);
+        setSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, dates, datesFailed, shop.slug, locationKind, duration]);
+
   const chosenOption = cadenceOptions.find((c) => c.months === cadence) ?? cadenceOptions[0];
+
+  const visibleDates = useMemo(() => {
+    const limit = expanded ? EXPANDED_DAYS_VISIBLE : INITIAL_DAYS_VISIBLE;
+    return dates.slice(0, limit);
+  }, [dates, expanded]);
+
+  const availableSlots = useMemo(() => slots.filter((s) => s.available), [slots]);
+
+  const stripRef = useRef<HTMLDivElement>(null);
+  const scrollStrip = useCallback((direction: -1 | 1) => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.round(el.clientWidth * 0.8), behavior: "smooth" });
+  }, []);
+
+  const useLiveAvailability = !datesFailed;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,7 +194,7 @@ export function LockInRecurringClient({
           start_time: startTime,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.ok) {
         setMode("done");
       } else {
@@ -164,30 +282,132 @@ export function LockInRecurringClient({
           </div>
 
           <h3>Pick a start date</h3>
-          <div className="lockInDateTimeGrid">
-            <label className="lockInDateTimeField">
-              <span className="lockInDateTimeLabel">First visit</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="lockInDateTimeInput"
-                required
-              />
-              <span className="lockInDateTimeHint">Tap to change</span>
-            </label>
-            <label className="lockInDateTimeField">
-              <span className="lockInDateTimeLabel">Time</span>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="lockInDateTimeInput"
-                required
-              />
-              <span className="lockInDateTimeHint">Tap to change</span>
-            </label>
-          </div>
+
+          {useLiveAvailability ? (
+            <>
+              {datesLoading ? (
+                <p className="lockInPickerLoading">Loading availability…</p>
+              ) : (
+                <>
+                  <div className="lockInDateStripWrap">
+                    <button
+                      type="button"
+                      className="lockInStripNav"
+                      aria-label="Scroll dates left"
+                      onClick={() => scrollStrip(-1)}
+                    >
+                      ‹
+                    </button>
+                    <div className="lockInDateStrip" ref={stripRef}>
+                      {visibleDates.map((d) => {
+                        const disabled = d.isSunday || !d.hasAvailability;
+                        const selected = d.ymd === startDate;
+                        const label = formatDatePillLabel(d.date);
+                        return (
+                          <button
+                            type="button"
+                            key={d.ymd}
+                            disabled={disabled}
+                            onClick={() => {
+                              setStartDate(d.ymd);
+                              setStartTime("");
+                            }}
+                            className={
+                              "lockInDatePill" +
+                              (selected ? " lockInDatePill--selected" : "") +
+                              (disabled ? " lockInDatePill--disabled" : "")
+                            }
+                          >
+                            <span className="lockInDatePillWeekday">{label.weekday}</span>
+                            <span className="lockInDatePillDay">{label.day}</span>
+                            <span className="lockInDatePillMonth">{label.month}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      className="lockInStripNav"
+                      aria-label="Scroll dates right"
+                      onClick={() => scrollStrip(1)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                  {!expanded && dates.length > INITIAL_DAYS_VISIBLE ? (
+                    <button
+                      type="button"
+                      className="lockInMoreDatesBtn"
+                      onClick={() => setExpanded(true)}
+                    >
+                      Show more dates
+                    </button>
+                  ) : null}
+                </>
+              )}
+
+              <h3 style={{ marginTop: 16 }}>Pick a time</h3>
+              {slotsLoading ? (
+                <p className="lockInPickerLoading">Loading times…</p>
+              ) : slotsFailed ? (
+                <p className="lockInPickerNotice">
+                  Couldn&apos;t load times for that day. Pick another date or we&apos;ll confirm by email.
+                </p>
+              ) : availableSlots.length === 0 ? (
+                <p className="lockInPickerNotice">
+                  No open times on that day — pick another date.
+                </p>
+              ) : (
+                <div className="lockInSlotGrid">
+                  {availableSlots.map((s) => {
+                    const selected = s.time === startTime;
+                    return (
+                      <button
+                        type="button"
+                        key={s.time}
+                        onClick={() => setStartTime(s.time)}
+                        className={
+                          "lockInSlotPill" + (selected ? " lockInSlotPill--selected" : "")
+                        }
+                      >
+                        {formatTimeLabel(s.time)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="lockInPickerNotice">
+                Couldn&apos;t load live availability — pick any date/time and we&apos;ll confirm by email.
+              </p>
+              <div className="lockInDateTimeGrid">
+                <label className="lockInDateTimeField">
+                  <span className="lockInDateTimeLabel">First visit</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="lockInDateTimeInput"
+                    required
+                  />
+                  <span className="lockInDateTimeHint">Tap to change</span>
+                </label>
+                <label className="lockInDateTimeField">
+                  <span className="lockInDateTimeLabel">Time</span>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="lockInDateTimeInput"
+                    required
+                  />
+                  <span className="lockInDateTimeHint">Tap to change</span>
+                </label>
+              </div>
+            </>
+          )}
 
           <div className="manageBookingActions">
             <button type="submit" className="buttonPrimary" disabled={isPending}>

@@ -159,6 +159,8 @@ export default async function LockInRecurringPage({
         scheduled_label: scheduledLabel,
         vehicle_label: vehicleLabel,
         base_price: basePrice,
+        duration_minutes: booking.duration_minutes ?? 60,
+        location_type: booking.location_type === "mobile" ? "mobile" : "in-store",
       }}
       initialCadence={initialCadence}
       cadenceOptions={cadenceOptions}

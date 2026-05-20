@@ -3410,6 +3410,144 @@ textarea {
   margin-top: 2px;
 }
 
+/* ── Lock-in-recurring live date/time pickers ──────────────────────── */
+.lockInPickerLoading {
+  font-size: 13px;
+  color: #7a6f68;
+  margin: 4px 0 4px;
+}
+.lockInPickerNotice {
+  font-size: 13px;
+  color: #7a6f68;
+  background: #fdf6e8;
+  border: 1px solid #ecdcb4;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 4px 0 8px;
+}
+
+.lockInDateStripWrap {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: 4px 0 4px;
+}
+.lockInStripNav {
+  flex: 0 0 auto;
+  width: 28px;
+  border: 1px solid #e8e0d6;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a4d2e;
+  cursor: pointer;
+  padding: 0;
+}
+.lockInStripNav:hover { background: rgba(26, 77, 46, 0.05); }
+.lockInDateStrip {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.lockInDateStrip::-webkit-scrollbar { height: 6px; }
+.lockInDateStrip::-webkit-scrollbar-thumb {
+  background: rgba(26, 77, 46, 0.2);
+  border-radius: 4px;
+}
+
+.lockInDatePill {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  padding: 10px 8px;
+  background: #fff;
+  border: 2px solid #e8e0d6;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #1a1713;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+.lockInDatePill:hover:not(:disabled) {
+  border-color: #1a4d2e;
+  transform: translateY(-1px);
+}
+.lockInDatePill--selected {
+  border-color: #1a4d2e;
+  background: rgba(26, 77, 46, 0.08);
+}
+.lockInDatePill--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.lockInDatePillWeekday {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a4d2e;
+}
+.lockInDatePillDay {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+.lockInDatePillMonth {
+  font-size: 11px;
+  color: #7a6f68;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lockInMoreDatesBtn {
+  display: inline-block;
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  color: #1a4d2e;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.lockInSlotGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 4px 0 4px;
+}
+.lockInSlotPill {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  background: #fff;
+  color: #1a1713;
+  border: 2px solid #e8e0d6;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.lockInSlotPill:hover {
+  border-color: #1a4d2e;
+}
+.lockInSlotPill--selected {
+  border-color: #1a4d2e;
+  background: rgba(26, 77, 46, 0.08);
+  color: #1a4d2e;
+}
+
 .templateEditorCheckboxLabel {
   display: inline-flex;
   align-items: center;
