@@ -23,6 +23,11 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
+  /* Hard cap on horizontal width - any descendant that wants to be wider
+     than the viewport just clips. Date strip + slot grid on the customer
+     lock-in page were escaping the card and stretching the body. */
+  max-width: 100vw;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 28%),
     linear-gradient(180deg, #f5f4f2 0%, var(--bg) 32%, #dddcda 100%);
@@ -2623,12 +2628,25 @@ textarea {
 }
 .leadActionCard {
   max-width: 480px;
+  width: 100%;
+  /* Children that need to scroll (date strip) declare their own
+     overflow-x: auto. This `hidden` is a safety net so anything else
+     that's accidentally too wide can't push the card past its width. */
+  overflow-x: hidden;
   background: #ffffff;
   border-radius: 16px;
   padding: 40px 36px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.04);
   border: 1px solid var(--border);
   text-align: center;
+}
+/* Mobile: tighter padding so the date pills + slot grid have actual room
+   to render before being constrained. */
+@media (max-width: 480px) {
+  .leadActionCard {
+    padding: 28px 18px;
+    border-radius: 12px;
+  }
 }
 .leadActionCard--ok   { border-top: 4px solid #2c7d2c; }
 .leadActionCard--info { border-top: 4px solid #2c4a7c; }
