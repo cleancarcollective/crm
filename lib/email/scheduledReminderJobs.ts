@@ -337,13 +337,23 @@ async function updateScheduledJobStatus(id: string, status: ScheduledEmailJobRec
 
 async function markScheduledJobSent(id: string, emailMessageId: string) {
   const supabase = getSupabaseAdminClient();
+  // email_message_id is a uuid column referencing email_messages(id). Some
+  // senders (Gmail SMTP) return a provider-level MessageID like
+  // "<abc@gmail.com>" which is NOT a uuid and crashes the UPDATE. Post-detail
+  // touchpoint emails don't write an email_messages row either, so we just
+  // skip the column when the value isn't a valid uuid. The transport's id
+  // is still findable via Vercel logs + provider dashboards.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isUuid = !!emailMessageId && UUID_RE.test(emailMessageId);
+  const updates: Record<string, unknown> = {
+    status: "sent",
+    last_error: null,
+  };
+  if (isUuid) updates.email_message_id = emailMessageId;
+
   const { error } = await supabase
     .from("scheduled_email_jobs")
-    .update({
-      status: "sent",
-      email_message_id: emailMessageId,
-      last_error: null
-    })
+    .update(updates)
     .eq("id", id);
 
   if (error) {
