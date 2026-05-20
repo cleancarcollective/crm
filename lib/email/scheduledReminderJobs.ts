@@ -99,8 +99,23 @@ export async function createReminderJobsForBooking({
 }
 
 export async function processScheduledReminderJobs() {
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
   const supabase = getSupabaseAdminClient();
+
+  // Stale-skip: anything pending more than 6 hours past its scheduled_for
+  // gets cancelled before we even load it. Catches cron downtime / migration
+  // backlog scenarios that would otherwise blast "your booking is tomorrow"
+  // for bookings already in the past.
+  const STALE_HOURS = 6;
+  const staleCutoff = new Date(now.getTime() - STALE_HOURS * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("scheduled_email_jobs")
+    .update({ status: "cancelled", last_error: `Stale - older than ${STALE_HOURS}h past scheduled_for` })
+    .eq("status", "pending")
+    .is("job_type", null)
+    .lt("scheduled_for", staleCutoff);
+
   // Only handle booking reminders. Lead-context jobs (job_type IS NOT NULL)
   // are processed by /api/emails/process-scheduled's lead handler - including
   // them here causes them to be bogusly marked "skipped: Missing booking_id".
@@ -109,6 +124,7 @@ export async function processScheduledReminderJobs() {
     .select("*")
     .eq("status", "pending")
     .is("job_type", null)
+    .gte("scheduled_for", staleCutoff)
     .lte("scheduled_for", nowIso)
     .order("scheduled_for", { ascending: true })
     .limit(50);

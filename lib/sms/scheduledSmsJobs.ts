@@ -181,11 +181,28 @@ export async function scheduleReviewSms({
 export async function processScheduledSmsJobs(): Promise<Array<{ id: string; status: "sent" | "failed" | "skipped"; error?: string }>> {
   const supabase = getSupabaseAdminClient();
 
+  // Stale-skip window: if a row has been pending for more than 6 hours past
+  // its scheduled_for, something went wrong upstream (cron downtime, schema
+  // migration, provider outage). Sending it now would say "your booking is
+  // tomorrow" for a booking that already happened - that's worse than
+  // silence. Mark stale rows cancelled at SELECT time so they never get
+  // picked up; the per-job booking-already-past guard below is a belt+
+  // braces second layer.
+  const now = new Date();
+  const STALE_HOURS = 6;
+  const staleCutoff = new Date(now.getTime() - STALE_HOURS * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("scheduled_sms_jobs")
+    .update({ status: "cancelled", last_error: `Stale - older than ${STALE_HOURS}h past scheduled_for` })
+    .eq("status", "pending")
+    .lt("scheduled_for", staleCutoff);
+
   const { data: jobs, error } = await supabase
     .from("scheduled_sms_jobs")
-    .select("id, phone, message, booking_id, lead_id, shop_id, contact_id, template_key")
+    .select("id, phone, message, booking_id, lead_id, shop_id, contact_id, template_key, scheduled_for")
     .eq("status", "pending")
-    .lte("scheduled_for", new Date().toISOString())
+    .gte("scheduled_for", staleCutoff)
+    .lte("scheduled_for", now.toISOString())
     .limit(50);
 
   if (error) {
@@ -198,6 +215,24 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
   const results: Array<{ id: string; status: "sent" | "failed" | "skipped"; error?: string }> = [];
 
   for (const job of jobs) {
+    // Second guard: if the underlying booking's start has already passed,
+    // a "tomorrow" reminder text would be a lie. Cancel the row.
+    if (job.booking_id) {
+      const { data: b } = await supabase
+        .from("bookings")
+        .select("scheduled_start, status")
+        .eq("id", job.booking_id)
+        .maybeSingle();
+      if (b && (b.status === "cancelled" || b.status === "completed" || new Date(b.scheduled_start) < now)) {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "cancelled", last_error: `Booking already ${b.status === "cancelled" || b.status === "completed" ? b.status : "in the past"}` })
+          .eq("id", job.id);
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
+    }
+
     // Lead-context jobs: re-check the lead hasn't already converted
     // before we fire the SMS. Same defensive pattern as the email
     // follow-up handler — covers cancelLeadJobs failure modes.
