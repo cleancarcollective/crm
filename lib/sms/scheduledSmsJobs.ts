@@ -215,9 +215,12 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
   const results: Array<{ id: string; status: "sent" | "failed" | "skipped"; error?: string }> = [];
 
   for (const job of jobs) {
-    // Second guard: if the underlying booking's start has already passed,
-    // a "tomorrow" reminder text would be a lie. Cancel the row.
-    if (job.booking_id) {
+    const tmpl = (job as { template_key?: string | null }).template_key ?? null;
+    // Post-detail touchpoints SHOULD fire for completed bookings - that's
+    // their trigger. Only run the booking-status guard for templates where
+    // a past/cancelled booking actually invalidates the message (reminders).
+    const isPostDetailTouchpoint = !!tmpl && POST_DETAIL_TOUCHPOINT_KEY_SET.has(tmpl);
+    if (job.booking_id && !isPostDetailTouchpoint) {
       const { data: b } = await supabase
         .from("bookings")
         .select("scheduled_start, status")
