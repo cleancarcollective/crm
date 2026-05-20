@@ -50,15 +50,12 @@ type DateEntry = {
   ymd: string;
   hasAvailability: boolean;
   isSunday: boolean;
+  dayOffset: number;
 };
 
 const INITIAL_DAYS_VISIBLE = 28;
 const EXPANDED_DAYS_VISIBLE = 60;
-// Fetch enough days to cover the 4-month cadence + comfortable buffer
-// either side. 150d = ~5 months, lets the 4-month tier center its visible
-// window with weeks of slack to push out further.
-const FETCH_HORIZON_DAYS = 150;
-// How many days before the natural cadence target to start showing pills.
+// How many days before the natural cadence target to start fetching pills.
 // Customers usually want to keep the cadence; letting them go ~2 weeks
 // earlier gives flexibility without anchoring at "tomorrow".
 const PRE_TARGET_DAYS = 14;
@@ -109,12 +106,24 @@ export function LockInRecurringClient({
   const locationKind = locationToKind(booking.location_type);
   const duration = booking.duration_minutes;
 
-  // Fetch the date strip once on mount. Horizon covers all cadences.
+  // Fetch only the window the customer is about to see. Each upstream
+  // window is ~2-3s; fetching all 150 days up-front was making the page
+  // wait 8-10s before the date strip appeared. Re-fetch when cadence
+  // changes (or when the user expands the visible range).
   useEffect(() => {
     let cancelled = false;
+    const target = cadenceTargetDayOffset(cadence);
+    const span = expanded ? EXPANDED_DAYS_VISIBLE : INITIAL_DAYS_VISIBLE;
+    const halfSpan = Math.floor(span / 2);
+    // Anchored window: pre-target buffer + span beyond target. Plus a
+    // small forward buffer so customers can scroll forward without
+    // hitting a wall.
+    const startOffset = Math.max(0, target - (expanded ? halfSpan : PRE_TARGET_DAYS));
+    const fetchHorizon = (expanded ? halfSpan : PRE_TARGET_DAYS) + span;
+
     setDatesLoading(true);
     setDatesFailed(false);
-    fetchAvailableDates(shop.slug, locationKind, duration, FETCH_HORIZON_DAYS)
+    fetchAvailableDates(shop.slug, locationKind, duration, fetchHorizon, startOffset)
       .then((result) => {
         if (cancelled) return;
         setDates(result);
@@ -129,24 +138,25 @@ export function LockInRecurringClient({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shop.slug, locationKind, duration]);
+  }, [shop.slug, locationKind, duration, cadence, expanded]);
 
   // Whenever cadence changes (or dates load), auto-pick the soonest viable
   // date AT OR AFTER the natural cadence target. Customer gets dates that
   // match what they signed up for ("every 2 months" defaults to ~2 months
-  // out, not tomorrow).
+  // out, not tomorrow). Uses absolute dayOffset (not array index) since
+  // the fetched window now starts at the cadence anchor, not at today.
   useEffect(() => {
     if (dates.length === 0) return;
     const target = cadenceTargetDayOffset(cadence);
-    // If the current pick is already at/after the target AND viable, keep it.
-    const currentIdx = dates.findIndex((d) => d.ymd === startDate);
-    const currentViable = currentIdx >= 0
-      && currentIdx >= target
-      && dates[currentIdx]!.hasAvailability
-      && !dates[currentIdx]!.isSunday;
+    const current = dates.find((d) => d.ymd === startDate);
+    const currentViable = current
+      && current.dayOffset >= target
+      && current.hasAvailability
+      && !current.isSunday;
     if (currentViable) return;
-    // Otherwise pick the first viable date at or after the target.
-    const fromTarget = dates.slice(target).find((d) => d.hasAvailability && !d.isSunday);
+    const fromTarget = dates.find(
+      (d) => d.dayOffset >= target && d.hasAvailability && !d.isSunday,
+    );
     const fallback = dates.find((d) => d.hasAvailability && !d.isSunday);
     const picked = fromTarget ?? fallback;
     if (picked) {
@@ -190,18 +200,9 @@ export function LockInRecurringClient({
 
   const chosenOption = cadenceOptions.find((c) => c.months === cadence) ?? cadenceOptions[0];
 
-  // Slice the visible strip to start around the cadence target. e.g. for
-  // 2-month cadence, show ~14 days before to ~14 days after day 60. Lets
-  // the customer keep their cadence or push it either way by a couple
-  // weeks. "Show more dates" expands the strip both directions.
-  const visibleDates = useMemo(() => {
-    const target = cadenceTargetDayOffset(cadence);
-    const span = expanded ? EXPANDED_DAYS_VISIBLE : INITIAL_DAYS_VISIBLE;
-    const halfSpan = Math.floor(span / 2);
-    const start = Math.max(0, target - (expanded ? halfSpan : PRE_TARGET_DAYS));
-    const end = Math.min(dates.length, start + span);
-    return dates.slice(start, end);
-  }, [dates, expanded, cadence]);
+  // The fetched window is already anchored to the cadence target, so the
+  // returned array IS the visible strip. No more slicing needed.
+  const visibleDates = dates;
 
   const availableSlots = useMemo(() => slots.filter((s) => s.available), [slots]);
 

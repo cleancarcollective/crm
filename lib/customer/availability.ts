@@ -127,24 +127,32 @@ function computeSlotsForDate(
 }
 
 /**
- * Returns the next `horizonDays` candidate dates (in Auckland local time)
- * with availability metadata. Sundays and fully-busy days are flagged as
- * unavailable. Past dates are dropped entirely.
+ * Returns candidate dates (in Auckland local time) with availability
+ * metadata, starting `startDayOffset` days from today and covering
+ * `horizonDays` days. Each entry includes its absolute `dayOffset` so
+ * callers can work in date space without index-based slicing.
+ *
+ * Each upstream window is ~2-3s on a cold path; only request what the
+ * user is going to see. Start at the cadence target, not at today.
+ *
+ * Sundays + fully-busy days flagged as unavailable. Past dates dropped.
  */
 export async function fetchAvailableDates(
   shopSlug: string,
   locationType: LocationKind,
   durationMinutes: number,
   horizonDays: number = DEFAULT_HORIZON_DAYS,
-): Promise<Array<{ date: Date; ymd: string; hasAvailability: boolean; isSunday: boolean }>> {
+  startDayOffset: number = 0,
+): Promise<Array<{ date: Date; ymd: string; hasAvailability: boolean; isSunday: boolean; dayOffset: number }>> {
   const today = getAucklandDate();
   today.setHours(0, 0, 0, 0);
+  const rangeStart = Math.max(0, startDayOffset);
 
-  // Fan out window fetches in parallel.
+  // Fan out only the windows needed for [rangeStart, rangeStart+horizonDays).
   const windowCount = Math.ceil(horizonDays / WINDOW_DAYS);
   const windowPromises: Promise<CachedBundle | null>[] = [];
   for (let i = 0; i < windowCount; i++) {
-    const ws = addDays(today, i * WINDOW_DAYS);
+    const ws = addDays(today, rangeStart + i * WINDOW_DAYS);
     const remaining = Math.min(WINDOW_DAYS, horizonDays - i * WINDOW_DAYS);
     windowPromises.push(
       loadWindow(shopSlug, locationType, dateToYmd(ws), remaining).catch(() => null),
@@ -152,7 +160,6 @@ export async function fetchAvailableDates(
   }
   const windows = await Promise.all(windowPromises);
 
-  // Merge into one map.
   const busyByDate: Record<string, BusyBlock[]> = {};
   let anyOk = false;
   for (const w of windows) {
@@ -162,13 +169,14 @@ export async function fetchAvailableDates(
   }
   if (!anyOk) throw new Error("All availability windows failed");
 
-  const out: Array<{ date: Date; ymd: string; hasAvailability: boolean; isSunday: boolean }> = [];
+  const out: Array<{ date: Date; ymd: string; hasAvailability: boolean; isSunday: boolean; dayOffset: number }> = [];
   for (let i = 0; i < horizonDays; i++) {
-    const d = addDays(today, i);
+    const dayOffset = rangeStart + i;
+    const d = addDays(today, dayOffset);
     const ymd = dateToYmd(d);
     const isSunday = d.getDay() === 0;
     if (isSunday) {
-      out.push({ date: d, ymd, hasAvailability: false, isSunday: true });
+      out.push({ date: d, ymd, hasAvailability: false, isSunday: true, dayOffset });
       continue;
     }
     const slots = computeSlotsForDate(d, busyByDate[ymd] ?? [], durationMinutes);
@@ -177,6 +185,7 @@ export async function fetchAvailableDates(
       ymd,
       hasAvailability: slots.some((s) => s.available),
       isSunday: false,
+      dayOffset,
     });
   }
   return out;
