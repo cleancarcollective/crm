@@ -3553,6 +3553,17 @@ textarea {
   gap: 8px;
   margin: 4px 0 4px;
 }
+.lockInOvernightNotice {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #fdf3d4;
+  border-left: 3px solid #c98a00;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #6b4d00;
+}
+
 .lockInSlotPill {
   padding: 10px 12px;
   font-size: 14px;

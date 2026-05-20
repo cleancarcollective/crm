@@ -397,23 +397,43 @@ export function LockInRecurringClient({
                   No open times on that day — pick another date.
                 </p>
               ) : (
-                <div className="lockInSlotGrid">
-                  {availableSlots.map((s) => {
-                    const selected = s.time === startTime;
+                <>
+                  <div className="lockInSlotGrid">
+                    {availableSlots.map((s) => {
+                      const selected = s.time === startTime;
+                      return (
+                        <button
+                          type="button"
+                          key={s.time}
+                          onClick={() => setStartTime(s.time)}
+                          className={
+                            "lockInSlotPill" + (selected ? " lockInSlotPill--selected" : "")
+                          }
+                        >
+                          {formatTimeLabel(s.time)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Overnight warning - matches the booking form summary
+                      step. Shop closes at 5pm; if the picked start + service
+                      duration runs past close, we keep the vehicle overnight.
+                      The series is still bookable - this is a heads-up, not
+                      a block. */}
+                  {(() => {
+                    if (!startTime) return null;
+                    const [sh, sm] = startTime.split(":").map(Number);
+                    const startMins = (sh ?? 0) * 60 + (sm ?? 0);
+                    const endMins = startMins + duration;
+                    const closeMins = 17 * 60;
+                    if (endMins <= closeMins) return null;
                     return (
-                      <button
-                        type="button"
-                        key={s.time}
-                        onClick={() => setStartTime(s.time)}
-                        className={
-                          "lockInSlotPill" + (selected ? " lockInSlotPill--selected" : "")
-                        }
-                      >
-                        {formatTimeLabel(s.time)}
-                      </button>
+                      <p className="lockInOvernightNotice">
+                        ⚠ Heads up: this is a long service. Starting at {formatTimeLabel(startTime)} means we&apos;ll likely need to keep the vehicle overnight. We&apos;ll confirm pickup time when we send your reminder.
+                      </p>
                     );
-                  })}
-                </div>
+                  })()}
+                </>
               )}
             </>
           ) : (
