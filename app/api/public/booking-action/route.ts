@@ -5,7 +5,7 @@
  * token, then either:
  *   - cancel: flips booking.status='cancelled', cancels reminder jobs, notifies team
  *   - reschedule: writes a "pending reschedule" note on the booking and notifies
- *     team. Doesn't actually move the booking — staff confirm + slot the new
+ *     team. Doesn't actually move the booking - staff confirm + slot the new
  *     time via the CRM (which then triggers the standard booking_update email
  *     to the customer with the confirmed time).
  *
@@ -34,7 +34,7 @@ type Body = {
   new_time?: string;
   /**
    * For action='cancel' only. Defaults to 'one'. 'series' cancels the
-   * whole recurring series — booking must have a series_id. Rejected for
+   * whole recurring series - booking must have a series_id. Rejected for
    * reschedule (customers can't reschedule a series via the public form;
    * that's a phone call).
    */
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   const customerName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "Customer";
 
   if (body.action === "cancel") {
-    // Whole-series cancel — only valid when the booking is part of a series.
+    // Whole-series cancel - only valid when the booking is part of a series.
     if (body.scope === "series") {
       if (!booking.series_id) {
         return NextResponse.json(
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: result.error }, { status: result.status });
       }
 
-      // Emails — non-fatal.
+      // Emails - non-fatal.
       try {
         await sendSeriesCancelCustomerEmail({
           shopId: booking.shop_id,
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     }
 
     // Single-booking cancel (default).
-    // Flip booking status — auto-zeros price via the DB trigger and gets
+    // Flip booking status - auto-zeros price via the DB trigger and gets
     // filtered out of the calendar by the cancelled-status query filter.
     await supabase
       .from("bookings")
@@ -167,8 +167,8 @@ export async function POST(request: Request) {
           `${customerName} cancelled their ${booking.service_name} booking via the self-service link.`,
           `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
           body.reason ? `Reason: ${body.reason}` : "(no reason given)",
-          `Email: ${contact?.email ?? "—"}`,
-          `Phone: ${contact?.phone ?? "—"}`,
+          `Email: ${contact?.email ?? "-"}`,
+          `Phone: ${contact?.phone ?? "-"}`,
           ``,
           `The slot has been cancelled in the CRM and removed from the calendar. Pending reminders have been cancelled.`,
         ],
@@ -180,12 +180,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Reschedule — series-scope not supported via self-service. Reschedule
+  // Reschedule - series-scope not supported via self-service. Reschedule
   // a whole series is a cadence change, which requires staff to cancel +
   // recreate the series.
   if (body.scope === "series") {
     return NextResponse.json(
-      { error: "Reschedule a recurring series isn't available here — please call us or reply to the email." },
+      { error: "Reschedule a recurring series isn't available here - please call us or reply to the email." },
       { status: 400 }
     );
   }
@@ -194,7 +194,7 @@ export async function POST(request: Request) {
   }
 
   const requestedIsoLabel = `${body.new_date} ${body.new_time}`;
-  const noteLine = `[Reschedule requested] Customer prefers: ${requestedIsoLabel}${body.reason ? ` — ${body.reason}` : ""}`;
+  const noteLine = `[Reschedule requested] Customer prefers: ${requestedIsoLabel}${body.reason ? ` - ${body.reason}` : ""}`;
 
   const { data: existing } = await supabase
     .from("bookings")
@@ -219,8 +219,8 @@ export async function POST(request: Request) {
         `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
         `Requested time: ${requestedIsoLabel}`,
         body.reason ? `Note: ${body.reason}` : "",
-        `Email: ${contact?.email ?? "—"}`,
-        `Phone: ${contact?.phone ?? "—"}`,
+        `Email: ${contact?.email ?? "-"}`,
+        `Phone: ${contact?.phone ?? "-"}`,
         ``,
         `Open the booking in the CRM to confirm the new time. Once you save the updated slot, the standard booking-update email will fire automatically.`,
       ].filter(Boolean),
@@ -261,11 +261,11 @@ async function notifyTeam(args: {
   const crmUrl = `${CRM_BASE_URL}/bookings/${args.bookingId}`;
   const ctaLabel = args.kind === "cancel" ? "View cancelled booking in CRM →" : "Open booking & confirm new time →";
 
-  // Plain text body — Postmark requires this even when HtmlBody is set,
+  // Plain text body - Postmark requires this even when HtmlBody is set,
   // and some inboxes still prefer the text version.
   const textBody = [...args.lines, "", `Open in CRM: ${crmUrl}`].join("\n");
 
-  // HTML body — same lines as plain text plus a styled CTA button so staff
+  // HTML body - same lines as plain text plus a styled CTA button so staff
   // can jump straight to the booking. Layout mirrors the other internal
   // notification emails (daily-digest, approval-pending, etc.).
   const accent = args.kind === "cancel" ? "#c0392b" : "#1a4d2e";
@@ -302,7 +302,7 @@ async function notifyTeam(args: {
           </tr>
           <tr>
             <td style="background:#1a1713;padding:18px 32px;border-radius:0 0 16px 16px;">
-              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} CRM — sent automatically by the customer-action handler</p>
+              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} CRM - sent automatically by the customer-action handler</p>
             </td>
           </tr>
         </table>

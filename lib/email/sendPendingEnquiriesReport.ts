@@ -1,7 +1,7 @@
 /**
  * Email a "pending enquiries" report (real customers from last 90 days who
  * haven't received a quote) to each shop's team_email. On-demand, not on a
- * cron — fire it via /api/admin/pending-enquiries-report when you want it.
+ * cron - fire it via /api/admin/pending-enquiries-report when you want it.
  *
  * Same filtering as scripts/list-pending-enquiries.ts:
  *   - excludes @cleancarcollective.co.nz, @example.com, @example.org
@@ -120,13 +120,13 @@ async function gatherPendingForShop(shop: ShopRecord): Promise<PendingRow[]> {
       leadId: l.id,
       leadCreatedAt: l.created_at,
       daysWaiting: Math.floor((now - new Date(l.created_at).getTime()) / (24 * 60 * 60 * 1000)),
-      contactName: [c.first_name, c.last_name].filter(Boolean).join(" ") || "—",
-      contactEmail: c.email ?? "—",
+      contactName: [c.first_name, c.last_name].filter(Boolean).join(" ") || "-",
+      contactEmail: c.email ?? "-",
       contactPhone: c.phone ?? null,
       serviceRequested: l.service_requested,
-      vehicleLabel: [v.year, v.make, v.model].filter(Boolean).join(" ") || "—",
+      vehicleLabel: [v.year, v.make, v.model].filter(Boolean).join(" ") || "-",
       source: l.source ?? "unknown",
-      status: l.status ?? "—",
+      status: l.status ?? "-",
     });
   }
   return rows;
@@ -143,7 +143,7 @@ function renderRow(r: PendingRow, shop: ShopRecord) {
           <a href="mailto:${escapeHtml(r.contactEmail)}" style="color: #5c5148; text-decoration: underline;">${escapeHtml(r.contactEmail)}</a>${r.contactPhone ? ` · <a href="tel:${escapeHtml(r.contactPhone)}" style="color: #5c5148; text-decoration: underline;">${escapeHtml(r.contactPhone)}</a>` : ""}
         </p>
         <p style="margin: 0; font-size: 13px; color: #5c5148;">
-          ${r.serviceRequested ? escapeHtml(r.serviceRequested) : "—"}${r.vehicleLabel !== "—" ? ` · ${escapeHtml(r.vehicleLabel)}` : ""}
+          ${r.serviceRequested ? escapeHtml(r.serviceRequested) : "-"}${r.vehicleLabel !== "-" ? ` · ${escapeHtml(r.vehicleLabel)}` : ""}
         </p>
       </td>
     </tr>
@@ -154,7 +154,7 @@ function renderHtml(shop: ShopRecord, rows: PendingRow[]) {
   // Sort newest-first within the email
   rows.sort((a, b) => new Date(b.leadCreatedAt).getTime() - new Date(a.leadCreatedAt).getTime());
   const body = rows.length === 0
-    ? `<p style="margin: 0; font-size: 15px; color: #5c5148;">Nothing pending — clean slate.</p>`
+    ? `<p style="margin: 0; font-size: 15px; color: #5c5148;">Nothing pending - clean slate.</p>`
     : rows.map((r) => renderRow(r, shop)).join("");
 
   return `
@@ -204,7 +204,7 @@ function renderHtml(shop: ShopRecord, rows: PendingRow[]) {
             <tr>
               <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <p class="email-footer-title" style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective CRM</p>
-                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} — generated on demand</p>
+                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} - generated on demand</p>
               </td>
             </tr>
 
@@ -218,15 +218,15 @@ function renderHtml(shop: ShopRecord, rows: PendingRow[]) {
 }
 
 function renderText(shop: ShopRecord, rows: PendingRow[]) {
-  if (rows.length === 0) return `${shop.name} — nothing pending. Clean slate.`;
+  if (rows.length === 0) return `${shop.name} - nothing pending. Clean slate.`;
   rows.sort((a, b) => new Date(b.leadCreatedAt).getTime() - new Date(a.leadCreatedAt).getTime());
   const lines = [
-    `${shop.name} — ${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"} waiting on a quote (last ${LOOKBACK_DAYS} days)`,
+    `${shop.name} - ${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"} waiting on a quote (last ${LOOKBACK_DAYS} days)`,
     ``,
   ];
   for (const r of rows) {
     const date = formatInTimeZone(r.leadCreatedAt, shop.timezone, "d MMM HH:mm");
-    lines.push(`- [${date}, ${r.daysWaiting}d waiting] ${r.contactName} (${r.contactEmail}${r.contactPhone ? `, ${r.contactPhone}` : ""}) — ${r.serviceRequested ?? "no service specified"}${r.vehicleLabel !== "—" ? ` · ${r.vehicleLabel}` : ""}`);
+    lines.push(`- [${date}, ${r.daysWaiting}d waiting] ${r.contactName} (${r.contactEmail}${r.contactPhone ? `, ${r.contactPhone}` : ""}) - ${r.serviceRequested ?? "no service specified"}${r.vehicleLabel !== "-" ? ` · ${r.vehicleLabel}` : ""}`);
   }
   lines.push(``, `Open: https://crm.cleancarcollective.co.nz/leads`);
   return lines.join("\n");
@@ -237,7 +237,7 @@ export async function sendPendingEnquiriesReportForShop(shop: ShopRecord) {
   const html = renderHtml(shop, rows);
   const text = renderText(shop, rows);
   const { team_email, from_line: from } = getShopContacts(shop);
-  const subject = `📋 ${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"} waiting on a quote — ${shop.name.replace("Clean Car Collective ", "")}`;
+  const subject = `📋 ${rows.length} ${rows.length === 1 ? "enquiry" : "enquiries"} waiting on a quote - ${shop.name.replace("Clean Car Collective ", "")}`;
 
   const postmark = getPostmarkClient();
   const response = await postmark.sendEmail({

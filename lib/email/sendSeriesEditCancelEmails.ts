@@ -7,7 +7,7 @@
  *                                     cancelled" via Gmail SMTP (Primary tab).
  *   - sendSeriesCancelTeamNotification: team mirror via Postmark.
  *
- * Mirrors the pattern in sendSeriesConfirmation.ts — inline HTML, not a
+ * Mirrors the pattern in sendSeriesConfirmation.ts - inline HTML, not a
  * template_id, because copy is unlikely to change often and adding it to
  * email_templates would require a per-shop seed migration.
  */
@@ -48,7 +48,7 @@ export async function sendSeriesEditTeamNotification(args: {
     "Changes:",
     ...(args.changeLines.length > 0 ? args.changeLines.map((l) => `  • ${l}`) : ["  (no field-level diff captured)"]),
     "",
-    "Customers were NOT emailed — they'll see the new details on their next reminder.",
+    "Customers were NOT emailed - they'll see the new details on their next reminder.",
   ];
 
   const textBody = [...lines, "", `Open in CRM: ${crmUrl}`].join("\n");
@@ -105,7 +105,7 @@ export async function sendSeriesCancelCustomerEmail(args: {
       : `No future visits were on the schedule.`,
     args.reason ? `Reason: ${args.reason}` : null,
     "",
-    "We're sorry to see this end. If you'd like to start a recurring booking again at any point — or book a one-off — just reply to this email or give us a call. We'd love to keep looking after your vehicle.",
+    "We're sorry to see this end. If you'd like to start a recurring booking again at any point - or book a one-off - just reply to this email or give us a call. We'd love to keep looking after your vehicle.",
     "",
     "Thanks,",
     shop.name,
@@ -118,7 +118,7 @@ export async function sendSeriesCancelCustomerEmail(args: {
       ? `${args.remainingCancelled} upcoming visit${args.remainingCancelled === 1 ? " has" : "s have"} been removed from your schedule.`
       : `No future visits were on the schedule.`,
     args.reason ? `Reason: ${escapeHtml(args.reason)}` : null,
-    "We're sorry to see this end. If you'd like to start a recurring booking again at any point — or book a one-off — just reply to this email or give us a call. We'd love to keep looking after your vehicle.",
+    "We're sorry to see this end. If you'd like to start a recurring booking again at any point - or book a one-off - just reply to this email or give us a call. We'd love to keep looking after your vehicle.",
     `Thanks,<br/>${escapeHtml(shop.name)}`,
   ].filter(Boolean) as string[];
 
@@ -163,7 +163,7 @@ export async function sendSeriesCancelTeamNotification(args: {
   customerEmail: string | null;
 }) {
   const { team_email, from_line } = await getShopContactsById(args.shopId);
-  const subject = `❌ Recurring series cancelled: ${args.customerName ?? "customer"} — ${args.serviceName}`;
+  const subject = `❌ Recurring series cancelled: ${args.customerName ?? "customer"} - ${args.serviceName}`;
   const crmUrl = `${CRM_BASE_URL}/series/${args.seriesId}`;
 
   const lines = [

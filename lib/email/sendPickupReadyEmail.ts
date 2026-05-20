@@ -68,7 +68,7 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
   const heading = afterHours ? "Your Vehicle is Ready" : "Your Vehicle is Ready for Pick-up";
 
   const bodyMessage = afterHours
-    ? `Your ${args.vehicleLabel ? escapeHtml(args.vehicleLabel) : "vehicle"} has been freshly detailed and is ready for collection from <strong style="color:#1a1713;">${escapeHtml(args.shop.name)}</strong>.<br /><br />As we close at <strong>5:00 pm</strong>, if you think you'll be more than 30 minutes away please let us know your ETA so we can make sure someone is here — or arrange secure overnight storage for you.`
+    ? `Your ${args.vehicleLabel ? escapeHtml(args.vehicleLabel) : "vehicle"} has been freshly detailed and is ready for collection from <strong style="color:#1a1713;">${escapeHtml(args.shop.name)}</strong>.<br /><br />As we close at <strong>5:00 pm</strong>, if you think you'll be more than 30 minutes away please let us know your ETA so we can make sure someone is here - or arrange secure overnight storage for you.`
     : `Your ${args.vehicleLabel ? escapeHtml(args.vehicleLabel) : "vehicle"} has been freshly detailed and is ready for collection from <strong style="color:#1a1713;">${escapeHtml(args.shop.name)}</strong>.<br /><br />If you're going to be more than <strong>30 minutes away</strong>, please give us a heads-up so we can plan accordingly.`;
 
   return `
@@ -155,7 +155,7 @@ function renderPickupHtml(args: PickupEmailArgs, afterHours: boolean, shopDetail
 function renderPickupText(args: PickupEmailArgs, afterHours: boolean, shopDetails: typeof DEFAULT_SHOP_DETAILS): string {
   const vehicle = args.vehicleLabel ?? "your vehicle";
   if (afterHours) {
-    return `Hi ${capitalise(args.firstName)},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nWe close at 5:00 pm — if you'll be more than 30 minutes away please let us know your ETA so we can arrange accordingly.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
+    return `Hi ${capitalise(args.firstName)},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nWe close at 5:00 pm - if you'll be more than 30 minutes away please let us know your ETA so we can arrange accordingly.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
   }
   return `Hi ${capitalise(args.firstName)},\n\nYour ${vehicle} is ready for pick-up at ${args.shop.name}.\n\nIf you'll be more than 30 minutes away, please let us know.\n\n${shopDetails.address}\n${shopDetails.phone}\n${shopDetails.email}\n\nThanks,\nClean Car Collective`;
 }
@@ -167,7 +167,7 @@ export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sen
   const afterHours = isAfterFourPm(args.shop);
 
   const subject = afterHours
-    ? `Your vehicle is ready — please advise if you'll be late`
+    ? `Your vehicle is ready - please advise if you'll be late`
     : `Your vehicle is ready for pick-up!`;
 
   const htmlBody = renderPickupHtml(args, afterHours, shopDetails);
@@ -191,7 +191,7 @@ export async function sendPickupReadyEmail(args: PickupEmailArgs): Promise<{ sen
 
   if (insertError) throw insertError;
 
-  // Customer-facing — send via Gmail SMTP for Primary placement
+  // Customer-facing - send via Gmail SMTP for Primary placement
   const response = await sendViaGmailSmtp({
     From: fromEmail,
     To: args.customerEmail,

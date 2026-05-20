@@ -9,7 +9,7 @@
  *   - sendSeriesConfirmationEmail → customer, via Gmail SMTP (Primary tab)
  *   - sendSeriesTeamNotification → team inbox, via Postmark (event tracking)
  *
- * No template_id is used — this is a one-off inline-HTML email like the
+ * No template_id is used - this is a one-off inline-HTML email like the
  * cancel/reschedule notifications. Adding it to email_templates would
  * require a migration + per-shop seed; not worth it for a v1 message
  * that's unlikely to change copy often.
@@ -75,7 +75,7 @@ export async function sendSeriesConfirmationEmail(args: Args) {
   const firstTimeLabel = formatInTimeZone(args.occurrenceDatesIso[0], args.shop.timezone, "h:mm a");
   const dates = formatOccurrenceList(args.occurrenceDatesIso, args.shop.timezone);
   const priceLine = args.priceEstimate != null ? `${formatCurrency(args.priceEstimate)} per visit` : null;
-  const subject = `Your recurring ${args.serviceName} is booked — starting ${firstDateLabel}`;
+  const subject = `Your recurring ${args.serviceName} is booked - starting ${firstDateLabel}`;
 
   const textBody = [
     `Hi ${firstName},`,
@@ -92,7 +92,7 @@ export async function sendSeriesConfirmationEmail(args: Args) {
     ``,
     `We'll send you a reminder a few days before each visit, and again the day before.`,
     ``,
-    `Need to cancel or reschedule a single visit, or end the recurring booking entirely? Just reply to this email or call us — we'll sort it.`,
+    `Need to cancel or reschedule a single visit, or end the recurring booking entirely? Just reply to this email or call us - we'll sort it.`,
     ``,
     `Thanks,`,
     `${args.shop.name}`,
@@ -132,7 +132,7 @@ export async function sendSeriesConfirmationEmail(args: Args) {
               </ul>
 
               <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#1a1713;">We'll send you a reminder a few days before each visit, and again the day before.</p>
-              <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#1a1713;">Need to cancel or reschedule a single visit, or end the recurring booking entirely? Just reply to this email or call us — we'll sort it.</p>
+              <p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#1a1713;">Need to cancel or reschedule a single visit, or end the recurring booking entirely? Just reply to this email or call us - we'll sort it.</p>
               <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#1a1713;">Thanks,<br/>${escapeHtml(args.shop.name)}</p>
             </td>
           </tr>
@@ -169,7 +169,7 @@ export async function sendSeriesConfirmationEmail(args: Args) {
     console.error("Series confirmation email failed", { seriesId: args.seriesId, err });
     throw err;
   } finally {
-    void accent; // silence unused — kept for future style tweaks
+    void accent; // silence unused - kept for future style tweaks
   }
 }
 
@@ -224,7 +224,7 @@ export async function sendSeriesTeamNotification(args: Args) {
           </tr>
           <tr>
             <td style="background:#1a1713;padding:18px 32px;border-radius:0 0 16px 16px;">
-              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} CRM — recurring booking created</p>
+              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} CRM - recurring booking created</p>
             </td>
           </tr>
         </table>
@@ -252,7 +252,7 @@ export async function sendSeriesTeamNotification(args: Args) {
     });
   } catch (err) {
     console.error("Series team notification failed", { seriesId: args.seriesId, err });
-    // Non-fatal — customer-facing email is what matters; team can find the
+    // Non-fatal - customer-facing email is what matters; team can find the
     // series in the CRM either way.
   }
 }

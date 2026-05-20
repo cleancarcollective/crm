@@ -51,16 +51,16 @@ export type BookingConfirmationEmailContext = {
   shop_phone: string;
   shop_email: string;
   shop_website: string;
-  // Optional — only populated for team-facing emails
+  // Optional - only populated for team-facing emails
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
-  // Optional — signed self-service link for customer-facing emails
+  // Optional - signed self-service link for customer-facing emails
   manage_booking_url?: string;
-  // Optional — promo / discount-code note to render as its own styled
+  // Optional - promo / discount-code note to render as its own styled
   // callout block, separate from the customer's own notes
   promo_note?: string;
-  // Optional — deep link to the booking in the CRM (only on team-facing
+  // Optional - deep link to the booking in the CRM (only on team-facing
   // emails, so staff can jump straight to the record)
   crm_booking_url?: string;
 };

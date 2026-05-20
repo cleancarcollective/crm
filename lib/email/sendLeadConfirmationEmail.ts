@@ -151,7 +151,7 @@ function renderText(args: LeadConfirmationArgs, shopDetails: { phone: string; re
     shopDetails.phone,
     shopDetails.replyEmail,
     ``,
-    `Clean Car Collective — ${args.shop.name}`,
+    `Clean Car Collective - ${args.shop.name}`,
     `cleancarcollective.co.nz`,
   );
   return lines.join("\n");
@@ -162,7 +162,7 @@ export async function sendLeadConfirmationEmail(args: LeadConfirmationArgs): Pro
 
   const shopDetails = SHOP_DETAILS[args.shop.slug] ?? DEFAULT_SHOP_DETAILS;
 
-  const subject = `We've received your enquiry — Clean Car Collective`;
+  const subject = `We've received your enquiry - Clean Car Collective`;
   const htmlBody = renderHtml(args, shopDetails);
   const textBody = renderText(args, shopDetails);
 

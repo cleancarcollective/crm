@@ -1,12 +1,12 @@
 /**
  * Daily team email listing TODAY'S leads still waiting for staff approval
  * (the auto-respond couldn't auto-send a quote so it parked them in
- * `needs_approval`). Skips backlog from previous days — only fires on the
+ * `needs_approval`). Skips backlog from previous days - only fires on the
  * day the lead came in, so old data doesn't drown out the signal.
  *
  * Sends nothing if there are zero pending leads from today (no spam).
  *
- * Cron: 11am NZ daily — gives staff a couple of hours after morning
+ * Cron: 11am NZ daily - gives staff a couple of hours after morning
  * leads come in to clear them on their own first.
  */
 
@@ -72,14 +72,14 @@ async function gatherPending(shop: ShopRecord) {
 
 function renderRow(lead: PendingLead, tz: string) {
   const c = lead.contact ?? { first_name: null, last_name: null, email: null, phone: null };
-  const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "—";
+  const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "-";
   const time = formatInTimeZone(lead.created_at, tz, "h:mma").toLowerCase();
   return `
     <tr>
       <td style="padding: 12px 0; border-bottom: 1px solid #ede6dc; vertical-align: top;">
         <p style="margin: 0 0 2px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #9e9189;">${escapeHtml(time)}</p>
         <p style="margin: 0 0 4px; font-size: 15px; font-weight: 600; color: #1a1713;">${escapeHtml(name)}</p>
-        <p style="margin: 0; font-size: 13px; color: #5c5148;">${escapeHtml(c.email ?? "—")}${c.phone ? ` · ${escapeHtml(c.phone)}` : ""}</p>
+        <p style="margin: 0; font-size: 13px; color: #5c5148;">${escapeHtml(c.email ?? "-")}${c.phone ? ` · ${escapeHtml(c.phone)}` : ""}</p>
         ${lead.service_requested ? `<p style="margin: 4px 0 0; font-size: 13px; color: #5c5148;">${escapeHtml(lead.service_requested)}</p>` : ""}
       </td>
     </tr>
@@ -108,7 +108,7 @@ function renderHtml(shop: ShopRecord, pending: PendingLead[], todayLabel: string
               <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color: #1a1713; background-image: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
                 <p class="email-header-eyebrow" style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">${escapeHtml(shop.name)}</p>
                 <h1 class="email-header-title" style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">${pending.length} ${pending.length === 1 ? "lead is" : "leads are"} waiting on a quote</h1>
-                <p style="margin: 8px 0 0; font-size: 13px; color: #9e9189;">From today — ${escapeHtml(todayLabel)}</p>
+                <p style="margin: 8px 0 0; font-size: 13px; color: #9e9189;">From today - ${escapeHtml(todayLabel)}</p>
               </td>
             </tr>
 
@@ -137,7 +137,7 @@ function renderHtml(shop: ShopRecord, pending: PendingLead[], todayLabel: string
             <tr>
               <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <p class="email-footer-title" style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective CRM</p>
-                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} — sent only on days where leads are pending approval</p>
+                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} - sent only on days where leads are pending approval</p>
               </td>
             </tr>
 
@@ -152,14 +152,14 @@ function renderHtml(shop: ShopRecord, pending: PendingLead[], todayLabel: string
 
 function renderText(shop: ShopRecord, pending: PendingLead[], todayLabel: string) {
   const lines = [
-    `${shop.name} — ${pending.length} ${pending.length === 1 ? "lead" : "leads"} waiting on a quote (${todayLabel})`,
+    `${shop.name} - ${pending.length} ${pending.length === 1 ? "lead" : "leads"} waiting on a quote (${todayLabel})`,
     ``,
   ];
   for (const lead of pending) {
     const c = lead.contact ?? { first_name: null, last_name: null, email: null, phone: null };
-    const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "—";
+    const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "-";
     const time = formatInTimeZone(lead.created_at, shop.timezone, "h:mma").toLowerCase();
-    lines.push(`- [${time}] ${name} (${c.email ?? "—"}${c.phone ? `, ${c.phone}` : ""}) — ${lead.service_requested ?? "no service specified"}`);
+    lines.push(`- [${time}] ${name} (${c.email ?? "-"}${c.phone ? `, ${c.phone}` : ""}) - ${lead.service_requested ?? "no service specified"}`);
   }
   lines.push(``, `Review: https://crm.cleancarcollective.co.nz/leads`);
   return lines.join("\n");
@@ -174,7 +174,7 @@ export async function sendDailyApprovalPendingForShop(shop: ShopRecord) {
   const html = renderHtml(shop, pending, todayLabel);
   const text = renderText(shop, pending, todayLabel);
   const { team_email, from_line: from } = getShopContacts(shop);
-  const subject = `⏳ ${pending.length} ${pending.length === 1 ? "lead" : "leads"} waiting on a quote — ${todayLabel}`;
+  const subject = `⏳ ${pending.length} ${pending.length === 1 ? "lead" : "leads"} waiting on a quote - ${todayLabel}`;
 
   const postmark = getPostmarkClient();
   const response = await postmark.sendEmail({

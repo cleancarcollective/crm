@@ -9,7 +9,7 @@ function capitalise(s: string) {
  * into `notes` ("SERVICES: ...\nADD-ONS: ...\nVEHICLE: ...\nDATE: ...\nNOTES: ...").
  *
  * That dump is fine for the team (cross-check with the live record) but
- * looks bizarre in the customer-facing email — they already see all those
+ * looks bizarre in the customer-facing email - they already see all those
  * fields rendered in the Description table.
  *
  * Heuristic detection: if notes contain ALL_CAPS_LABEL: pattern with multiple
@@ -44,14 +44,14 @@ function cleanNotesForRecipient(
     const notes = notesMatch[1].trim();
     if (
       !notes ||
-      /^(no\s+(additional|extra)?\s*(information|notes|info)\.?|n\/?a|none|—|-)$/i.test(notes)
+      /^(no\s+(additional|extra)?\s*(information|notes|info)\.?|n\/?a|none|-|-)$/i.test(notes)
     ) {
       return "No additional notes.";
     }
     return notes;
   }
 
-  // Couldn't extract — discard the dump
+  // Couldn't extract - discard the dump
   return "No additional notes.";
 }
 
@@ -271,10 +271,10 @@ function buildTemplateContext({
     if (!v) return "To be confirmed";
     if (v.includes("mobile")) return "We come to you";
     if (v === "in_shop" || v === "shop" || v.includes("drop")) return "Drop-off at our shop";
-    return raw as string; // unknown — surface as-is so we notice
+    return raw as string; // unknown - surface as-is so we notice
   }
 
-  // Customer self-service link — only on customer-facing emails (skip team).
+  // Customer self-service link - only on customer-facing emails (skip team).
   // 14-day expiry covers most reschedule windows; customer can always reply
   // to the email if their token expires.
   let manageBookingUrl: string | undefined;
@@ -293,7 +293,7 @@ function buildTemplateContext({
     }
   }
 
-  // Deep link to the booking in the CRM — only emitted for team-facing
+  // Deep link to the booking in the CRM - only emitted for team-facing
   // emails so staff can jump straight to the record. Customer emails get
   // the manage_booking_url instead.
   const crmBookingUrl = includeCustomerDetails
@@ -333,7 +333,7 @@ function buildTemplateContext({
     intro_line: introLine,
     action_line: actionLine,
     shop_name: shop.name,
-    shop_address: isMobile ? "Mobile — our team will come to you" : shopDetails.address,
+    shop_address: isMobile ? "Mobile - our team will come to you" : shopDetails.address,
     shop_map_link: isMobile ? "" : shopDetails.mapLink,
     shop_phone: shopDetails.phone,
     shop_email: shopDetails.email,

@@ -6,26 +6,26 @@
  *    flip the dark header to a grey background, leaving white text invisible.
  *  - Mobile padding overflow on narrow screens.
  *
- * Three layers of dark-mode defence — each major email client tags
+ * Three layers of dark-mode defence - each major email client tags
  * dark-mode rendering differently:
- *   1. `<meta name="color-scheme" content="light only">` — modern Gmail
+ *   1. `<meta name="color-scheme" content="light only">` - modern Gmail
  *      and iOS Mail respect this and skip auto-inversion entirely.
- *   2. `@media (prefers-color-scheme: dark)` — covers clients that
+ *   2. `@media (prefers-color-scheme: dark)` - covers clients that
  *      ignore the meta but still expose the user's preference.
- *   3. `[data-ogsc]` selectors — cover Outlook.com which adds that
+ *   3. `[data-ogsc]` selectors - cover Outlook.com which adds that
  *      attribute when user has dark mode on.
  *
  * Inject into the `<head>` of every email template via:
  *   ${EMAIL_HEAD_HARDENING}
  *
  * Then on the header/footer markup, use these class hooks:
- *   email-header           — header <td>
- *   email-header-eyebrow   — small uppercase line above the title
- *   email-header-title     — h1
- *   email-footer           — footer <td>
- *   email-footer-title     — main footer text
- *   email-footer-sub       — secondary footer text (address, link)
- *   email-pad-x            — any cell whose horizontal padding should shrink on mobile
+ *   email-header           - header <td>
+ *   email-header-eyebrow   - small uppercase line above the title
+ *   email-header-title     - h1
+ *   email-footer           - footer <td>
+ *   email-footer-title     - main footer text
+ *   email-footer-sub       - secondary footer text (address, link)
+ *   email-pad-x            - any cell whose horizontal padding should shrink on mobile
  */
 
 export const EMAIL_HEAD_HARDENING = `
@@ -39,7 +39,7 @@ export const EMAIL_HEAD_HARDENING = `
         .email-header h1 { font-size: 22px !important; }
       }
 
-      /* Dark-mode hardening — re-assert header/footer colors when the
+      /* Dark-mode hardening - re-assert header/footer colors when the
          user's email client tries to invert them. */
       @media (prefers-color-scheme: dark) {
         .email-header,

@@ -1,5 +1,5 @@
 /**
- * Approval request email — sent to the team when auto-respond has built a
+ * Approval request email - sent to the team when auto-respond has built a
  * draft estimate but the lead requires human review before sending.
  *
  * Contains:
@@ -65,13 +65,13 @@ function escapeHtml(value: string) {
 function explainReason(reason: ApprovalReason, detail: string | null): string {
   switch (reason) {
     case "notes_present":
-      return "The customer added notes that may need a personal response — please read them before sending the estimate.";
+      return "The customer added notes that may need a personal response - please read them before sending the estimate.";
     case "vehicle_size_unknown":
       return "We couldn't match their vehicle model to our size database. Please confirm the correct vehicle size so pricing is accurate.";
     case "low_confidence":
       return "We couldn't match the vehicle to our size database with high confidence. Please verify the vehicle size before sending.";
     case "draft_error":
-      return `There was a problem building the estimate — please review and complete it manually.${detail ? ` Details: ${detail}` : ""}`;
+      return `There was a problem building the estimate - please review and complete it manually.${detail ? ` Details: ${detail}` : ""}`;
     case "send_failed":
       return `The auto-send attempt failed. Please review and try again.${detail ? ` Details: ${detail}` : ""}`;
     case "other":
@@ -104,7 +104,7 @@ function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string, quickS
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Action needed — Review estimate</title>
+    <title>Action needed - Review estimate</title>
     ${EMAIL_HEAD_HARDENING}
   </head>
   <body style="margin: 0; padding: 0; background-color: #E5E4E2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
@@ -182,7 +182,7 @@ function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string, quickS
                 </table>
                 ${quickSendUrl ? `
                 <p style="margin: 0 0 24px; font-size: 12px; color: #9e9189; text-align: center;">
-                  &ldquo;Send draft as-is&rdquo; sends the exact draft below — no edits, no review. Use it when the draft looks good. Link expires in 7 days, single-use.
+                  &ldquo;Send draft as-is&rdquo; sends the exact draft below - no edits, no review. Use it when the draft looks good. Link expires in 7 days, single-use.
                 </p>
                 ` : ""}
 
@@ -232,7 +232,7 @@ function renderApprovalHtml(args: ApprovalRequestArgs, reviewUrl: string, quickS
 
 function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string, quickSendUrl: string | null): string {
   const { shop, customer, vehicle, serviceRequested, customerNotes, reason, reasonDetail, estimate } = args;
-  const vehicleLabel = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "—";
+  const vehicleLabel = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "-";
   const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.firstName;
   const reasonText = explainReason(reason, reasonDetail);
 
@@ -250,7 +250,7 @@ function renderApprovalText(args: ApprovalRequestArgs, reviewUrl: string, quickS
     customer.phone ? `  Phone: ${customer.phone}` : null,
     ``,
     `Enquiry`,
-    `  Service: ${serviceRequested ?? "—"}`,
+    `  Service: ${serviceRequested ?? "-"}`,
     `  Vehicle: ${vehicleLabel}`,
     customerNotes ? `\nCustomer notes:\n${customerNotes}` : null,
     ``,
@@ -272,15 +272,15 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
   const { shop, leadId, contactId, customer } = args;
   const { team_email: recipient, from_line: from } = getShopContacts(shop);
 
-  // The review URL — contact profile is where the estimate panel lives.
+  // The review URL - contact profile is where the estimate panel lives.
   // If no contactId (shouldn't happen in practice), fall back to /leads.
   const reviewUrl = contactId
     ? `${CRM_BASE_URL}/contacts/${contactId}`
     : `${CRM_BASE_URL}/leads`;
 
-  // One-click "Send as-is" link — only mint a token if the env var is set
+  // One-click "Send as-is" link - only mint a token if the env var is set
   // (it'll throw otherwise). When ACTION_TOKEN_SECRET isn't set the email
-  // still goes out without the quick-send button — graceful degradation.
+  // still goes out without the quick-send button - graceful degradation.
   let quickSendUrl: string | null = null;
   try {
     if (process.env.ACTION_TOKEN_SECRET) {
@@ -295,7 +295,7 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
   const subjectParts = [
     "🔔 Action needed:",
     `Review estimate for ${customer.firstName}`,
-    args.serviceRequested ? `— ${args.serviceRequested}` : "",
+    args.serviceRequested ? `- ${args.serviceRequested}` : "",
     vehicleLabel ? `(${vehicleLabel})` : "",
   ].filter(Boolean);
   const subject = subjectParts.join(" ");
@@ -333,7 +333,7 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
       TextBody: textBody,
       HtmlBody: htmlBody,
       MessageStream: "booking-emails",
-      // Internal notification — don't track clicks (no customer intent signal).
+      // Internal notification - don't track clicks (no customer intent signal).
       TrackOpens: false,
       TrackLinks: "None" as never,
       Metadata: {

@@ -20,7 +20,7 @@
  *        GMAIL_APP_PASSWORD_WELLINGTON=<16-char password for hello@>
  *
  * Returns a Postmark-shaped { MessageID } so call sites don't have to
- * branch — the existing senders update email_messages.provider_message_id
+ * branch - the existing senders update email_messages.provider_message_id
  * with whatever's returned regardless of source.
  */
 
@@ -119,7 +119,7 @@ export async function sendViaGmailSmtp(args: SmtpSendArgs): Promise<SmtpSendResu
  * MessageID. Use this from senders that previously called
  * `postmark.sendEmail(...)` for customer-facing messages.
  *
- * If no Gmail app password is configured for the From address, throws —
+ * If no Gmail app password is configured for the From address, throws -
  * we don't silently fall back to Postmark because that defeats the
  * deliverability fix. Set the env vars or override SEND_CUSTOMER_VIA at
  * the call site.

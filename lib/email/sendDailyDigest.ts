@@ -1,5 +1,5 @@
 /**
- * Daily team digest email — sent every morning to each shop's team_email.
+ * Daily team digest email - sent every morning to each shop's team_email.
  *
  * Content covers the previous 24 hours:
  *   - Leads received (with status breakdown)
@@ -8,7 +8,7 @@
  *   - Bookings happening today (count + revenue)
  *   - Anything that needs attention (leads stuck in needs_approval)
  *
- * Single template renders for both shops — content scoped per shop.
+ * Single template renders for both shops - content scoped per shop.
  */
 
 import { addDays, formatISO, startOfDay } from "date-fns";
@@ -30,7 +30,7 @@ function escapeHtml(value: string) {
 }
 
 function formatCurrency(value: number | null) {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
 }
 
@@ -150,7 +150,7 @@ function renderHtml(stats: DigestStats): string {
 
   const leadBreakdown =
     Object.keys(stats.leadStatusBreakdown).length === 0
-      ? "—"
+      ? "-"
       : Object.entries(stats.leadStatusBreakdown)
           .map(([s, n]) => `${n} ${s}`)
           .join(", ");
@@ -180,7 +180,7 @@ function renderHtml(stats: DigestStats): string {
             <tr>
               <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color: #1a1713; background-image: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
                 <p class="email-header-eyebrow" style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">${escapeHtml(shop.name)}</p>
-                <h1 class="email-header-title" style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">Daily digest — ${escapeHtml(yesterdayLabel)}</h1>
+                <h1 class="email-header-title" style="margin: 0; font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.15;">Daily digest - ${escapeHtml(yesterdayLabel)}</h1>
               </td>
             </tr>
 
@@ -195,11 +195,11 @@ function renderHtml(stats: DigestStats): string {
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
                   ${statRow("Leads received", stats.leadsReceived, true)}
                   ${statRow("Bookings created", stats.bookingsCreated, true)}
-                  ${statRow("Conversions (won)", `${stats.conversions}${sourceBreakdown ? ` — ${sourceBreakdown}` : ""}`)}
+                  ${statRow("Conversions (won)", `${stats.conversions}${sourceBreakdown ? ` - ${sourceBreakdown}` : ""}`)}
                   ${statRow("Lead status breakdown", leadBreakdown)}
                 </table>
 
-                <p style="margin: 0 0 4px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Today — ${escapeHtml(stats.todayDateLabel)}</p>
+                <p style="margin: 0 0 4px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Today - ${escapeHtml(stats.todayDateLabel)}</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
                   ${statRow("Bookings on the calendar", stats.todayBookings, true)}
                   ${statRow("Estimated revenue", formatCurrency(stats.todayRevenue))}
@@ -231,7 +231,7 @@ function renderHtml(stats: DigestStats): string {
             <tr>
               <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <p class="email-footer-title" style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective CRM</p>
-                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} — sent automatically each morning</p>
+                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} - sent automatically each morning</p>
               </td>
             </tr>
 
@@ -247,7 +247,7 @@ function renderHtml(stats: DigestStats): string {
 function renderText(stats: DigestStats): string {
   const yesterdayLabel = formatInTimeZone(stats.windowStartIso, stats.shop.timezone, "EEEE d MMMM");
   const lines = [
-    `${stats.shop.name} — Daily digest for ${yesterdayLabel}`,
+    `${stats.shop.name} - Daily digest for ${yesterdayLabel}`,
     ``,
     `YESTERDAY`,
     `  Leads received: ${stats.leadsReceived}`,
@@ -277,7 +277,7 @@ export async function sendDailyDigestForShop(shop: ShopRecord) {
 
   const { team_email, from_line: from } = getShopContacts(shop);
   const yesterdayLabel = formatInTimeZone(stats.windowStartIso, shop.timezone, "EEE d MMM");
-  const subject = `📊 ${shop.name.replace("Clean Car Collective ", "")} — daily digest (${yesterdayLabel})`;
+  const subject = `📊 ${shop.name.replace("Clean Car Collective ", "")} - daily digest (${yesterdayLabel})`;
 
   const postmark = getPostmarkClient();
   const response = await postmark.sendEmail({

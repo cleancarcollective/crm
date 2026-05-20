@@ -29,7 +29,7 @@ function getReminderIntroLine(templateKey: EmailTemplateKey, shopName: string): 
     case "booking-reminder-week":
       return `Just a heads-up that your booking with ${shopName} is coming up in a week.`;
     case "booking-reminder-day":
-      return `Quick reminder — your booking with ${shopName} is tomorrow.`;
+      return `Quick reminder - your booking with ${shopName} is tomorrow.`;
     case "booking-reminder-hour":
       return `You're booked in with ${shopName} in about an hour.`;
     default:
@@ -51,7 +51,7 @@ export async function createReminderJobsForBooking({
   const scheduledStartDate = new Date(scheduledStart);
   const now = new Date();
 
-  // Anything scheduled within the next 5 minutes is treated as "due now" —
+  // Anything scheduled within the next 5 minutes is treated as "due now" -
   // the cron processes it on the next tick. This avoids a millisecond-race
   // for bookings made very close to a reminder boundary (e.g. exactly 7d
   // out: the week-reminder offset lands within microseconds of `now` and
@@ -93,7 +93,7 @@ export async function processScheduledReminderJobs() {
   const nowIso = new Date().toISOString();
   const supabase = getSupabaseAdminClient();
   // Only handle booking reminders. Lead-context jobs (job_type IS NOT NULL)
-  // are processed by /api/emails/process-scheduled's lead handler — including
+  // are processed by /api/emails/process-scheduled's lead handler - including
   // them here causes them to be bogusly marked "skipped: Missing booking_id".
   const { data, error } = await supabase
     .from("scheduled_email_jobs")

@@ -17,7 +17,7 @@ type ShopContactDetails = {
   sender_name: string;
   /** The bare email address used as the sender (matches the shop's mailbox) */
   from_email: string;
-  /** Full Postmark From line — e.g. `Ben from Clean Car Collective <info@cleancarcollective.co.nz>` */
+  /** Full Postmark From line - e.g. `Ben from Clean Car Collective <info@cleancarcollective.co.nz>` */
   from_line: string;
 };
 
@@ -25,13 +25,13 @@ type ShopContactDetails = {
 //   Christchurch → all email comes from info@cleancarcollective.co.nz
 //   Wellington   → all email comes from hello@cleancarcollective.co.nz
 // Display name leads with the owner's first name on personal emails
-// (estimates) and just the brand on transactional emails — both share
+// (estimates) and just the brand on transactional emails - both share
 // the same address per shop.
 const SHOP_CONTACTS: Record<string, ShopContactDetails> = {
   christchurch: {
     // Internal team notifications still go to info@ (group inbox).
     team_email: "info@cleancarcollective.co.nz",
-    // Customer-facing sender is ben@ — fresh mailbox with clean Gmail
+    // Customer-facing sender is ben@ - fresh mailbox with clean Gmail
     // reputation. info@ had accumulated a poor sender history (likely
     // bulk/templated sends over time, putting CHC test emails in spam).
     reply_email: "ben@cleancarcollective.co.nz",

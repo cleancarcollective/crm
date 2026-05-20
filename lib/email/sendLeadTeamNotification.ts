@@ -140,7 +140,7 @@ export async function sendLeadTeamNotification({
   const { team_email: recipient, from_line: from } = getShopContacts(shop);
 
   const vehicleLabel = [lead.vehicle_year, lead.vehicle_make, lead.vehicle_model].filter(Boolean).join(" ");
-  const subject = `New lead: ${lead.first_name}${lead.last_name ? " " + lead.last_name : ""}${lead.service_requested ? " — " + lead.service_requested : ""}${vehicleLabel ? " (" + vehicleLabel + ")" : ""}`;
+  const subject = `New lead: ${lead.first_name}${lead.last_name ? " " + lead.last_name : ""}${lead.service_requested ? " - " + lead.service_requested : ""}${vehicleLabel ? " (" + vehicleLabel + ")" : ""}`;
 
   const textBody = [
     `New lead from ${shop.name}`,

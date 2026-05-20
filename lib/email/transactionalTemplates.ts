@@ -21,9 +21,9 @@ function nl2br(value: string) {
 function getEmailHeading(introLine: string): string {
   const lower = introLine.toLowerCase();
   if (lower.includes("confirmed")) return "Booking Confirmed";
-  if (lower.includes("one week") || lower.includes("one-week")) return "Booking Reminder — 1 Week";
-  if (lower.includes("one day") || lower.includes("one-day") || lower.includes("tomorrow")) return "Booking Reminder — Tomorrow";
-  if (lower.includes("one hour") || lower.includes("one-hour")) return "Booking Reminder — 1 Hour";
+  if (lower.includes("one week") || lower.includes("one-week")) return "Booking Reminder - 1 Week";
+  if (lower.includes("one day") || lower.includes("one-day") || lower.includes("tomorrow")) return "Booking Reminder - Tomorrow";
+  if (lower.includes("one hour") || lower.includes("one-hour")) return "Booking Reminder - 1 Hour";
   if (lower.includes("new booking")) return "New Booking";
   return "Booking Update";
 }
@@ -33,13 +33,13 @@ function getEmailHeading(introLine: string): string {
  *
  * Customers occasionally try to enter from Southwark Street and can't find
  * the shop, since our entrance is on Allen Street (south side of the block).
- * For the 1-hour reminder only — they're already on their way at this point,
+ * For the 1-hour reminder only - they're already on their way at this point,
  * so the note is most useful right before arrival.
  *
  * Wellington and other shops are unaffected because the trigger checks the
  * shop_address contains "Southwark" (Christchurch's address).
  *
- * The map image is hosted statically at /images/... — see public/images/
+ * The map image is hosted statically at /images/... - see public/images/
  * folder. If the image fails to load, the prose still conveys the message.
  */
 const ENTRANCE_MAP_URL = "https://crm.cleancarcollective.co.nz/images/booking-reminder-allen-entrance-map.png";
@@ -49,7 +49,7 @@ function entranceNoticeBlock(
   heading: string
 ): string {
   // Only show on the 1-hour reminder (heading set by getEmailHeading)
-  if (heading !== "Booking Reminder — 1 Hour") return "";
+  if (heading !== "Booking Reminder - 1 Hour") return "";
   // Only show for Christchurch (Southwark Street workshop)
   if (!context.shop_address.includes("Southwark")) return "";
   // Skip for mobile bookings (we come to them, no entrance to find)
@@ -61,7 +61,7 @@ function entranceNoticeBlock(
       <tr>
         <td style="padding: 18px 22px;">
           <p style="margin: 0 0 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a37400;">
-            Important — entrance
+            Important - entrance
           </p>
           <p style="margin: 0 0 14px; font-size: 15px; font-weight: 600; line-height: 1.5; color: #1a1713;">
             Please enter from <span style="text-decoration: underline;">Allen Street</span>, not Southwark Street.
@@ -112,7 +112,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
     : "";
 
   // Notes-as-paragraph row (used inside the Description table, not as a
-  // standalone highlighted block — that was creating duplicate info).
+  // standalone highlighted block - that was creating duplicate info).
   const hasMeaningfulNotes =
     context.notes &&
     context.notes !== "No additional notes." &&
@@ -191,7 +191,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" class="email-card" style="max-width: 600px;">
 
-            <!-- Header — solid bgcolor + class hooks for dark-mode hardening -->
+            <!-- Header - solid bgcolor + class hooks for dark-mode hardening -->
             <tr>
               <td bgcolor="#1a1713" class="email-header email-pad-x" style="background-color: #1a1713; background-image: linear-gradient(160deg, #1a1713 0%, #0d0c0b 100%); border-radius: 16px 16px 0 0; padding: 32px 36px;">
                 <p class="email-header-eyebrow" style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #c9c5c0;">Clean Car Collective</p>
@@ -227,7 +227,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                   </tr>
                 </table>
 
-                <!-- Description — single source of truth, only fields that apply -->
+                <!-- Description - single source of truth, only fields that apply -->
                 <p style="margin: 0 0 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9e9189;">Description</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-top: 1px solid #ede6dc;">
                   ${context.service_name ? infoRow("Service", context.service_name) : ""}

@@ -1,5 +1,5 @@
 /**
- * Weekly conversion-rate report — sent every Monday morning.
+ * Weekly conversion-rate report - sent every Monday morning.
  *
  * Cohort: leads created in the **week before last** (Mon–Sun, 8–14 days ago in
  * shop tz). Two-weeks-ago is deliberate: leads need time to convert. A lead
@@ -12,7 +12,7 @@
  *   2. First email sent (auto-respond or manual)
  *   3. Email opened (any open event from Postmark)
  *   4. Email clicked (any click event)
- *   5. Booked — auto-detected: any booking for the lead's contact created
+ *   5. Booked - auto-detected: any booking for the lead's contact created
  *      within CONVERSION_WINDOW_DAYS after the lead. We don't rely on
  *      lead.status="won" because that's never set in practice.
  *   6. Booking completed (booking.status = "completed")
@@ -32,7 +32,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 /**
  * How long after a lead arrives we'll still credit a resulting booking back
- * to that lead. Detail bookings are usually impulse — most convert within
+ * to that lead. Detail bookings are usually impulse - most convert within
  * 1–2 weeks. 30 days is generous but safe.
  */
 export const CONVERSION_WINDOW_DAYS = 30;
@@ -47,7 +47,7 @@ function escapeHtml(value: string) {
 }
 
 function pct(num: number, denom: number) {
-  if (denom === 0) return "—";
+  if (denom === 0) return "-";
   return `${Math.round((num / denom) * 100)}%`;
 }
 
@@ -168,7 +168,7 @@ export async function gatherConversionStats(args: {
   // We need leads from a wider net than just the cohort, because a booking in
   // the cohort might attribute to a lead that came in just before the cohort
   // started. But for THIS report we only count attributions where the lead
-  // itself is in the cohort — so the simpler rule works: among leads in the
+  // itself is in the cohort - so the simpler rule works: among leads in the
   // cohort, pick the most recent one before each booking.
   const conversionWindowMsForAttr = CONVERSION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
@@ -193,7 +193,7 @@ export async function gatherConversionStats(args: {
 
   // Track which bookings we've already attributed (so a contact's earlier
   // booking doesn't also get credited to a later lead).
-  const attributedBookingIds = new Set<number>(); // bookings have no id pulled — use index
+  const attributedBookingIds = new Set<number>(); // bookings have no id pulled - use index
   // Tag bookings with index for de-dup
   const bookingsIndexed = bookings.map((b, i) => ({ ...b, _idx: i }));
 
@@ -278,7 +278,7 @@ export { getCohortWindow };
 
 function funnelRow(label: string, count: number, leadsTotal: number, stepFromCount: number | null) {
   const overall = pct(count, leadsTotal);
-  const step = stepFromCount === null ? "—" : pct(count, stepFromCount);
+  const step = stepFromCount === null ? "-" : pct(count, stepFromCount);
   return `
     <tr>
       <td style="padding: 10px 0; border-bottom: 1px solid #ede6dc;">
@@ -318,7 +318,7 @@ function sourceRow(source: string, leads: number, booked: number) {
 }
 
 /**
- * Pick the funnel stage where the biggest drop happens — surfaces the
+ * Pick the funnel stage where the biggest drop happens - surfaces the
  * "where you're losing them" insight at the top of the email.
  */
 function biggestDrop(t: FunnelTotals): { from: string; to: string; lostPct: number } | null {
@@ -447,7 +447,7 @@ function renderHtml(stats: ConversionStats): string {
             <tr>
               <td bgcolor="#1a1713" class="email-footer email-pad-x" style="background-color: #1a1713; border-radius: 0 0 16px 16px; padding: 22px 36px;">
                 <p class="email-footer-title" style="margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #ffffff;">Clean Car Collective CRM</p>
-                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} — sent every Monday morning</p>
+                <p class="email-footer-sub" style="margin: 0; font-size: 12px; color: #7a6f68;">${escapeHtml(shop.name)} - sent every Monday morning</p>
               </td>
             </tr>
 
@@ -463,7 +463,7 @@ function renderHtml(stats: ConversionStats): string {
 function renderText(stats: ConversionStats): string {
   const { totals, cohortLabel, sources } = stats;
   const lines: string[] = [
-    `${stats.shop.name} — Weekly conversion report`,
+    `${stats.shop.name} - Weekly conversion report`,
     `Cohort: ${cohortLabel}`,
     ``,
   ];
@@ -472,7 +472,7 @@ function renderText(stats: ConversionStats): string {
     return lines.join("\n");
   }
   lines.push(
-    `${totals.booked} of ${totals.leads} leads booked — ${pct(totals.booked, totals.leads)} conversion`,
+    `${totals.booked} of ${totals.leads} leads booked - ${pct(totals.booked, totals.leads)} conversion`,
     ``,
     `FUNNEL`,
     `  Leads received:     ${totals.leads}`,
@@ -480,7 +480,7 @@ function renderText(stats: ConversionStats): string {
     `  Email opened:       ${totals.opened} (${pct(totals.opened, totals.leads)})`,
     `  Email clicked:      ${totals.clicked} (${pct(totals.clicked, totals.leads)})`,
     `  Booked:             ${totals.booked} (${pct(totals.booked, totals.leads)})`,
-    `  Completed:          ${totals.completed} — revenue ${formatCurrency(totals.revenue)}`,
+    `  Completed:          ${totals.completed} - revenue ${formatCurrency(totals.revenue)}`,
     ``,
   );
   const drop = biggestDrop(totals);
@@ -494,7 +494,7 @@ function renderText(stats: ConversionStats): string {
   if (sourceEntries.length > 0) {
     lines.push(`BY SOURCE`);
     for (const [src, v] of sourceEntries) {
-      lines.push(`  ${src}: ${v.booked} booked / ${v.leads} leads — ${pct(v.booked, v.leads)}`);
+      lines.push(`  ${src}: ${v.booked} booked / ${v.leads} leads - ${pct(v.booked, v.leads)}`);
     }
     lines.push(``);
   }
@@ -508,7 +508,7 @@ export async function sendWeeklyConversionReportForShop(shop: ShopRecord) {
   const text = renderText(stats);
 
   const { team_email, from_line: from } = getShopContacts(shop);
-  const subject = `📈 ${shop.name.replace("Clean Car Collective ", "")} — weekly conversion (${stats.cohortLabel})`;
+  const subject = `📈 ${shop.name.replace("Clean Car Collective ", "")} - weekly conversion (${stats.cohortLabel})`;
 
   const postmark = getPostmarkClient();
   const response = await postmark.sendEmail({
