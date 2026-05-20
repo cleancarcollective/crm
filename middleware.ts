@@ -24,6 +24,7 @@ const PUBLIC_PREFIXES = [
   "/api/admin/pending-enquiries-report", // on-demand, authed by CRON_SECRET in handler
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page
+  "/lock-in-recurring",              // customer-facing post-detail lock-in page
   "/api/public/",                    // token-authed customer-facing actions
   "/_next/",
   "/favicon",
