@@ -25,7 +25,7 @@ import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type TouchpointKey =
-  | "post_detail_recurring_offer_day0"
+  | "post_detail_recurring_offer_next_day"
   | "post_detail_recurring_offer_6w"
   | "post_detail_recurring_offer_10w"
   | "post_detail_recurring_offer_16w";
@@ -39,7 +39,7 @@ export type TouchpointDef = {
 };
 
 export const POST_DETAIL_TOUCHPOINTS: TouchpointDef[] = [
-  { key: "post_detail_recurring_offer_day0", offsetDays: 0,   fireAtLocalHour: 18, featuredCadenceMonths: 2, discountPercent: 15 },
+  { key: "post_detail_recurring_offer_next_day", offsetDays: 1,   fireAtLocalHour: 9,  featuredCadenceMonths: 2, discountPercent: 15 },
   { key: "post_detail_recurring_offer_6w",   offsetDays: 42,  fireAtLocalHour: 11, featuredCadenceMonths: 2, discountPercent: 15 },
   { key: "post_detail_recurring_offer_10w",  offsetDays: 70,  fireAtLocalHour: 11, featuredCadenceMonths: 3, discountPercent: 10 },
   { key: "post_detail_recurring_offer_16w",  offsetDays: 112, fireAtLocalHour: 11, featuredCadenceMonths: 4, discountPercent: 5  },

@@ -9,7 +9,7 @@ import type { EmailTemplateKey, ScheduledEmailJobRecord } from "@/lib/email/type
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const POST_DETAIL_TOUCHPOINT_TEMPLATE_KEYS = new Set<EmailTemplateKey>([
-  "post_detail_recurring_offer_day0",
+  "post_detail_recurring_offer_next_day",
   "post_detail_recurring_offer_6w",
   "post_detail_recurring_offer_10w",
   "post_detail_recurring_offer_16w",
