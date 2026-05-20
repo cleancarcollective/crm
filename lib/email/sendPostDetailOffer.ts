@@ -48,7 +48,7 @@ function escapeHtml(value: string) {
 function subjectFor(key: TouchpointKey, firstName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_next_day":
-      return `Sweet as, ${firstName} - want to keep the car looking this good?`;
+      return `${firstName} - want to keep the car looking this fresh?`;
     case "post_detail_recurring_offer_6w":
       return `${firstName} - how's the car holding up?`;
     case "post_detail_recurring_offer_10w":
@@ -61,7 +61,7 @@ function subjectFor(key: TouchpointKey, firstName: string): string {
 function openerFor(key: TouchpointKey, _shopName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_next_day":
-      return `Hope you're stoked with how the car came out yesterday. If you'd like to keep that just-detailed feel going, we run a regular detail rate that saves you up to 15% on every visit. No contracts, cancel or pause whenever.`;
+      return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we offer a regular detail rate that saves you up to 15% on every visit. No contracts - cancel or pause whenever.`;
     case "post_detail_recurring_offer_6w":
       return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a fortnightly rate and we'll knock 15% off every visit. No commitment, cancel or pause whenever you like.`;
     case "post_detail_recurring_offer_10w":
@@ -250,9 +250,9 @@ export function renderPostDetailOfferSms(args: {
   const url = args.url;
   switch (args.touchpointKey) {
     case "post_detail_recurring_offer_next_day":
-      return `Hey ${fn}, hope you're stoked with how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 15% every visit: ${url} - Clean Car Collective`;
+      return `Hey ${fn}, hope you're loving how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 15% every visit: ${url} - Clean Car Collective`;
     case "post_detail_recurring_offer_6w":
-      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 15% every visit? Have a squiz: ${url}`;
+      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 15% every visit? Have a look: ${url}`;
     case "post_detail_recurring_offer_10w":
       return `Hey ${fn}, heading into the 3-month mark since your last detail. Sort a 3-monthly rate now and save 10% every visit - after this the discount drops: ${url}`;
     case "post_detail_recurring_offer_16w":
