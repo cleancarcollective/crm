@@ -189,6 +189,15 @@ export type CreateSeriesInput = {
   notes?: string | null;
   rule: SeriesRule;
   createdByUserId?: string | null;
+  // Recurring-discount metadata. discountPercent is the % saved on every
+  // occurrence in this series — already applied to priceEstimate by the
+  // caller, we just store it for reporting + receipt copy. discountSource
+  // distinguishes in-flow signup (`customer_signup`) from the post-detail
+  // upsell SMS/email (Phase B: `post_detail_offer`). seriesSource records
+  // who created the series (staff vs customer self-serve).
+  discountPercent?: number | null;
+  discountSource?: string | null;
+  seriesSource?: string | null;
 };
 
 /**
@@ -237,7 +246,11 @@ export async function createSeriesAndOccurrences(
         : null,
       status: "active",
       created_by_user_id: input.createdByUserId ?? null,
-      series_source: "staff_manual",
+      // Default to "staff_manual" to preserve historical behaviour — the
+      // customer-facing intake endpoint passes "customer_signup" / similar.
+      series_source: input.seriesSource ?? "staff_manual",
+      discount_percent: input.discountPercent ?? null,
+      discount_source: input.discountSource ?? null,
     })
     .select("id")
     .single();

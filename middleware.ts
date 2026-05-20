@@ -12,6 +12,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/",
   "/api/leads/intake",
   "/api/bookings/intake",
+  "/api/booking-series/intake",
   "/api/email-events/",
   "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
   "/api/emails/process-scheduled",   // pg_cron every minute
