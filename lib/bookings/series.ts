@@ -25,6 +25,7 @@ import {
   startOfMonth,
 } from "date-fns";
 
+import { cancelPendingTouchpointsForContact } from "@/lib/bookings/postDetailTouchpoints";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import {
   buildCadenceLabel,
@@ -439,6 +440,28 @@ export async function createSeriesAndOccurrences(
     } catch (err) {
       console.error("Series team notification failed (non-fatal)", { seriesId, err });
     }
+  }
+
+  // Once a customer is on any recurring series, the post-detail discount
+  // nudges become moot. Cancel any pending touchpoints for this contact
+  // regardless of discount source. Non-fatal.
+  try {
+    const cancelled = await cancelPendingTouchpointsForContact(
+      input.shopId,
+      input.contactId,
+      input.discountSource === "post_detail_offer"
+        ? "Customer locked in via post-detail offer"
+        : "Customer is now on a recurring series"
+    );
+    if (cancelled.emailsCancelled + cancelled.smsCancelled > 0) {
+      console.info("Post-detail touchpoints cancelled (series created)", {
+        seriesId,
+        contactId: input.contactId,
+        ...cancelled,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to cancel post-detail touchpoints after series creation (non-fatal)", { seriesId, err });
   }
 
   return { seriesId, bookingsCreated: createdCount };

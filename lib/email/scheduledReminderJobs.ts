@@ -3,8 +3,17 @@ import { addDays, addHours, addWeeks } from "date-fns";
 import { getBookingWithRelationsById, getShopById } from "@/lib/dashboard/bookings";
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
+import { sendPostDetailOfferEmail } from "@/lib/email/sendPostDetailOffer";
+import { POST_DETAIL_TOUCHPOINTS } from "@/lib/bookings/postDetailTouchpoints";
 import type { EmailTemplateKey, ScheduledEmailJobRecord } from "@/lib/email/types";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+
+const POST_DETAIL_TOUCHPOINT_TEMPLATE_KEYS = new Set<EmailTemplateKey>([
+  "post_detail_recurring_offer_day0",
+  "post_detail_recurring_offer_6w",
+  "post_detail_recurring_offer_10w",
+  "post_detail_recurring_offer_16w",
+]);
 
 const REMINDER_DEFINITIONS = [
   {
@@ -146,7 +155,12 @@ export async function processScheduledReminderJobs() {
         continue;
       }
 
-      if (["cancelled", "completed", "no_show"].includes(bookingData.status)) {
+      // Post-detail touchpoints are TRIGGERED by status='completed' — they
+      // must fire even when the booking is in that state. Other reminders
+      // shouldn't fire post-cancellation/post-completion.
+      const isPostDetailTouchpoint = POST_DETAIL_TOUCHPOINT_TEMPLATE_KEYS.has(claimedJob.template_key);
+      const cancelStatuses = isPostDetailTouchpoint ? ["cancelled", "no_show"] : ["cancelled", "completed", "no_show"];
+      if (cancelStatuses.includes(bookingData.status)) {
         await updateScheduledJobStatus(claimedJob.id, "cancelled", `Booking status is ${bookingData.status}.`);
         results.push({
           jobId: claimedJob.id,
@@ -154,6 +168,64 @@ export async function processScheduledReminderJobs() {
           status: `cancelled:${bookingData.status}`,
           templateKey: claimedJob.template_key
         });
+        continue;
+      }
+
+      // Post-detail recurring-offer touchpoints route to their own renderer.
+      if (POST_DETAIL_TOUCHPOINT_TEMPLATE_KEYS.has(claimedJob.template_key)) {
+        const contact = bookingData.contact;
+        if (!contact?.email) {
+          await updateScheduledJobStatus(claimedJob.id, "skipped", "Contact has no email for post-detail offer.");
+          results.push({
+            jobId: claimedJob.id,
+            bookingId: claimedJob.booking_id,
+            status: "skipped:no_email",
+            templateKey: claimedJob.template_key
+          });
+          continue;
+        }
+        const touchpoint = POST_DETAIL_TOUCHPOINTS.find((t) => t.key === claimedJob.template_key);
+        if (!touchpoint) {
+          await updateScheduledJobStatus(claimedJob.id, "failed", "Unknown post-detail touchpoint key.");
+          results.push({
+            jobId: claimedJob.id,
+            bookingId: claimedJob.booking_id,
+            status: "failed:unknown_template",
+            templateKey: claimedJob.template_key
+          });
+          continue;
+        }
+        try {
+          const sendResult = await sendPostDetailOfferEmail({
+            shop,
+            bookingId: bookingData.id,
+            contact: {
+              firstName: contact.first_name ?? contact.full_name?.split(" ")[0] ?? null,
+              email: contact.email,
+            },
+            serviceName: bookingData.service_name,
+            basePrice: bookingData.price_estimate ?? null,
+            touchpointKey: touchpoint.key,
+            featuredCadenceMonths: touchpoint.featuredCadenceMonths,
+            featuredDiscountPercent: touchpoint.discountPercent,
+          });
+          await markScheduledJobSent(claimedJob.id, sendResult.providerMessageId ?? "");
+          results.push({
+            jobId: claimedJob.id,
+            bookingId: claimedJob.booking_id,
+            status: "sent",
+            templateKey: claimedJob.template_key
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Post-detail offer send failed";
+          await updateScheduledJobStatus(claimedJob.id, "failed", msg);
+          results.push({
+            jobId: claimedJob.id,
+            bookingId: claimedJob.booking_id,
+            status: "failed",
+            templateKey: claimedJob.template_key
+          });
+        }
         continue;
       }
 

@@ -14,7 +14,11 @@ export type EmailTemplateKey =
   | "booking-reminder-week"
   | "booking-reminder-day"
   | "booking-reminder-hour"
-  | "booking-update";
+  | "booking-update"
+  | "post_detail_recurring_offer_day0"
+  | "post_detail_recurring_offer_6w"
+  | "post_detail_recurring_offer_10w"
+  | "post_detail_recurring_offer_16w";
 
 export type ScheduledEmailJobRecord = {
   id: string;

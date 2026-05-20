@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById } from "@/lib/dashboard/bookings";
 import { sendBookingUpdateEmail } from "@/lib/email/sendBookingUpdateEmail";
+import { schedulePostDetailTouchpoints } from "@/lib/bookings/postDetailTouchpoints";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type BookingUpdatePayload = {
@@ -131,6 +132,22 @@ export async function PATCH(
 
   if (updateError) {
     return NextResponse.json({ success: false, error: "Failed to update booking." }, { status: 500 });
+  }
+
+  // Trigger post-detail recurring-discount touchpoints when staff flips
+  // the booking to 'completed' for the first time. Non-fatal — log on
+  // error, never block the PATCH response.
+  if (booking.status === "completed" && existingBooking.status !== "completed") {
+    try {
+      const result = await schedulePostDetailTouchpoints(booking.id);
+      console.info("Post-detail touchpoints schedule attempt", {
+        bookingId: booking.id,
+        scheduled: result.scheduled,
+        skipped: result.skipped,
+      });
+    } catch (err) {
+      console.error("Failed to schedule post-detail touchpoints", { bookingId: booking.id, err });
+    }
   }
 
   let updateEmailStatus: "not_requested" | "sent" | "skipped" | "failed" = "not_requested";

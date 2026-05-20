@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById, getVehicleLabel } from "@/lib/dashboard/bookings";
 import { sendPickupReadyEmail } from "@/lib/email/sendPickupReadyEmail";
+import { schedulePostDetailTouchpoints } from "@/lib/bookings/postDetailTouchpoints";
 import { scheduleReviewSms } from "@/lib/sms/scheduledSmsJobs";
 import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
@@ -96,6 +97,19 @@ export async function POST(
     } catch (err) {
       console.error("Failed to schedule review SMS", { bookingId: id, err });
     }
+  }
+
+  // Phase B: schedule the 4-touchpoint recurring-discount nudge series.
+  // Idempotent + eligibility-gated inside the helper. Non-fatal.
+  try {
+    const result = await schedulePostDetailTouchpoints(id);
+    console.info("Post-detail touchpoints schedule attempt (pickup)", {
+      bookingId: id,
+      scheduled: result.scheduled,
+      skipped: result.skipped,
+    });
+  } catch (err) {
+    console.error("Failed to schedule post-detail touchpoints (pickup)", { bookingId: id, err });
   }
 
   console.info("Pick-up ready triggered", { bookingId: id, emailSent: emailResult.sent, smsSent: smsResult.sent, afterHours: emailResult.afterHours });

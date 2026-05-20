@@ -5,6 +5,18 @@ import { getShopContactsById } from "@/lib/email/shopContacts";
 import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
+import {
+  POST_DETAIL_TOUCHPOINTS,
+  type TouchpointKey,
+} from "@/lib/bookings/postDetailTouchpoints";
+import {
+  buildPostDetailOfferLockInUrl,
+  renderPostDetailOfferSms,
+} from "@/lib/email/sendPostDetailOffer";
+
+const POST_DETAIL_TOUCHPOINT_KEY_SET = new Set<string>(
+  POST_DETAIL_TOUCHPOINTS.map((t) => t.key)
+);
 
 const REVIEW_DELAY_HOURS = 23;
 const LEAD_FOLLOWUP_SMS_DAYS = 5;
@@ -171,7 +183,7 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
 
   const { data: jobs, error } = await supabase
     .from("scheduled_sms_jobs")
-    .select("id, phone, message, booking_id, lead_id, shop_id, contact_id")
+    .select("id, phone, message, booking_id, lead_id, shop_id, contact_id, template_key")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .limit(50);
@@ -202,7 +214,29 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
       }
     }
 
-    const result = await sendTnzSms(job.phone as string, job.message as string);
+    // Late-render post-detail touchpoint messages so the signed token is
+    // fresh at send-time (30-day expiry from when the link is generated).
+    let messageBody: string = (job.message as string) ?? "";
+    const templateKey = (job as { template_key?: string | null }).template_key ?? null;
+    if (templateKey && POST_DETAIL_TOUCHPOINT_KEY_SET.has(templateKey)) {
+      const rendered = await renderPostDetailTouchpointAtSendTime({
+        bookingId: job.booking_id as string | null,
+        shopId: job.shop_id as string,
+        contactId: job.contact_id as string | null,
+        touchpointKey: templateKey as TouchpointKey,
+      });
+      if (!rendered) {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "skipped", last_error: "Could not render post-detail SMS (booking/contact missing)" })
+          .eq("id", job.id);
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
+      messageBody = rendered;
+    }
+
+    const result = await sendTnzSms(job.phone as string, messageBody);
 
     if (result.success) {
       await supabase
@@ -224,6 +258,59 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
   }
 
   return results;
+}
+
+/**
+ * Render a post-detail recurring-offer SMS body at send-time. We don't
+ * pre-render at schedule-time because the signed lock-in token has a 30-
+ * day expiry and the 16-week touchpoint fires ~112 days after scheduling.
+ *
+ * Returns null if the booking or contact has gone away in the meantime.
+ */
+async function renderPostDetailTouchpointAtSendTime(opts: {
+  bookingId: string | null;
+  shopId: string;
+  contactId: string | null;
+  touchpointKey: TouchpointKey;
+}): Promise<string | null> {
+  if (!opts.bookingId) return null;
+  const supabase = getSupabaseAdminClient();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, contact_id, status, series_id")
+    .eq("id", opts.bookingId)
+    .maybeSingle();
+  if (!booking) return null;
+  // Booking moved to a recurring series? The touchpoint cancellation path
+  // should have caught this, but double-check defensively.
+  if (booking.series_id) return null;
+  if (booking.status === "cancelled" || booking.status === "no_show") return null;
+
+  const contactId = opts.contactId ?? booking.contact_id;
+  let firstName = "there";
+  if (contactId) {
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("first_name, full_name")
+      .eq("id", contactId)
+      .maybeSingle();
+    firstName = contact?.first_name ?? contact?.full_name?.split(" ")[0] ?? "there";
+  }
+
+  const touchpoint = POST_DETAIL_TOUCHPOINTS.find((t) => t.key === opts.touchpointKey);
+  if (!touchpoint) return null;
+
+  const url = buildPostDetailOfferLockInUrl({
+    bookingId: opts.bookingId,
+    shopId: opts.shopId,
+    featuredCadenceMonths: touchpoint.featuredCadenceMonths,
+  });
+
+  return renderPostDetailOfferSms({
+    firstName,
+    url,
+    touchpointKey: opts.touchpointKey,
+  });
 }
 
 /**
