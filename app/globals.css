@@ -3338,6 +3338,78 @@ textarea {
   padding-top: 4px;
 }
 
+/* ── Lock-in-recurring date/time pickers ────────────────────────────
+   The default <input type="date"> on iOS/Android renders as a tiny text
+   field with no affordance that it's tappable. These styles make each
+   picker look like a tappable card with a clear label, big touch target,
+   and an explicit "Tap to change" hint. */
+
+.lockInDateTimeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+@media (max-width: 420px) {
+  .lockInDateTimeGrid { grid-template-columns: 1fr; }
+}
+
+.lockInDateTimeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  background: #fff;
+  border: 2px solid #1a4d2e;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+  box-shadow: 0 1px 0 rgba(26, 77, 46, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.lockInDateTimeField:hover {
+  box-shadow: 0 2px 0 rgba(26, 77, 46, 0.10), 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+.lockInDateTimeField:focus-within {
+  outline: 3px solid rgba(26, 77, 46, 0.25);
+  outline-offset: 1px;
+}
+
+.lockInDateTimeLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a4d2e;
+}
+
+.lockInDateTimeInput {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1713;
+  font-family: inherit;
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  width: 100%;
+  /* Override the iOS default look so the value reads like a button label */
+  appearance: none;
+  -webkit-appearance: none;
+}
+.lockInDateTimeInput:focus { outline: none; }
+.lockInDateTimeInput::-webkit-calendar-picker-indicator {
+  /* Push the native picker icon to the right of the value, slightly bigger */
+  margin-left: 8px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.lockInDateTimeHint {
+  font-size: 11px;
+  color: #7a6f68;
+  margin-top: 2px;
+}
+
 .templateEditorCheckboxLabel {
   display: inline-flex;
   align-items: center;

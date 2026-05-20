@@ -164,26 +164,30 @@ export function LockInRecurringClient({
           </div>
 
           <h3>Pick a start date</h3>
-          <label className="templateEditorField">
-            <span className="templateEditorLabel">First visit date</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="templateEditorInput"
-              required
-            />
-          </label>
-          <label className="templateEditorField">
-            <span className="templateEditorLabel">Preferred time</span>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="templateEditorInput"
-              required
-            />
-          </label>
+          <div className="lockInDateTimeGrid">
+            <label className="lockInDateTimeField">
+              <span className="lockInDateTimeLabel">First visit</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="lockInDateTimeInput"
+                required
+              />
+              <span className="lockInDateTimeHint">Tap to change</span>
+            </label>
+            <label className="lockInDateTimeField">
+              <span className="lockInDateTimeLabel">Time</span>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="lockInDateTimeInput"
+                required
+              />
+              <span className="lockInDateTimeHint">Tap to change</span>
+            </label>
+          </div>
 
           <div className="manageBookingActions">
             <button type="submit" className="buttonPrimary" disabled={isPending}>

@@ -338,10 +338,24 @@ async function renderPostDetailTouchpointAtSendTime(opts: {
   const touchpoint = POST_DETAIL_TOUCHPOINTS.find((t) => t.key === opts.touchpointKey);
   if (!touchpoint) return null;
 
-  const url = buildPostDetailOfferLockInUrl({
+  const fullUrl = buildPostDetailOfferLockInUrl({
     bookingId: opts.bookingId,
     shopId: opts.shopId,
     featuredCadenceMonths: touchpoint.featuredCadenceMonths,
+  });
+
+  // Shorten for SMS - the signed JWT alone is ~150 chars and would push
+  // the message past the 160-char single-segment limit. Email keeps the
+  // long URL (length doesn't matter in HTML). createShortUrl falls back
+  // to the long URL if the DB write fails, so SMS still works either way.
+  const { createShortUrl } = await import("@/lib/shortUrl");
+  const url = await createShortUrl({
+    fullUrl,
+    shopId: opts.shopId,
+    purpose: `sms_${opts.touchpointKey}`,
+    // Token inside has 30-day expiry; let the short URL live a bit longer
+    // for forwarding/clickthrough patterns.
+    expiresInSeconds: 45 * 24 * 60 * 60,
   });
 
   return renderPostDetailOfferSms({

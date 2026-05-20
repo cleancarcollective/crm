@@ -26,6 +26,7 @@ const PUBLIC_PREFIXES = [
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page
   "/lock-in-recurring",              // customer-facing post-detail lock-in page
+  "/r/",                             // short URL redirector (SMS touchpoints)
   "/api/public/",                    // token-authed customer-facing actions
   "/_next/",
   "/favicon",
