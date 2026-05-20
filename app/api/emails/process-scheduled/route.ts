@@ -130,30 +130,47 @@ async function handle(request: Request) {
     }
   }
 
-  // Also run the existing booking reminder processor (job_type IS NULL rows)
+  // Track sub-processor failures so we can return a non-2xx to pg_cron at
+  // the end. Without this, a silently-throwing sub-processor (e.g. SELECT
+  // against a missing column) reads as "succeeded" in cron.job_run_details
+  // forever - which is exactly how the 2026-05-20 stale-SMS incident hid
+  // for 26 days. Subprocessor errors now surface to the cron monitoring.
+  const subprocessorErrors: Array<{ processor: string; error: string }> = [];
+
+  // Booking reminder processor (job_type IS NULL rows)
   let bookingResults: unknown[] = [];
   try {
     bookingResults = await processScheduledReminderJobs();
   } catch (e) {
-    console.error("Booking reminder processor failed:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    console.error("Booking reminder processor failed:", errMsg);
+    subprocessorErrors.push({ processor: "booking_reminders", error: errMsg });
   }
 
-  // SMS jobs (booking reminders, review SMS) — same scheduler pattern,
+  // SMS jobs (booking reminders, review SMS) - same scheduler pattern,
   // runs every minute via pg_cron now rather than daily via Vercel cron.
   let smsResults: unknown[] = [];
   try {
     smsResults = await processScheduledSmsJobs();
   } catch (e) {
-    console.error("SMS job processor failed:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    console.error("SMS job processor failed:", errMsg);
+    subprocessorErrors.push({ processor: "sms_jobs", error: errMsg });
   }
 
-  return NextResponse.json({
-    success: true,
+  const body = {
+    success: subprocessorErrors.length === 0,
     leadJobsProcessed: results.length,
     leadResults: results,
     bookingRemindersProcessed: bookingResults.length,
     smsJobsProcessed: smsResults.length,
-  });
+    ...(subprocessorErrors.length > 0 ? { errors: subprocessorErrors } : {}),
+  };
+
+  // 500 on any sub-processor failure so pg_cron job_run_details shows
+  // "failed" instead of silently succeeding, and the health-check alert
+  // (B) escalates promptly.
+  return NextResponse.json(body, { status: subprocessorErrors.length === 0 ? 200 : 500 });
 }
 
 // ── Dispatcher ────────────────────────────────────────────────────────────
