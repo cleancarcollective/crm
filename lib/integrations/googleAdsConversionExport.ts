@@ -36,7 +36,18 @@ import { addDays } from "date-fns";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type ExportRow = {
-  booking_id: string;
+  // Apps Script dispatches by row_type: 'booking' → Bookings tab,
+  // 'form' → Forms tab. Each tab is connected to a different Google Ads
+  // conversion action via Data Manager.
+  row_type: "booking" | "form";
+  // booking_id for row_type='booking', lead_id for row_type='form'.
+  // The Apps Script writes this into the "Booking ID" / "Lead ID" column
+  // and uses it as the dedupe key.
+  record_id: string;
+  // Kept for backwards compatibility with existing Apps Script versions
+  // that still read booking_id from the row. Both fields are set to the
+  // same value for booking rows; for form rows, booking_id is null.
+  booking_id: string | null;
   shop_slug: string;
   conversion_action: string; // Google Ads conversion action name
   conversion_time: string; // ISO 8601 with timezone offset
@@ -50,6 +61,13 @@ type ExportRow = {
   // Hashed email for Enhanced Conversions for Leads (fallback when no gclid)
   email_sha256: string | null;
 };
+
+/**
+ * Per-form value for Smart Bidding. Calculated as average order value
+ * ($310) × form→booking conversion rate (20%). Adjust here if either
+ * input drifts.
+ */
+const FORM_VALUE_NZD = 62;
 
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input.trim().toLowerCase());
@@ -161,6 +179,8 @@ async function buildExportRows(args: {
     const shopSlug = slugByShopId.get(booking.shop_id as string);
 
     rows.push({
+      row_type: "booking",
+      record_id: booking.id as string,
       booking_id: booking.id as string,
       shop_slug: shopSlug ?? "unknown",
       // Conversion action name in Google Ads. Must match exactly what's
@@ -177,6 +197,93 @@ async function buildExportRows(args: {
       gclid: (booking.gclid as string | null) ?? matchingLead?.gclid ?? null,
       gbraid: (booking.gbraid as string | null) ?? matchingLead?.gbraid ?? null,
       wbraid: (booking.wbraid as string | null) ?? matchingLead?.wbraid ?? null,
+      email_sha256: emailHash,
+    });
+  }
+
+  return rows;
+}
+
+/**
+ * Pull lead form submissions created in [windowStart, windowEnd) that have
+ * a Google Click ID attached, and turn them into form-conversion rows.
+ *
+ * Each row goes to the "Forms" tab of the shop's Google Sheet → Google Ads
+ * "Estimate form (CRM offline)" conversion (Secondary). This signal lets
+ * Smart Bidding see real form-submission counts (the page-load pixel
+ * undercounts by 30-60%) and gives form-stage attribution visibility in
+ * the Ads UI on top of the booking-stage signal.
+ *
+ * Form value is fixed at FORM_VALUE_NZD (currently $62 = $310 AOV × 20%
+ * form→booking conversion rate). Smart Bidding doesn't actually use this
+ * because Estimate form is configured as Secondary, but value still
+ * appears in "All conversion value" reports.
+ *
+ * Dedupe between form fill + later booking is left to Google Ads — its
+ * attribution modelling handles per-click conversions across actions
+ * without over-rewarding any single click.
+ */
+async function buildFormRows(args: {
+  windowStartIso: string;
+  windowEndIso: string;
+}): Promise<ExportRow[]> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: leads, error: leadsErr } = await supabase
+    .from("leads")
+    .select(`
+      id, shop_id, contact_id, created_at,
+      gclid, gbraid, wbraid
+    `)
+    .not("gclid", "is", null)
+    .gte("created_at", args.windowStartIso)
+    .lt("created_at", args.windowEndIso);
+
+  if (leadsErr) throw leadsErr;
+  if (!leads || leads.length === 0) return [];
+
+  // Shop slug lookup (same explicit-join pattern as buildExportRows;
+  // PostgREST embedded joins occasionally return null for valid shop_id
+  // rows).
+  const { data: shops } = await supabase.from("shops").select("id, slug");
+  const slugByShopId = new Map<string, string>();
+  for (const s of shops ?? []) {
+    if (s.id && s.slug) slugByShopId.set(s.id as string, s.slug as string);
+  }
+
+  // Email for Enhanced Conversions for Leads fallback.
+  const contactIds = Array.from(
+    new Set(leads.map((l) => l.contact_id).filter((v): v is string => Boolean(v)))
+  );
+  const emailByContact = new Map<string, string | null>();
+  if (contactIds.length > 0) {
+    const { data: contacts } = await supabase
+      .from("contacts")
+      .select("id, email")
+      .in("id", contactIds);
+    for (const c of contacts ?? []) {
+      emailByContact.set(c.id as string, (c.email as string | null) ?? null);
+    }
+  }
+
+  const rows: ExportRow[] = [];
+  for (const lead of leads) {
+    const email = lead.contact_id ? emailByContact.get(lead.contact_id as string) ?? null : null;
+    const emailHash = email ? await sha256Hex(email) : null;
+    const shopSlug = slugByShopId.get(lead.shop_id as string);
+
+    rows.push({
+      row_type: "form",
+      record_id: lead.id as string,
+      booking_id: null,
+      shop_slug: shopSlug ?? "unknown",
+      conversion_action: "Estimate form (CRM offline)",
+      conversion_time: lead.created_at as string,
+      value: FORM_VALUE_NZD,
+      currency: "NZD",
+      gclid: lead.gclid as string | null,
+      gbraid: lead.gbraid as string | null,
+      wbraid: lead.wbraid as string | null,
       email_sha256: emailHash,
     });
   }
@@ -249,10 +356,11 @@ export async function exportRecentBookingsForGoogleAds(opts: { windowDays?: numb
   const windowEnd = now.toISOString();
   const windowStart = addDays(now, -windowDays).toISOString();
 
-  const rows = await buildExportRows({
-    windowStartIso: windowStart,
-    windowEndIso: windowEnd,
-  });
+  const [bookingRows, formRows] = await Promise.all([
+    buildExportRows({ windowStartIso: windowStart, windowEndIso: windowEnd }),
+    buildFormRows({ windowStartIso: windowStart, windowEndIso: windowEnd }),
+  ]);
+  const rows = [...bookingRows, ...formRows];
 
   if (rows.length === 0) {
     return { exported: 0, withAttribution: 0, byShop: {} };
@@ -295,6 +403,8 @@ export async function exportRecentBookingsForGoogleAds(opts: { windowDays?: numb
       const sheetsResponse = await postRowsToShop({ shopSlug, url, rows: shopRows, secret });
       byShop[shopSlug] = {
         exported: shopRows.length,
+        bookings: shopRows.filter((r) => r.row_type === "booking").length,
+        forms: shopRows.filter((r) => r.row_type === "form").length,
         withAttribution,
         sheetsResponse,
       };
