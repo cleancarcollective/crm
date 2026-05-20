@@ -105,6 +105,45 @@ table; the form has 4 vehicle types × price × duration. Plan: new
 public read-only API endpoint at `/api/public/pricing?shop=<slug>`,
 both forms fetch on load + cache in localStorage. ~3-4hr.
 
+### Phase F — Roadmap items raised during testing (2026-05-20)
+
+**F1. Should the lock-in page live on the customer-facing domain?**
+
+Currently lives at `crm.cleancarcollective.co.nz/lock-in-recurring`.
+Customers clicking from the touchpoint emails see the staff-looking
+"crm." subdomain. The /manage-booking page sets a precedent (also on
+the CRM domain) but worth challenging.
+
+Options:
+- Stay on CRM domain. Cheapest, working today, "manage-booking"
+  precedent already shipped without complaints.
+- Build a WP page at cleancarcollective.co.nz/lock-in-recurring that
+  iframes the CRM page (same pattern as the booking forms). The
+  customer URL becomes cleancarcollective.co.nz; the page itself stays
+  in the CRM repo. ~30 min of WP work + verify cookies + token query
+  string pass-through.
+- Rebuild as a Vite app standalone (overkill, skip).
+
+**F2. Should the touchpoint email force the featured cadence, or
+expose all 3 picker options upfront?**
+
+Today the email's CTA links to `?cadence=N` for the featured tier (15%
+on the day-0/6w touchpoint, 10% on 10w, 5% on 16w). Customer can still
+change the tier on the lock-in page itself, but the email visually
+biases them toward one option.
+
+Alternatives to test:
+- Show all 3 cadence options as separate buttons in the email ("15% -
+  every 2 months" / "10% - every 3 months" / "5% - every 4 months").
+  Each button preselects its tier on the lock-in page.
+- Keep the single featured CTA but also link the other tiers in the
+  price-comparison table beneath it.
+- A/B if conversion data eventually warrants.
+
+Hypothesis: featured-only converts better because it's a simpler ask
+("yes/no") instead of a 3-way decision in the inbox. But worth real
+data, not a guess.
+
 ### Phase D — Customer login portal (future)
 
 Mentioned by user 2026-05-19 — not part of this build but worth keeping
