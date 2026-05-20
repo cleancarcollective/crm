@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById } from "@/lib/dashboard/bookings";
+import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingUpdateEmail } from "@/lib/email/sendBookingUpdateEmail";
+import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { schedulePostDetailTouchpoints } from "@/lib/bookings/postDetailTouchpoints";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -132,6 +134,68 @@ export async function PATCH(
 
   if (updateError) {
     return NextResponse.json({ success: false, error: "Failed to update booking." }, { status: 500 });
+  }
+
+  // RESCHEDULE: if scheduled_start changed, the existing pending reminder
+  // jobs (email + SMS) are now wrong on two axes:
+  //   1. Their scheduled_for is relative to the OLD start (so a
+  //      "day-before" reminder fires 24h before the wrong date).
+  //   2. SMS reminders have the original date pre-rendered into the
+  //      `message` column at schedule-time, so even if they fired at the
+  //      right time they'd quote the wrong date.
+  // Cancel the old jobs and re-create them via the same helpers so the
+  // customer gets fresh, accurate reminders for the new slot.
+  if (
+    booking.status !== "cancelled" &&
+    booking.status !== "completed" &&
+    existingBooking.scheduled_start !== booking.scheduled_start
+  ) {
+    try {
+      await supabase
+        .from("scheduled_email_jobs")
+        .update({ status: "cancelled", last_error: "Rescheduled - rebuilding reminders" })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending")
+        .is("job_type", null);
+
+      await supabase
+        .from("scheduled_sms_jobs")
+        .update({ status: "cancelled", last_error: "Rescheduled - rebuilding reminders" })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending");
+
+      const shopForReminders = await getShopById(booking.shop_id);
+      await createReminderJobsForBooking({
+        shop: shopForReminders,
+        bookingId: booking.id,
+        contactId: booking.contact_id,
+        scheduledStart: booking.scheduled_start,
+      });
+
+      // SMS reminder needs the contact phone + first name.
+      if (booking.contact_id) {
+        const { data: contact } = await supabase
+          .from("contacts")
+          .select("phone, first_name, full_name")
+          .eq("id", booking.contact_id)
+          .maybeSingle();
+        if (contact?.phone) {
+          await scheduleBookingReminderSms({
+            bookingId: booking.id,
+            contactId: booking.contact_id,
+            shopId: booking.shop_id,
+            phone: contact.phone as string,
+            firstName: (contact.first_name as string | null) ?? (contact.full_name as string | null)?.split(" ")[0] ?? "there",
+            scheduledStart: booking.scheduled_start,
+            timezone: shopForReminders.timezone,
+          });
+        }
+      }
+    } catch (err) {
+      // Non-fatal - the booking update still succeeded. Reminders just
+      // didn't get rebuilt; staff can re-send manually if needed.
+      console.error("Failed to rebuild reminders after reschedule", { bookingId: booking.id, err });
+    }
   }
 
   // Trigger post-detail recurring-discount touchpoints when staff flips
