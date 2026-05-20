@@ -81,7 +81,9 @@ export default async function LockInRecurringPage({
   const supabase = getSupabaseAdminClient();
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, shop_id, series_id, service_name, scheduled_start, scheduled_end, duration_minutes, location_type, service_address, service_details, size, price_estimate, vehicle_id, contact_id, contact:contacts(first_name), vehicle:vehicles(make, model, year, rego)")
+    // Note: `size` lives on booking_series + vehicles, NOT bookings - selecting it
+    // here was making the whole query 400 and the page silently 404 (notFound on null).
+    .select("id, shop_id, series_id, service_name, scheduled_start, scheduled_end, duration_minutes, location_type, service_address, price_estimate, vehicle_id, contact_id, contact:contacts(first_name), vehicle:vehicles(make, model, year, rego)")
     .eq("id", verify.payload.r)
     .eq("shop_id", verify.payload.s)
     .maybeSingle();
