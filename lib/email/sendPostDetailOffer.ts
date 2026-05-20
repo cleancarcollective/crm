@@ -48,26 +48,26 @@ function escapeHtml(value: string) {
 function subjectFor(key: TouchpointKey, firstName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_day0":
-      return `Thanks for choosing us, ${firstName}. Save 15% on your next detail.`;
+      return `Sweet as, ${firstName} - want to keep the car looking this good?`;
     case "post_detail_recurring_offer_6w":
-      return `${firstName}, time for the next detail? 15% off if you go fortnightly`;
+      return `${firstName} - how's the car holding up?`;
     case "post_detail_recurring_offer_10w":
-      return `${firstName}, the 3-month window is closing - lock in 10% off`;
+      return `Heads up ${firstName} - the 10% rate is about to disappear`;
     case "post_detail_recurring_offer_16w":
-      return `${firstName}, last chance: 5% off before the car needs a full detail`;
+      return `${firstName} - last call before the car needs a proper deep clean`;
   }
 }
 
-function openerFor(key: TouchpointKey, shopName: string): string {
+function openerFor(key: TouchpointKey, _shopName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_day0":
-      return `Hope you loved how the car came out today. If you'd like that fresh-detail feeling on the regular, ${shopName} runs a recurring rate that saves you up to 15%.`;
+      return `Hope you're stoked with how the car came out today. If you'd like to keep that just-detailed feel going, we run a regular detail rate that saves you up to 15% on every visit. No contracts, cancel or pause whenever.`;
     case "post_detail_recurring_offer_6w":
-      return `It's been about 6 weeks since we detailed your car. Most cars start to feel like they need another pass right about now. Lock in a fortnightly cadence and you'll save 15% on every visit.`;
+      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a fortnightly rate and we'll knock 15% off every visit. No commitment, cancel or pause whenever you like.`;
     case "post_detail_recurring_offer_10w":
-      return `You're heading into the 3-month window since your last detail. Lock in a 3-monthly rate now and save 10% on every visit — after this the 10% tier is off the table.`;
+      return `Quick one - you're heading into the 3-month window since we last sorted your car. If you want to keep things tidy, lock in a 3-monthly rate now and save 10% every visit. Heads up though: after this the 10% rate is gone and you'll be looking at the 5% tier from here on.`;
     case "post_detail_recurring_offer_16w":
-      return `It's been about 4 months since we detailed your car — past this point most cars need a full detail rather than a quick refresh. This is the last touchpoint we'll send. Lock in a 4-monthly rate now and save 5% on every visit.`;
+      return `It's been about 4 months since we detailed your car - past this point most cars need a proper deep clean rather than a quick refresh. This is the last nudge from us. If you'd like to keep things on a schedule and avoid the big resets, lock in a 4-monthly rate and save 5% every visit.`;
   }
 }
 
@@ -119,14 +119,14 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     ``,
     opener,
     ``,
-    `Recurring options:`,
+    `Here are your options:`,
     ...cadenceRows.map((c) => `  ${c.isFeatured ? "→ " : "  "}${c.label} - save ${c.discount}%${c.priceText ? ` (${c.priceText})` : ""}`),
     ``,
     `Lock in your rate: ${lockInUrl}`,
     ``,
-    `These rates apply to your future detail bookings. Cancel or pause anytime.`,
+    `No contracts - pause or cancel whenever you like.`,
     ``,
-    `Thanks,`,
+    `Cheers,`,
     `${args.shop.name}`,
   ].join("\n");
 
@@ -170,8 +170,8 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
                 </td></tr>
               </table>
 
-              <p style="margin:0 0 6px;font-size:12px;line-height:1.55;color:#7a6f68;">These rates apply to your future detail bookings. Cancel or pause anytime.</p>
-              <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#1a1713;">Thanks,<br/>${escapeHtml(args.shop.name)}</p>
+              <p style="margin:0 0 6px;font-size:12px;line-height:1.55;color:#7a6f68;">No contracts - pause or cancel whenever you like.</p>
+              <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#1a1713;">Cheers,<br/>${escapeHtml(args.shop.name)}</p>
             </td>
           </tr>
           <tr>
@@ -250,13 +250,13 @@ export function renderPostDetailOfferSms(args: {
   const url = args.url;
   switch (args.touchpointKey) {
     case "post_detail_recurring_offer_day0":
-      return `Hey ${fn}, glad we could give your car the treatment. Lock in a recurring detail for 15% off every visit: ${url} (Clean Car Collective)`;
+      return `Hey ${fn}, hope you're stoked with how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 15% every visit: ${url} - Clean Car Collective`;
     case "post_detail_recurring_offer_6w":
-      return `Hey ${fn}, it's been 6 weeks - want to keep that fresh look? Lock in fortnightly detailing for 15% off: ${url}`;
+      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 15% every visit? Have a squiz: ${url}`;
     case "post_detail_recurring_offer_10w":
-      return `Hey ${fn}, heading into the 3-month window. Lock in every 3 months for 10% off before you lose the rate: ${url}`;
+      return `Hey ${fn}, heading into the 3-month mark since your last detail. Sort a 3-monthly rate now and save 10% every visit - after this the discount drops: ${url}`;
     case "post_detail_recurring_offer_16w":
-      return `Hey ${fn}, past 4 months the car will need a full detail. Last chance for 5% off every 4 months: ${url}`;
+      return `Hey ${fn}, been 4 months since your detail - past this and the car usually needs a proper deep clean. Last chance to lock in a 4-monthly rate at 5% off: ${url}`;
   }
 }
 
