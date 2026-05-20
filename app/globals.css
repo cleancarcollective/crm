@@ -3431,6 +3431,11 @@ textarea {
   align-items: stretch;
   gap: 6px;
   margin: 4px 0 4px;
+  /* Don't let the strip push the parent card wider than the viewport.
+     Without min-width:0 + max-width, the date pills' min-content width
+     overrides the overflow:auto on the strip and blows up the layout. */
+  min-width: 0;
+  max-width: 100%;
 }
 .lockInStripNav {
   flex: 0 0 auto;
@@ -3446,7 +3451,10 @@ textarea {
 }
 .lockInStripNav:hover { background: rgba(26, 77, 46, 0.05); }
 .lockInDateStrip {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  /* min-width: 0 is the magic that actually engages overflow:auto inside
+     a flex parent - otherwise the strip grows to fit its content. */
+  min-width: 0;
   display: flex;
   gap: 8px;
   overflow-x: auto;
