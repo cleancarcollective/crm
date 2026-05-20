@@ -50,9 +50,17 @@ const CUSTOMER_PAGE_PREFIXES = [
 function makeNext(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const isCustomerPage = CUSTOMER_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
-  const res = NextResponse.next();
-  if (isCustomerPage) res.headers.set("x-customer-page", "1");
-  return res;
+  if (!isCustomerPage) {
+    return NextResponse.next();
+  }
+  // Mutate the REQUEST headers (not response) so that server components can
+  // read the flag via headers() in next/headers. Setting response headers
+  // only does NOT propagate back into the server-render context.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-customer-page", "1");
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export function middleware(request: NextRequest) {
