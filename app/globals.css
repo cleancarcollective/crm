@@ -933,10 +933,17 @@ textarea {
   text-transform: capitalize;
 }
 
-.statusConfirmed,
-.statusCompleted {
+.statusConfirmed {
   background: rgba(30, 158, 82, 0.12);
   color: var(--success);
+}
+
+/* Completed reads as "archival / done, in the past" rather than "upcoming",
+   so a calmer teal-grey is easier to distinguish from the active-green
+   Confirmed badge at a glance on the day calendar. */
+.statusCompleted {
+  background: rgba(50, 95, 115, 0.12);
+  color: #2c5872;
 }
 
 .statusPending {
