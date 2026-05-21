@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
 import { ShopSwitcher } from "@/components/dashboard/ShopSwitcher";
 import { getCurrentUser } from "@/lib/auth/currentShop";
+import { gateRouteForRole } from "@/lib/auth/roles";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import "@/app/globals.css";
 
@@ -48,7 +50,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // logged in. Middleware sets x-customer-page=1 for those paths. Skipping
   // the nav avoids the mobile horizontal-overflow we hit on the lock-in
   // page where staff testers refresh and see a broken layout.
-  const isCustomerPage = (await headers()).get("x-customer-page") === "1";
+  const hdrs = await headers();
+  const isCustomerPage = hdrs.get("x-customer-page") === "1";
   if (isCustomerPage) {
     return (
       <html lang="en">
@@ -63,6 +66,44 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     return (
       <html lang="en">
         <body>{children}</body>
+      </html>
+    );
+  }
+
+  // Role-based path gating for sales users. The pathname is forwarded as a
+  // request header by middleware.ts. If a sales user has landed somewhere
+  // they shouldn't, redirect them to /sales before rendering.
+  const pathname = hdrs.get("x-pathname") ?? "";
+  const gateRedirect = gateRouteForRole(user, pathname);
+  if (gateRedirect && pathname !== gateRedirect) {
+    // Cast to bypass typedRoutes - gateRouteForRole's runtime return values
+    // are always real app routes (/sales, /), but the function returns a
+    // generic string for flexibility.
+    redirect(gateRedirect as unknown as Parameters<typeof redirect>[0]);
+  }
+
+  // Sales users get a stripped-down nav. No new-booking button (they book
+  // from the lead detail page), no calendar/clients/leads/funnel/settings,
+  // no shop switcher.
+  if (user.role === "sales") {
+    return (
+      <html lang="en">
+        <body>
+          <nav className="globalNav">
+            <Link href="/sales" className="globalNavBrand">CCC CRM</Link>
+            <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
+              {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
+            </span>
+            <div className="globalNavLinks">
+              <Link href="/sales" className="globalNavLink">Cold leads</Link>
+            </div>
+            <div className="globalNavRight">
+              <span className="globalNavUser">{user.name}</span>
+              <LogoutButton />
+            </div>
+          </nav>
+          {children}
+        </body>
       </html>
     );
   }

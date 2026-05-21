@@ -11,7 +11,7 @@ export type SessionShop = {
   timezone: string;
 };
 
-export type StaffRole = "admin" | "contractor";
+export type StaffRole = "admin" | "contractor" | "sales";
 
 export type SessionUser = {
   userId: string;
@@ -20,7 +20,9 @@ export type SessionUser = {
   /** True if this user can switch between shops via the nav. */
   isSuperAdmin: boolean;
   /** Permissions tier. "admin" = full access. "contractor" = read-only view
-   *  of bookings/calendar/contacts; no settings, analytics, or staff admin. */
+   *  of bookings/calendar/contacts; no settings, analytics, or staff admin.
+   *  "sales" = cold-lead caller; only sees /sales + a locked-down lead
+   *  detail view + the booking modal. */
   role: StaffRole;
   /** The shop the user belongs to (their permanent home). */
   homeShop: SessionShop;
@@ -28,8 +30,16 @@ export type SessionUser = {
    * The shop the request is currently operating on. For non-super-admins,
    * always equal to homeShop. For super-admins, equal to the shop they've
    * selected via the active-shop cookie (defaulting to homeShop if unset).
+   * For sales users, equal to their assigned_shop (see below) — the
+   * active-shop cookie is ignored.
    */
   shop: SessionShop;
+  /**
+   * Sales users are pinned to one shop's lead queue regardless of which
+   * shop they "belong" to. Null for admin/contractor. The shop scope is
+   * enforced server-side via this field (NOT via the active-shop cookie).
+   */
+  assignedShop: SessionShop | null;
 };
 
 export async function createSession(userId: string): Promise<string> {
@@ -65,7 +75,7 @@ export async function verifySession(
   const { data, error } = await supabase
     .from("staff_sessions")
     .select(
-      "user_id, expires_at, staff_users(id, email, name, is_super_admin, role, shop_id, shop:shops(id, slug, name, timezone))"
+      "user_id, expires_at, staff_users(id, email, name, is_super_admin, role, shop_id, assigned_shop_id, shop:shops(id, slug, name, timezone))"
     )
     .eq("id", sessionId)
     .maybeSingle();
@@ -85,6 +95,7 @@ export async function verifySession(
         is_super_admin: boolean | null;
         role: string | null;
         shop_id: string;
+        assigned_shop_id: string | null;
         shop: { id: string; slug: string; name: string; timezone: string } | null;
       }
     | null;
@@ -98,12 +109,43 @@ export async function verifySession(
     timezone: user.shop.timezone,
   };
 
-  // Resolve effective shop. Non-super-admins always use their home shop —
-  // any active-shop cookie they have is silently ignored. Super-admins can
-  // override via the cookie; on bad slug we silently fall back to home.
+  // Look up the assigned shop separately - the multi-FK embed broke
+  // prod on 2026-05-21, and a separate lookup is cheap (1 indexed PK row)
+  // + only runs for sales users since other roles leave the column null.
+  let assignedShop: SessionShop | null = null;
+  if (user.assigned_shop_id) {
+    const { data: r } = await supabase
+      .from("shops")
+      .select("id, slug, name, timezone")
+      .eq("id", user.assigned_shop_id)
+      .maybeSingle();
+    if (r) {
+      assignedShop = {
+        id: r.id as string,
+        slug: r.slug as string,
+        name: r.name as string,
+        timezone: r.timezone as string,
+      };
+    }
+  }
+
+  const role: StaffRole =
+    user.role === "contractor"
+      ? "contractor"
+      : user.role === "sales"
+      ? "sales"
+      : "admin";
+
+  // Resolve effective shop:
+  //   - sales users: pinned to assigned_shop (fall back to home if unset, which
+  //     should not happen — but better safe than data-leak across shops)
+  //   - super-admins: honour the active-shop cookie
+  //   - everyone else: home shop
   let effectiveShop = homeShop;
   const isSuperAdmin = user.is_super_admin === true;
-  if (isSuperAdmin && activeShopSlug && activeShopSlug !== homeShop.slug) {
+  if (role === "sales") {
+    effectiveShop = assignedShop ?? homeShop;
+  } else if (isSuperAdmin && activeShopSlug && activeShopSlug !== homeShop.slug) {
     const { data: altShop } = await supabase
       .from("shops")
       .select("id, slug, name, timezone")
@@ -119,8 +161,6 @@ export async function verifySession(
     }
   }
 
-  const role: StaffRole = user.role === "contractor" ? "contractor" : "admin";
-
   return {
     userId: user.id,
     email: user.email,
@@ -129,6 +169,7 @@ export async function verifySession(
     role,
     homeShop,
     shop: effectiveShop,
+    assignedShop,
   };
 }
 

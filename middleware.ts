@@ -50,14 +50,14 @@ const CUSTOMER_PAGE_PREFIXES = [
 function makeNext(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const isCustomerPage = CUSTOMER_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
-  if (!isCustomerPage) {
-    return NextResponse.next();
-  }
-  // Mutate the REQUEST headers (not response) so that server components can
-  // read the flag via headers() in next/headers. Setting response headers
-  // only does NOT propagate back into the server-render context.
+  // We always forward the current pathname as a request header so server
+  // components (e.g. the root layout) can role-gate without re-parsing the
+  // URL. Only the layout uses this today — see lib/auth/roles.ts.
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-customer-page", "1");
+  requestHeaders.set("x-pathname", pathname);
+  if (isCustomerPage) {
+    requestHeaders.set("x-customer-page", "1");
+  }
   return NextResponse.next({
     request: { headers: requestHeaders },
   });
@@ -81,6 +81,11 @@ export function middleware(request: NextRequest) {
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
+
+  // Role-based route gating (sales users restricted to /sales + lead detail)
+  // is enforced in the root layout for pages and in individual API route
+  // handlers for endpoints. We deliberately don't run a Supabase round-trip
+  // in middleware on every request — see lib/auth/roles.ts gateRouteForRole.
 
   return makeNext(request);
 }

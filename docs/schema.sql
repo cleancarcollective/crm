@@ -357,3 +357,11 @@ create index if not exists sms_templates_shop_id_idx on sms_templates(shop_id);
 -- See docs/migrations/2026-05-09-super-admin.sql
 alter table staff_users
   add column if not exists is_super_admin boolean not null default false;
+
+-- ─── sales role + shop-scoping + booking attribution ──────────────────────────
+-- See docs/migrations/2026-05-21-sales-role.sql
+alter table staff_users
+  add column if not exists assigned_shop_id uuid references shops(id) on delete set null;
+
+alter table bookings
+  add column if not exists booked_by_user_id uuid references staff_users(id) on delete set null;
