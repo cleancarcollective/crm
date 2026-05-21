@@ -57,16 +57,23 @@ function extractEmailAddress(fromLine: string): string {
 }
 
 function getTransport(userEmail: string, password: string): nodemailer.Transporter {
-  const cached = transports.get(userEmail);
-  if (cached) return cached;
-  const t = nodemailer.createTransport({
+  // Don't cache transports across sends. On Vercel's serverless runtime a
+  // lambda instance can stick around for many minutes; if Gmail closes the
+  // underlying SMTP connection in that window (idle timeout, security
+  // flag, rate-limit) the cached transport auth-fails until the lambda
+  // recycles. We observed an 8% intermittent
+  // "535-5.7.8 Username and Password not accepted - BadCredentials"
+  // failure rate on ben@ in May 2026 - all hitting the cached-transport
+  // path. Creating a fresh transport per send pays ~50ms TCP/TLS for
+  // reliability.
+  void transports;
+  void userEmail;
+  return nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
     auth: { user: userEmail, pass: password },
   });
-  transports.set(userEmail, t);
-  return t;
 }
 
 export type SmtpSendArgs = {
