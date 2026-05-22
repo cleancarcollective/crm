@@ -2,11 +2,14 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
+import { BookCustomerButton } from "@/components/dashboard/BookCustomerButton";
 import { ContactDetailsEditor } from "@/components/dashboard/ContactDetailsEditor";
 import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
 import { LeadSourceEditor } from "@/components/dashboard/LeadSourceEditor";
+import { getCurrentUser } from "@/lib/auth/currentShop";
+import { isSalesRole } from "@/lib/auth/roles";
 import { getVehicleLabel } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatDateTime } from "@/lib/dashboard/format";
 import type { ContactProfile as ContactProfileData } from "@/lib/dashboard/types";
@@ -25,10 +28,17 @@ function readPreview(html: string) {
     .slice(0, 180);
 }
 
-export function ContactProfile({ profile }: ContactProfileProps) {
+export async function ContactProfile({ profile }: ContactProfileProps) {
   const { contact, shop, vehicles, bookings, leads, emails, credits } = profile;
   const displayName =
     contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "Unknown contact";
+
+  const user = await getCurrentUser();
+  const isSales = isSalesRole(user);
+  const canEditContactDetails = !isSales;
+  const firstVehicle = vehicles[0] ?? null;
+  const backHref = isSales ? "/sales" : "/";
+  const backLabel = isSales ? "Back to sales queue" : "Back to calendar";
 
   return (
     <main className="pageShell">
@@ -39,12 +49,41 @@ export function ContactProfile({ profile }: ContactProfileProps) {
           <p className="detailSubtitle">{shop.name}</p>
         </div>
         <div className="topbarMeta">
-          <Link href="/" className="textLink">
-            Back to calendar
+          <Link href={backHref} className="textLink">
+            {backLabel}
           </Link>
-          <ArchiveButton type="contact" id={contact.id} redirectAfter="/clients" />
+          {!isSales ? (
+            <ArchiveButton type="contact" id={contact.id} redirectAfter="/clients" />
+          ) : null}
         </div>
       </div>
+
+      {isSales ? (
+        <div className="pageActionRow" style={{ marginBottom: 16 }}>
+          <BookCustomerButton
+            contact={{
+              id: contact.id,
+              first_name: contact.first_name ?? null,
+              last_name: contact.last_name ?? null,
+              full_name: contact.full_name ?? null,
+              email: contact.email ?? null,
+              phone: contact.phone ?? null,
+            }}
+            vehicle={
+              firstVehicle
+                ? {
+                    id: firstVehicle.id,
+                    make: firstVehicle.make,
+                    model: firstVehicle.model,
+                    year: firstVehicle.year,
+                    rego: firstVehicle.rego,
+                    size: firstVehicle.size,
+                  }
+                : null
+            }
+          />
+        </div>
+      ) : null}
 
       <div className="summaryStrip">
         <div className="summaryCard">
@@ -103,6 +142,7 @@ export function ContactProfile({ profile }: ContactProfileProps) {
               ? formatDateTime(contact.created_at, shop.timezone, "EEE d MMM yyyy, h:mm a")
               : "—"
           }
+          canEditContactDetails={canEditContactDetails}
         />
 
         <section className="detailPanel">

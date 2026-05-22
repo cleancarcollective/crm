@@ -1,7 +1,7 @@
 import { addMinutes } from "date-fns";
 import { NextResponse } from "next/server";
 
-import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { getCurrentUser, requireCurrentShop } from "@/lib/auth/currentShop";
 import { resolveContactAndVehicle } from "@/lib/bookings/resolveContactAndVehicle";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingConfirmationEmail } from "@/lib/email/sendBookingConfirmation";
@@ -87,6 +87,7 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseAdminClient();
   const shop = await requireCurrentShop();
+  const user = await getCurrentUser();
 
   // ── 1+2. Resolve contact + vehicle ──────────────────────────────────
   // Shared helper — keeps dedupe rules identical with /api/booking-series.
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
       notes: payload.notes ?? null,
       status: payload.status ?? "confirmed",
       raw_payload: {},
+      booked_by_user_id: user?.userId ?? null,
     })
     .select("*")
     .single();
@@ -163,7 +165,14 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (openLead) {
-      const wonSource = openLead.template_id ? "auto_email" : "direct_booking";
+      // Sales-role bookings always attribute to "sales_call" so the stats
+      // page can distinguish closed-by-rep from auto-email-driven wins.
+      const wonSource =
+        user?.role === "sales"
+          ? "sales_call"
+          : openLead.template_id
+          ? "auto_email"
+          : "direct_booking";
       await supabase
         .from("leads")
         .update({

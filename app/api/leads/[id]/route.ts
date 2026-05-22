@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { getCurrentUser, requireCurrentShop } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function PATCH(
@@ -9,6 +9,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const shop = await requireCurrentShop();
+  const user = await getCurrentUser();
   const body = await req.json();
   const { status, won_source, notes, source } = body as { status?: string; won_source?: string; notes?: string; source?: string };
 
@@ -28,6 +29,21 @@ export async function PATCH(
       .eq("id", id)
       .eq("shop_id", shop.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Append-only audit log of who wrote notes when. Powers the sales-stats
+    // "calls" metric (a "call" = a note left by a sales user). Non-fatal.
+    if (notes !== undefined) {
+      try {
+        await supabase.from("lead_notes_log").insert({
+          lead_id: id,
+          shop_id: shop.id,
+          user_id: user?.userId ?? null,
+          notes: notes ?? null,
+        });
+      } catch (err) {
+        console.error("Failed to append lead_notes_log (non-fatal)", err);
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 

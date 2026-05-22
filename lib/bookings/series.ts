@@ -190,6 +190,10 @@ export type CreateSeriesInput = {
   notes?: string | null;
   rule: SeriesRule;
   createdByUserId?: string | null;
+  /** Staff user who created the series. Stamped onto every generated
+   *  booking row via bookings.booked_by_user_id so the sales-stats page can
+   *  attribute revenue to whoever set up the series. */
+  bookedByUserId?: string | null;
   // Recurring-discount metadata. discountPercent is the % saved on every
   // occurrence in this series — already applied to priceEstimate by the
   // caller, we just store it for reporting + receipt copy. discountSource
@@ -310,6 +314,7 @@ export async function createSeriesAndOccurrences(
         series_id: seriesId,
         series_sequence: idx,
         series_overridden: false,
+        booked_by_user_id: input.bookedByUserId ?? null,
       })
       .select("id, scheduled_start")
       .single();

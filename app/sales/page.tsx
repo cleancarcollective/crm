@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
@@ -60,7 +61,9 @@ export default async function SalesPage({
             >
               Export CSV
             </Link>
-            {/* TODO: build /sales/stats page (admin attribution metrics) */}
+            <Link href={"/sales/stats" as Route} className="buttonGhost">
+              Sales stats
+            </Link>
           </div>
         ) : null}
       </div>

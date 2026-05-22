@@ -20,6 +20,9 @@ type ContactDetailsEditorProps = {
   initialEmail: string | null;
   initialPhone: string | null;
   createdLabel: string;
+  /** When false (sales role), hide the Edit button entirely.
+   *  Server-side PATCH still rejects these fields - this is just UI polish. */
+  canEditContactDetails: boolean;
 };
 
 export function ContactDetailsEditor({
@@ -30,6 +33,7 @@ export function ContactDetailsEditor({
   initialEmail,
   initialPhone,
   createdLabel,
+  canEditContactDetails,
 }: ContactDetailsEditorProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -78,7 +82,7 @@ export function ContactDetailsEditor({
     <section className="detailPanel">
       <div className="contactNotesPanelHeader">
         <h2>Contact</h2>
-        {!editing && (
+        {!editing && canEditContactDetails && (
           <button type="button" className="contactNotesEditBtn" onClick={() => setEditing(true)}>
             Edit
           </button>

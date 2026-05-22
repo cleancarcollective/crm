@@ -25,9 +25,38 @@ type VehicleResult = {
   size: string | null;
 };
 
+/**
+ * Lightweight pre-fill shape: just enough to satisfy the contact-selected
+ * state without forcing the caller to also hand us a vehicles list (those
+ * are passed separately via initialVehicle if known).
+ */
+export type InitialContact = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export type InitialVehicle = {
+  id: string;
+  make: string | null;
+  model: string | null;
+  year: string | null;
+  rego: string | null;
+  size: string | null;
+};
+
 type Props = {
   defaultDate?: string; // yyyy-MM-dd
   onClose: () => void;
+  /** Pre-select this contact (skips the search UI). The "+ New customer"
+   *  toggle defaults to OFF when this is set. */
+  initialContact?: InitialContact | null;
+  /** Optional vehicle pre-selection. Only honoured when initialContact is
+   *  set; appears in the vehicle dropdown alongside any others. */
+  initialVehicle?: InitialVehicle | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -192,14 +221,30 @@ function defaultDateTime(date?: string) {
 
 // ── Component ─────────────────────────────────────────────────────────
 
-export function NewBookingModal({ defaultDate, onClose }: Props) {
+export function NewBookingModal({ defaultDate, onClose, initialContact, initialVehicle }: Props) {
   const router = useRouter();
 
+  // Seed the selectedContact from initialContact, folding any pre-known
+  // vehicle into its vehicles list so the dropdown shows it.
+  const seededContact: ContactResult | null = initialContact
+    ? {
+        id: initialContact.id,
+        first_name: initialContact.first_name,
+        last_name: initialContact.last_name,
+        full_name: initialContact.full_name,
+        email: initialContact.email,
+        phone: initialContact.phone,
+        vehicles: initialVehicle ? [initialVehicle] : [],
+      }
+    : null;
+
   // Contact search
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    seededContact ? seededContact.full_name ?? seededContact.email ?? "" : ""
+  );
   const [results, setResults] = useState<ContactResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<ContactResult | null>(null);
+  const [selectedContact, setSelectedContact] = useState<ContactResult | null>(seededContact);
   const [showNewContact, setShowNewContact] = useState(false);
 
   // New contact fields
@@ -209,7 +254,9 @@ export function NewBookingModal({ defaultDate, onClose }: Props) {
   const [ncPhone, setNcPhone] = useState("");
 
   // Vehicle
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(""); // "" = new
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(
+    initialVehicle ? initialVehicle.id : ""
+  ); // "" = new
   const [nvMake, setNvMake] = useState("");
   const [nvModel, setNvModel] = useState("");
   const [nvYear, setNvYear] = useState("");

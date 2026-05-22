@@ -126,6 +126,7 @@ export async function POST(request: Request) {
         endOnDate: payload.rule.endOnDate ? new Date(payload.rule.endOnDate) : null,
       },
       createdByUserId: user?.userId ?? null,
+      bookedByUserId: user?.userId ?? null,
     });
 
     return NextResponse.json({
