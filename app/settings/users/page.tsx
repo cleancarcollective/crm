@@ -35,7 +35,9 @@ export default async function UsersSettingsPage() {
     id: s.id as string,
     email: s.email as string,
     name: s.name as string,
-    role: (s.role as string) === "contractor" ? "contractor" : "admin",
+    role: ((s.role as string) === "contractor" || (s.role as string) === "sales")
+      ? (s.role as string)
+      : "admin",
     is_super_admin: !!s.is_super_admin,
     created_at: s.created_at as string,
     isSelf: s.id === user.userId,

@@ -25,7 +25,7 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "contractor">("contractor");
+  const [role, setRole] = useState<"admin" | "contractor" | "sales">("contractor");
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +40,8 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setStaff((prev) => [...prev, { ...data.staff, role: data.staff.role ?? role, is_super_admin: false, isSelf: false }]);
-      setName(""); setEmail(""); setPassword(""); setRole("contractor");
+      setName(""); setEmail(""); setPassword("");
+      setRole("contractor");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -48,7 +49,7 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
     }
   }
 
-  async function handleRoleChange(id: string, newRole: "admin" | "contractor") {
+  async function handleRoleChange(id: string, newRole: "admin" | "contractor" | "sales") {
     setError(null);
     const prev = staff;
     setStaff((p) => p.map((s) => (s.id === id ? { ...s, role: newRole } : s)));
@@ -92,6 +93,7 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
         <p className="settingsDescription">
           Contractors can view bookings, leads, and customers but not access settings or analytics.
           Admins have full access including this page.
+          Sales users only see cold leads for the current shop, can take notes + book customers, and can&apos;t see settings, analytics, or the calendar.
         </p>
         {error && <p className="editorError" role="alert">{error}</p>}
         <form onSubmit={handleCreate} className="staffCreateForm">
@@ -112,8 +114,9 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
             </div>
             <div className="modalField">
               <label>Role</label>
-              <select className="detailInput" value={role} onChange={(e) => setRole(e.target.value as "admin" | "contractor")}>
-                <option value="contractor">Contractor (limited)</option>
+              <select className="detailInput" value={role} onChange={(e) => setRole(e.target.value as "admin" | "contractor" | "sales")}>
+                <option value="contractor">Contractor (bookings + leads + customers)</option>
+                <option value="sales">Sales (cold-lead caller, this shop only)</option>
                 <option value="admin">Admin (full access)</option>
               </select>
             </div>
@@ -143,10 +146,11 @@ export function UsersAdmin({ initialStaff, shopSlug }: Props) {
                   <select
                     className="detailInput staffRoleSelect"
                     value={s.role}
-                    onChange={(e) => handleRoleChange(s.id, e.target.value as "admin" | "contractor")}
+                    onChange={(e) => handleRoleChange(s.id, e.target.value as "admin" | "contractor" | "sales")}
                     disabled={s.isSelf}
                   >
                     <option value="contractor">Contractor</option>
+                    <option value="sales">Sales</option>
                     <option value="admin">Admin</option>
                   </select>
                 </td>

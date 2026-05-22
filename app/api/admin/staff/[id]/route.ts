@@ -40,12 +40,21 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  const role = body.role === "contractor" ? "contractor" : "admin";
+  const role = body.role === "contractor"
+    ? "contractor"
+    : body.role === "sales"
+      ? "sales"
+      : "admin";
+
+  // Promoting to sales pins assigned_shop_id to the admin's current
+  // shop. Demoting away from sales clears it.
+  const updateRow: Record<string, unknown> = { role };
+  updateRow.assigned_shop_id = role === "sales" ? user.shop.id : null;
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("staff_users")
-    .update({ role })
+    .update(updateRow)
     .eq("id", id)
     .eq("shop_id", user.shop.id)
     .select("id, email, name, role")

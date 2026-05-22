@@ -49,7 +49,11 @@ export async function POST(request: Request) {
   const email = body.email?.trim().toLowerCase();
   const name = body.name?.trim();
   const password = body.password ?? "";
-  const role = body.role === "contractor" ? "contractor" : "admin";
+  const role = body.role === "contractor"
+    ? "contractor"
+    : body.role === "sales"
+      ? "sales"
+      : "admin";
 
   if (!email || !name || !password) {
     return NextResponse.json({ error: "email, name and password are required." }, { status: 400 });
@@ -75,9 +79,24 @@ export async function POST(request: Request) {
     targetShopId = shop.id as string;
   }
 
+  // Sales users get assigned_shop_id = their home shop. Keeps the scope
+  // explicit and matches what the session loader expects (it looks up
+  // assigned shop by id, falling back to home shop if unset, but for
+  // sales we always want the explicit assignment).
+  const insertRow: Record<string, unknown> = {
+    email,
+    name,
+    password_hash: passwordHash,
+    shop_id: targetShopId,
+    role,
+  };
+  if (role === "sales") {
+    insertRow.assigned_shop_id = targetShopId;
+  }
+
   const { data, error } = await supabase
     .from("staff_users")
-    .insert({ email, name, password_hash: passwordHash, shop_id: targetShopId, role })
+    .insert(insertRow)
     .select("id, email, name, role, created_at")
     .single();
 
