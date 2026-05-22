@@ -32,7 +32,7 @@ export type SalesLeadEntry = {
 
 export type SalesQueueResult = {
   entries: SalesLeadEntry[];
-  bucketCounts: { "7-30d": number; "30-90d": number; "90-180d": number; all: number };
+  bucketCounts: { "7-30d": number; "30-90d": number; "90-180d": number; all: number; orbis: number };
   totalShown: number;
 };
 
@@ -69,25 +69,50 @@ export async function getSalesQueue(args: {
   range?: SalesRange;
   service?: string;
   untouchedOnly?: boolean;
+  /**
+   * "Active" mode (default) is the daily caller workflow: leads from the
+   * website 7-180 days old, not yet won/lost. "Orbis" mode surfaces
+   * historical OrbisX-imported leads regardless of status - 3.5k cold
+   * prospects + 1k previous customers to re-engage. "All" is both.
+   */
+  mode?: "active" | "orbis" | "all";
 }): Promise<SalesQueueResult> {
   const supabase = getSupabaseAdminClient();
   const range = args.range ?? "all";
+  const mode = args.mode ?? "active";
   const { from, to } = rangeBounds(range);
 
   let q = supabase
     .from("leads")
     .select(
-      "id, shop_id, contact_id, vehicle_id, service_requested, status, created_at, updated_at, " +
+      "id, shop_id, contact_id, vehicle_id, service_requested, status, source, created_at, updated_at, " +
         "contact:contacts(id, first_name, last_name, full_name, email, phone), " +
         "vehicle:vehicles(year, make, model, size)"
     )
     .eq("shop_id", args.shopId)
     .not("archived", "eq", true)
-    .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
-    .gte("created_at", from.toISOString())
-    .lte("created_at", to.toISOString())
     .order("updated_at", { ascending: true })
     .limit(500);
+
+  if (mode === "active") {
+    // Standard cold-lead queue: recent enquiries not yet closed.
+    q = q
+      .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
+      .neq("source", "orbis-import")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString());
+  } else if (mode === "orbis") {
+    // OrbisX archive: imported leads regardless of status. No date range
+    // filter — these go back to 2024. Sort already by least-recently-
+    // touched so the rep doesn't double-call.
+    q = q.eq("source", "orbis-import");
+  } else {
+    // "all" — include both, but still respect range bounds for non-orbis.
+    // Done as an OR: source='orbis-import' OR (status not closed AND in range)
+    q = q.or(
+      `source.eq.orbis-import,and(status.not.in.(${CLOSED_STATUSES.join(",")}),created_at.gte.${from.toISOString()},created_at.lte.${to.toISOString()})`,
+    );
+  }
 
   if (args.service) {
     q = q.ilike("service_requested", `%${args.service}%`);
@@ -198,11 +223,23 @@ async function getBucketCounts(shopId: string, service?: string): Promise<SalesQ
     const { count: c } = await q;
     return c ?? 0;
   }
-  const [a, b, c, d] = await Promise.all([
+  async function countOrbis() {
+    let q = supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", shopId)
+      .not("archived", "eq", true)
+      .eq("source", "orbis-import");
+    if (service) q = q.ilike("service_requested", `%${service}%`);
+    const { count: c } = await q;
+    return c ?? 0;
+  }
+  const [a, b, c, d, o] = await Promise.all([
     count("7-30d"),
     count("30-90d"),
     count("90-180d"),
     count("all"),
+    countOrbis(),
   ]);
-  return { "7-30d": a, "30-90d": b, "90-180d": c, all: d };
+  return { "7-30d": a, "30-90d": b, "90-180d": c, all: d, orbis: o };
 }

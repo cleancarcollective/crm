@@ -16,7 +16,7 @@ const RANGE_OPTIONS: Array<{ value: SalesRange; label: string }> = [
 export default async function SalesPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; service?: string; untouched?: string }>;
+  searchParams?: Promise<{ range?: string; service?: string; untouched?: string; mode?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -35,12 +35,16 @@ export default async function SalesPage({
   const range: SalesRange = (["7-30d", "30-90d", "90-180d", "all"].includes(rangeRaw) ? rangeRaw : "all") as SalesRange;
   const service = (params.service ?? "").trim() || undefined;
   const untouchedOnly = params.untouched === "1" || params.untouched === "true";
+  const modeRaw = (params.mode ?? "active").trim();
+  const mode: "active" | "orbis" | "all" =
+    modeRaw === "orbis" ? "orbis" : modeRaw === "all" ? "all" : "active";
 
   const { entries, bucketCounts, totalShown } = await getSalesQueue({
     shopId: shopForQueue.id,
     range,
     service,
     untouchedOnly,
+    mode,
   });
 
   const isAdmin = user.role === "admin";
@@ -69,33 +73,47 @@ export default async function SalesPage({
       </div>
 
       <div className="summaryStrip">
-        <div className="summaryCard">
-          <span>7 to 30 days</span>
-          <strong>{bucketCounts["7-30d"]}</strong>
-        </div>
-        <div className="summaryCard">
-          <span>30 to 90 days</span>
-          <strong>{bucketCounts["30-90d"]}</strong>
-        </div>
-        <div className="summaryCard">
-          <span>90 to 180 days</span>
-          <strong>{bucketCounts["90-180d"]}</strong>
-        </div>
-        <div className="summaryCard summaryCardHighlight">
-          <span>All open enquiries</span>
+        <Link
+          href={`/sales?mode=active${service ? `&service=${encodeURIComponent(service)}` : ""}` as Route}
+          className={`summaryCard${mode === "active" ? " summaryCardHighlight" : ""}`}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          <span>Recent enquiries</span>
           <strong>{bucketCounts.all}</strong>
-        </div>
+          <span style={{ fontSize: 11, color: "#9e9189" }}>Website, 7-180d</span>
+        </Link>
+        <Link
+          href={`/sales?mode=orbis${service ? `&service=${encodeURIComponent(service)}` : ""}` as Route}
+          className={`summaryCard${mode === "orbis" ? " summaryCardHighlight" : ""}`}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          <span>OrbisX archive</span>
+          <strong>{bucketCounts.orbis}</strong>
+          <span style={{ fontSize: 11, color: "#9e9189" }}>Imported history</span>
+        </Link>
+        <Link
+          href={`/sales?mode=all${service ? `&service=${encodeURIComponent(service)}` : ""}` as Route}
+          className={`summaryCard${mode === "all" ? " summaryCardHighlight" : ""}`}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          <span>Everything</span>
+          <strong>{bucketCounts.all + bucketCounts.orbis}</strong>
+          <span style={{ fontSize: 11, color: "#9e9189" }}>Both pools</span>
+        </Link>
       </div>
 
       <form className="directoryFilterBar" method="get" action="/sales">
-        <label className="modalField">
-          <span>Range</span>
-          <select className="detailInput" name="range" defaultValue={range}>
-            {RANGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </label>
+        <input type="hidden" name="mode" value={mode} />
+        {mode !== "orbis" ? (
+          <label className="modalField">
+            <span>Range</span>
+            <select className="detailInput" name="range" defaultValue={range}>
+              {RANGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="modalField">
           <span>Service</span>
           <input className="detailInput" name="service" defaultValue={service ?? ""} placeholder="e.g. detail, wash" />
