@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { format, parse } from "date-fns";
 
+import { BlockDayButton } from "@/components/dashboard/BlockDayButton";
 import { BookingList } from "@/components/dashboard/BookingList";
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
@@ -30,7 +31,10 @@ export default async function DayPage({
           </Link>
           <h1 className="pageTitle">{format(parsedDay, "EEEE d MMMM yyyy")}</h1>
         </div>
-        <NewBookingButton defaultDate={day} label="+ New Booking" className="buttonPrimary" />
+        <div style={{ display: "flex", gap: 8 }}>
+          <BlockDayButton day={day} />
+          <NewBookingButton defaultDate={day} label="+ New Booking" className="buttonPrimary" />
+        </div>
       </div>
 
       <div className="summaryStrip">
