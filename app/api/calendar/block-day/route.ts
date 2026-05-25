@@ -28,13 +28,17 @@ import { requireCurrentShop } from "@/lib/auth/currentShop";
 // uses CalendarApp.createEvent / createAllDayEvent on its bound calendar.
 // Apps Script URLs match the availability route — kept in env vars with
 // a hardcoded fallback for resilience.
+// Hardcoded to the deployments that include the doPost (block) handler.
+// These same URLs serve the doGet availability read too, so the public
+// availability route uses them via env var. Env var still wins so a swap
+// here can be done at runtime without redeploy.
 const APPS_SCRIPT_BY_SHOP: Record<string, string> = {
   christchurch:
     process.env.AVAILABILITY_APPS_SCRIPT_CHRISTCHURCH ||
-    "https://script.google.com/macros/s/AKfycbx-Szjmziagukw3dNS_S-yI4tVuRH6hBIyEtGIuH2WIkvdLMOI1QiDx76d7Q5xqHhBB/exec",
+    "https://script.google.com/macros/s/AKfycbwP4txGXMGlAPohOdS0S6hRJIXFa8Xqby07bBvsYyONc0FGcBCTYIzwVgr1wrtFuWY/exec",
   wellington:
     process.env.AVAILABILITY_APPS_SCRIPT_WELLINGTON ||
-    "https://script.google.com/a/macros/cleancarcollective.co.nz/s/AKfycbxrHs8IAyWHm46ZLaatU8j6Gbz8WGhE6OQvIYL8RA1A2gakXFeZuuoXGFiyaNzydgKaOA/exec",
+    "https://script.google.com/macros/s/AKfycbwNVya1aU64eclbO4kNDOAy789NQNOOLu-_TPrDfskBwjO7hwxVj2YeNLdqE4Extfz6Kw/exec",
 };
 
 type Body = {

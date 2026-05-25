@@ -24,10 +24,10 @@ import { NextResponse } from "next/server";
 const APPS_SCRIPT_BY_SHOP: Record<string, string> = {
   christchurch:
     process.env.AVAILABILITY_APPS_SCRIPT_CHRISTCHURCH ||
-    "https://script.google.com/macros/s/AKfycbx-Szjmziagukw3dNS_S-yI4tVuRH6hBIyEtGIuH2WIkvdLMOI1QiDx76d7Q5xqHhBB/exec",
+    "https://script.google.com/macros/s/AKfycbwP4txGXMGlAPohOdS0S6hRJIXFa8Xqby07bBvsYyONc0FGcBCTYIzwVgr1wrtFuWY/exec",
   wellington:
     process.env.AVAILABILITY_APPS_SCRIPT_WELLINGTON ||
-    "https://script.google.com/a/macros/cleancarcollective.co.nz/s/AKfycbxrHs8IAyWHm46ZLaatU8j6Gbz8WGhE6OQvIYL8RA1A2gakXFeZuuoXGFiyaNzydgKaOA/exec",
+    "https://script.google.com/macros/s/AKfycbwNVya1aU64eclbO4kNDOAy789NQNOOLu-_TPrDfskBwjO7hwxVj2YeNLdqE4Extfz6Kw/exec",
 };
 
 const MAX_DAYS = 21; // safety cap so a malicious caller can't request 365 days
