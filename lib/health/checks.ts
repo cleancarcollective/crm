@@ -320,7 +320,11 @@ export async function runChecks(shopId: string): Promise<Check[]> {
 
   // ── Email & SMS ─────────────────────────────────────────────────────────
 
-  // Email send success rate (last 7d)
+  // Email send success rate (last 7d).
+  // Denominator excludes 'skipped' and 'cancelled' — those are intentional
+  // non-sends (lead converted, customer cancelled, rate-limit retry merged,
+  // etc.) and shouldn't drag down a deliverability metric. Only counts
+  // attempted deliveries (sent + failed).
   {
     const { data } = await supabase
       .from("email_messages")
@@ -330,12 +334,13 @@ export async function runChecks(shopId: string): Promise<Check[]> {
     const msgs = data ?? [];
     const sent = msgs.filter((m) => m.status === "sent").length;
     const failed = msgs.filter((m) => m.status === "failed").length;
-    const pct = msgs.length > 0 ? Math.round((sent / msgs.length) * 100) : 100;
+    const attempted = sent + failed;
+    const pct = attempted > 0 ? Math.round((sent / attempted) * 100) : 100;
     checks.push({
       category: "Email & SMS",
       name: "Email send rate (7d)",
-      status: msgs.length === 0 ? "info" : pct >= 95 ? "ok" : pct >= 80 ? "warn" : "error",
-      message: `${sent} sent / ${failed} failed${msgs.length > 0 ? ` (${pct}%)` : ""}`,
+      status: attempted === 0 ? "info" : pct >= 95 ? "ok" : pct >= 80 ? "warn" : "error",
+      message: `${sent} sent / ${failed} failed${attempted > 0 ? ` (${pct}%)` : ""}`,
     });
   }
 
