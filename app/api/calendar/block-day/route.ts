@@ -1,10 +1,13 @@
 /**
  * POST /api/calendar/block-day
  *
- * Lets any signed-in staff member block a day (or a time range within a day)
- * on the shop's Google Calendar. The block is created via the per-shop
- * Apps Script web app — same script that already serves availability reads,
- * just with a new doPost handler that creates a calendar event.
+ * Lets any signed-in staff member block a day (or a time range within a
+ * day) on the shop's Google Calendar. Writes events directly to the
+ * Google Calendar API via a service account — no Apps Script middleware.
+ *
+ * The shop slug comes from the user's session (requireCurrentShop); a
+ * single block fans out to BOTH the shop's "shop" and "mobile"
+ * calendars so the day is unavailable for any booking type.
  *
  * Body:
  *   {
@@ -13,33 +16,22 @@
  *     start_time?: "HH:mm",     // required when scope=time_range
  *     end_time?: "HH:mm",       // required when scope=time_range
  *     reason?: string,          // optional, surfaced in event title
- *     action?: "block" | "unblock"   // default "block"
+ *     action?: "block"          // only "block" is implemented today
  *   }
  *
- * Auth: requires a signed-in user via requireCurrentShop. The shop_slug is
- * derived from the user's session — staff can only block their own shop.
+ * Response mirrors the previous Apps Script-backed shape so the
+ * existing BlockDayButton client code keeps working without changes.
  */
 
 import { NextResponse } from "next/server";
 
 import { requireCurrentShop } from "@/lib/auth/currentShop";
-
-// Same per-shop scripts that handle availability reads. Each script's doPost
-// uses CalendarApp.createEvent / createAllDayEvent on its bound calendar.
-// Apps Script URLs match the availability route — kept in env vars with
-// a hardcoded fallback for resilience.
-// Hardcoded to the deployments that include the doPost (block) handler.
-// These same URLs serve the doGet availability read too, so the public
-// availability route uses them via env var. Env var still wins so a swap
-// here can be done at runtime without redeploy.
-const APPS_SCRIPT_BY_SHOP: Record<string, string> = {
-  christchurch:
-    process.env.AVAILABILITY_APPS_SCRIPT_CHRISTCHURCH ||
-    "https://script.google.com/macros/s/AKfycbwP4txGXMGlAPohOdS0S6hRJIXFa8Xqby07bBvsYyONc0FGcBCTYIzwVgr1wrtFuWY/exec",
-  wellington:
-    process.env.AVAILABILITY_APPS_SCRIPT_WELLINGTON ||
-    "https://script.google.com/macros/s/AKfycbwNVya1aU64eclbO4kNDOAy789NQNOOLu-_TPrDfskBwjO7hwxVj2YeNLdqE4Extfz6Kw/exec",
-};
+import {
+  CALENDARS_BY_SHOP,
+  type CalendarType,
+  type ShopSlug,
+  createCalendarEvent,
+} from "@/lib/google/calendarAdmin";
 
 type Body = {
   day?: string;
@@ -52,6 +44,7 @@ type Body = {
 
 const HHMM = /^\d{2}:\d{2}$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const BLOCK_TITLE_PREFIX = "Blocked via CRM";
 
 export async function POST(request: Request) {
   let body: Body;
@@ -62,8 +55,10 @@ export async function POST(request: Request) {
   }
 
   const action = body.action ?? "block";
-  if (action !== "block" && action !== "unblock") {
-    return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400 });
+  if (action !== "block") {
+    // Unblock isn't implemented yet — would need to look up events by
+    // title prefix + date and delete via Calendar API.
+    return NextResponse.json({ ok: false, error: "Only action=block is supported" }, { status: 400 });
   }
   if (!body.day || !YMD.test(body.day)) {
     return NextResponse.json({ ok: false, error: "Invalid day (expect yyyy-MM-dd)" }, { status: 400 });
@@ -82,66 +77,49 @@ export async function POST(request: Request) {
   }
 
   const shop = await requireCurrentShop();
-  const scriptUrl = APPS_SCRIPT_BY_SHOP[shop.slug];
-  if (!scriptUrl) {
+  const shopCalendars = CALENDARS_BY_SHOP[shop.slug as ShopSlug];
+  if (!shopCalendars) {
     return NextResponse.json(
-      { ok: false, error: `No Apps Script URL configured for shop ${shop.slug}` },
-      { status: 500 },
-    );
-  }
-  const secret = process.env.CALENDAR_WRITE_SECRET;
-  if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: "CALENDAR_WRITE_SECRET not configured" },
+      { ok: false, error: `No calendar config for shop ${shop.slug}` },
       { status: 500 },
     );
   }
 
-  // Apps Script POSTs respond with a 302 to a googleusercontent.com URL.
-  // Default fetch redirect-follow handles this correctly.
-  const upstream = await fetch(scriptUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      secret,
-      action,
-      date: body.day,
-      scope,
-      start_time: body.start_time ?? null,
-      end_time: body.end_time ?? null,
-      reason: body.reason?.trim() || null,
+  const reason = body.reason?.trim();
+  const title = BLOCK_TITLE_PREFIX + (reason ? ` — ${reason}` : "");
+
+  // Fan out to both shop and mobile calendars in parallel — block
+  // means the day is unavailable for either booking type.
+  const types = Object.keys(shopCalendars) as CalendarType[];
+  const results = await Promise.all(
+    types.map(async (type) => {
+      try {
+        const event = await createCalendarEvent({
+          calendarId: shopCalendars[type],
+          title,
+          scope,
+          date: body.day!,
+          startTime: body.start_time,
+          endTime: body.end_time,
+        });
+        return { type, ok: true as const, event_id: event.id };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { type, ok: false as const, error: message };
+      }
     }),
-  });
+  );
 
-  const responseText = await upstream.text().catch(() => "");
-  if (!upstream.ok) {
-    return NextResponse.json(
-      { ok: false, error: `Apps Script HTTP ${upstream.status}: ${responseText.slice(0, 300)}` },
-      { status: 502 },
-    );
-  }
-  let parsed: Record<string, unknown> = {};
-  try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: `Non-JSON from Apps Script: ${responseText.slice(0, 300)}` },
-      { status: 502 },
-    );
-  }
-  if (parsed.ok !== true) {
-    return NextResponse.json(
-      { ok: false, error: parsed.error ?? "Apps Script returned ok=false" },
-      { status: 502 },
-    );
-  }
+  const anyOk = results.some((r) => r.ok);
 
+  // Match the previous Apps Script-backed shape so the client UI doesn't
+  // have to know we swapped the backend.
   return NextResponse.json({
-    ok: true,
+    ok: anyOk,
     shop_slug: shop.slug,
     day: body.day,
     scope,
     action,
-    upstream: parsed,
+    upstream: { ok: anyOk, title, results },
   });
 }
