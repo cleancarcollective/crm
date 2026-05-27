@@ -8,6 +8,7 @@ import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
 import { LeadSourceEditor } from "@/components/dashboard/LeadSourceEditor";
+import { LeadStatusActions } from "@/components/dashboard/LeadStatusActions";
 import { getCurrentUser } from "@/lib/auth/currentShop";
 import { isSalesRole } from "@/lib/auth/roles";
 import { getVehicleLabel } from "@/lib/dashboard/bookings";
@@ -35,7 +36,8 @@ export async function ContactProfile({ profile }: ContactProfileProps) {
 
   const user = await getCurrentUser();
   const isSales = isSalesRole(user);
-  const canEditContactDetails = !isSales;
+  // Sales scope expanded 2026-05-21: sales reps can now edit contact details.
+  const canEditContactDetails = true;
   const firstVehicle = vehicles[0] ?? null;
   const backHref = isSales ? "/sales" : "/";
   const backLabel = isSales ? "Back to sales queue" : "Back to calendar";
@@ -178,6 +180,12 @@ export async function ContactProfile({ profile }: ContactProfileProps) {
                 <span>{lead.vehicle ? [lead.vehicle.year, lead.vehicle.make, lead.vehicle.model].filter(Boolean).join(" ") : "Vehicle not linked"}</span>
                 <LeadSourceEditor leadId={lead.id} currentSource={lead.source_detail ?? lead.source} />
                 <span>{formatDateTime(lead.updated_at, shop.timezone, "EEE d MMM yyyy, h:mm a")}</span>
+                <LeadStatusActions
+                  leadId={lead.id}
+                  currentStatus={lead.status}
+                  wonSource={lead.won_source ?? null}
+                  hasBooking={bookings.length > 0}
+                />
                 <LeadNotesEditor leadId={lead.id} initialNotes={lead.notes ?? null} />
                 <LeadEstimatePanel
                   leadId={lead.id}

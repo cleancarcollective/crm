@@ -82,32 +82,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     redirect(gateRedirect as unknown as Parameters<typeof redirect>[0]);
   }
 
-  // Sales users get a stripped-down nav. No new-booking button (they book
-  // from the lead detail page), no calendar/clients/leads/funnel/settings,
-  // no shop switcher.
-  if (user.role === "sales") {
-    return (
-      <html lang="en">
-        <body>
-          <nav className="globalNav">
-            <Link href="/sales" className="globalNavBrand">CCC CRM</Link>
-            <span className={`globalNavShopPill globalNavShopPill--${user.shop.slug}`}>
-              {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
-            </span>
-            <div className="globalNavLinks">
-              <Link href="/sales" className="globalNavLink">Cold leads</Link>
-            </div>
-            <div className="globalNavRight">
-              <span className="globalNavUser">{user.name}</span>
-              <LogoutButton />
-            </div>
-          </nav>
-          {children}
-        </body>
-      </html>
-    );
-  }
-
   // For super-admins, load the full shop list so the switcher can render
   // every option without an extra round-trip from the client.
   let allShops: Array<{ slug: string; name: string }> = [];
@@ -136,6 +110,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Link href="/" className="globalNavLink">Calendar</Link>
             <Link href="/leads" className="globalNavLink">Leads</Link>
             <Link href="/clients" className="globalNavLink">Clients</Link>
+            {user.role === "sales" || user.role === "admin" ? (
+              <>
+                <Link href="/sales" className="globalNavLink">Cold leads</Link>
+                <Link href={"/sales/services" as never} className="globalNavLink">Services</Link>
+                <Link href={"/sales/script" as never} className="globalNavLink">Script</Link>
+                <Link href={"/sales/objections" as never} className="globalNavLink">Objections</Link>
+              </>
+            ) : null}
             {user.role === "admin" ? (
               <>
                 <a href="/analytics" className="globalNavLink">Funnel</a>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCurrentUser, requireCurrentShop } from "@/lib/auth/currentShop";
+import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getShopById } from "@/lib/dashboard/bookings";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -11,7 +11,6 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const shop = await requireCurrentShop();
-  const user = await getCurrentUser();
   const body = await req.json();
   const { notes, first_name, last_name, full_name, email, phone } = body as {
     notes?: string;
@@ -22,18 +21,8 @@ export async function PATCH(
     phone?: string | null;
   };
 
-  // Sales role can ONLY update notes. Reject any contact-detail edit at the
-  // server boundary - never trust UI hiding.
-  if (user?.role === "sales") {
-    const detailKeys = { first_name, last_name, full_name, email, phone };
-    const attempted = Object.entries(detailKeys).some(([, v]) => v !== undefined);
-    if (attempted) {
-      return NextResponse.json(
-        { error: "Sales role cannot edit contact details" },
-        { status: 403 }
-      );
-    }
-  }
+  // Sales role can now edit contact details (phone/email/name) - prior
+  // lockdown removed 2026-05-21 when sales scope expanded.
 
   const supabase = getSupabaseAdminClient();
 

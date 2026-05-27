@@ -43,13 +43,22 @@ export function isSalesRole(user: { role: StaffRole } | null | undefined): boole
  */
 const SALES_ALLOWED_PREFIXES: ReadonlyArray<string> = [
   "/sales",
-  "/contacts/", // contact + lead detail (lead history lives on the contact profile)
+  "/contacts", // contacts list + detail (lead history lives on the contact profile)
+  "/clients", // client directory + detail
+  "/leads", // leads list page (general view)
+  "/bookings", // bookings list + detail (read + edit own bookings)
+  "/day", // single-day calendar view
   "/login",
   "/logout",
   "/api/auth/",
   "/api/leads/", // lead notes/status updates
-  "/api/contacts/", // contact reads (search, by-id GET); writes are gated server-side
-  "/api/bookings/manual", // booking from lead
+  "/api/contacts/", // contact reads + writes (writes still server-checked)
+  "/api/clients/",
+  "/api/bookings/", // booking create + edit (api-level checks still apply)
+  "/api/booking-series", // create new series; per-id staff edits still gated
+  "/api/calendar/",
+  "/api/sales-resources", // GET list (writes admin/sales gated server-side)
+  "/api/service-offerings", // GET list (writes admin-only server-side)
   "/api/public/", // public availability used by the booking modal
   "/_next/",
   "/favicon",
@@ -58,11 +67,16 @@ const SALES_ALLOWED_PREFIXES: ReadonlyArray<string> = [
 ];
 
 /**
- * The list page (/leads) shows EVERY lead across statuses — admin-only.
- * Sales users land on /sales which is a different filtered view scoped
- * to their assigned shop.
+ * Paths explicitly denied to sales (admin-only). Listed here so we still
+ * redirect them away cleanly even though the prefixes above are broad.
  */
-const SALES_DENIED_EXACT: ReadonlyArray<string> = ["/", "/leads"];
+const SALES_DENIED_PREFIXES: ReadonlyArray<string> = [
+  "/settings",
+  "/analytics",
+  "/sales/stats", // sales rep cannot see their own attribution stats
+];
+
+const SALES_DENIED_EXACT: ReadonlyArray<string> = [];
 
 /**
  * Returns a redirect URL if `user` shouldn't be on `pathname`, else null.
@@ -80,6 +94,16 @@ export function gateRouteForRole(
   if (SALES_DENIED_EXACT.includes(pathname)) {
     return "/sales";
   }
+
+  // Root path (calendar) is allowed.
+  if (pathname === "/") return null;
+
+  // Explicit deny wins over the allow list - e.g. /sales/stats sits under
+  // /sales (allowed) but should still redirect.
+  const denied = SALES_DENIED_PREFIXES.some((p) =>
+    pathname === p || pathname.startsWith(`${p}/`)
+  );
+  if (denied) return "/sales";
 
   const allowed = SALES_ALLOWED_PREFIXES.some((p) =>
     p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)
