@@ -220,13 +220,40 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
     // their trigger. Only run the booking-status guard for templates where
     // a past/cancelled booking actually invalidates the message (reminders).
     const isPostDetailTouchpoint = !!tmpl && POST_DETAIL_TOUCHPOINT_KEY_SET.has(tmpl);
-    if (job.booking_id && !isPostDetailTouchpoint) {
+
+    // Booking-context reminders (no lead, not a post-detail touchpoint) MUST
+    // have a live booking. Skip if:
+    //   - booking_id is null (ON DELETE SET NULL nuked the FK — happens
+    //     when staff hard-delete bookings; saw a 2026-05-26 incident
+    //     where Elli got a reminder for a booking that no longer existed)
+    //   - the booking row is gone (defensive: a future schema change could
+    //     flip the FK to CASCADE — handles both NULL and missing rows)
+    //   - the booking is cancelled / completed / in the past
+    const isBookingReminder = !job.lead_id && !isPostDetailTouchpoint;
+    if (isBookingReminder) {
+      if (!job.booking_id) {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "cancelled", last_error: "Orphan: booking_id is null (booking was deleted)" })
+          .eq("id", job.id);
+        console.warn("Orphan SMS skipped", { jobId: job.id, contactId: job.contact_id });
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
       const { data: b } = await supabase
         .from("bookings")
         .select("scheduled_start, status")
         .eq("id", job.booking_id)
         .maybeSingle();
-      if (b && (b.status === "cancelled" || b.status === "completed" || new Date(b.scheduled_start) < now)) {
+      if (!b) {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "cancelled", last_error: "Booking no longer exists" })
+          .eq("id", job.id);
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
+      if (b.status === "cancelled" || b.status === "completed" || new Date(b.scheduled_start) < now) {
         await supabase
           .from("scheduled_sms_jobs")
           .update({ status: "cancelled", last_error: `Booking already ${b.status === "cancelled" || b.status === "completed" ? b.status : "in the past"}` })
