@@ -97,15 +97,33 @@ function base64UrlEncode(input: Buffer | string): string {
 function signJwt(account: ServiceAccount): string {
   // Per Google's docs:
   // https://developers.google.com/identity/protocols/oauth2/service-account
+  //
+  // When GOOGLE_CALENDAR_IMPERSONATE_EMAIL is set, we use Domain-Wide
+  // Delegation: the service account acts AS that Workspace user, inheriting
+  // their existing calendar permissions. This is required for our setup
+  // because Google Workspace blocks granting "Make changes to events" to
+  // external service-account emails — the "Make changes" dropdown is
+  // permanently greyed out. DWD bypasses that policy by having the SA
+  // impersonate a Workspace user (typically the owner/manager of the
+  // calendars), and Calendar API then sees the request as coming from
+  // that user.
+  //
+  // Setup (one-time, admin.google.com):
+  //   Security → Access and data control → API controls →
+  //   Manage Domain Wide Delegation → Add new →
+  //   Client ID = service account's OAuth Client ID,
+  //   Scopes = https://www.googleapis.com/auth/calendar.events
   const nowSec = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
-  const claim = {
+  const impersonate = process.env.GOOGLE_CALENDAR_IMPERSONATE_EMAIL?.trim();
+  const claim: Record<string, unknown> = {
     iss: account.client_email,
     scope: SCOPES,
     aud: account.token_uri ?? TOKEN_URL,
     exp: nowSec + 3600,
     iat: nowSec,
   };
+  if (impersonate) claim.sub = impersonate;
   const headerB64 = base64UrlEncode(JSON.stringify(header));
   const claimB64 = base64UrlEncode(JSON.stringify(claim));
   const signingInput = `${headerB64}.${claimB64}`;
