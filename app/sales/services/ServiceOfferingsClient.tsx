@@ -29,11 +29,11 @@ type Props = {
 };
 
 function priceLabel(row: PricingRow): string {
-  if (typeof row.price === "number") return `$${row.price}`;
+  if (typeof row.price === "number") return `$${row.price} +GST`;
   if (typeof row.price_from === "number" && typeof row.price_to === "number") {
-    return `$${row.price_from}-$${row.price_to}`;
+    return `$${row.price_from}-$${row.price_to} +GST`;
   }
-  if (typeof row.price_from === "number") return `from $${row.price_from}`;
+  if (typeof row.price_from === "number") return `from $${row.price_from} +GST`;
   return "-";
 }
 
@@ -49,7 +49,7 @@ function priceRange(o: ServiceOffering): string {
   if (!nums.length) return "Quote on request";
   const min = Math.min(...nums);
   const max = Math.max(...nums);
-  return min === max ? `$${min}` : `$${min} - $${max}`;
+  return min === max ? `$${min} +GST` : `$${min} - $${max} +GST`;
 }
 
 export function ServiceOfferingsClient({ offerings, canEdit }: Props) {
