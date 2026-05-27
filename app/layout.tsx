@@ -114,6 +114,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <>
                 <Link href="/sales" className="globalNavLink">Cold leads</Link>
                 <Link href={"/sales/services" as never} className="globalNavLink">Services</Link>
+                <Link href={"/sales/selling-guide" as never} className="globalNavLink">Selling guide</Link>
                 <Link href={"/sales/script" as never} className="globalNavLink">Script</Link>
                 <Link href={"/sales/objections" as never} className="globalNavLink">Objections</Link>
               </>
