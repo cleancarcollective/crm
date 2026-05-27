@@ -234,7 +234,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                   ${context.add_ons && context.add_ons !== "None" ? infoRow("Add-ons", context.add_ons) : ""}
                   ${context.vehicle_label && context.vehicle_label !== "Vehicle to be confirmed" ? infoRow("Vehicle", context.vehicle_label) : ""}
                   ${context.location_type && context.location_type !== "To be confirmed" ? infoRow("Location", context.location_type) : ""}
-                  ${context.price_estimate ? infoRow("Estimated price", context.price_estimate + " +GST") : ""}
+                  ${context.price_estimate ? infoRow("Estimated price", context.price_estimate) : ""}
                   ${notesRow}
                 </table>
 
