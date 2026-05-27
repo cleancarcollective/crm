@@ -191,7 +191,8 @@ function bucketByWeek<T extends { created_at?: unknown; scheduled_start?: unknow
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
+  // All prices system-wide are ex-GST.
+  return `${new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value)} +GST`;
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────

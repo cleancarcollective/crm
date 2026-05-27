@@ -22,7 +22,8 @@ type BookingUpdatePayload = {
 };
 
 function formatCurrency(value: number | null) {
-  return value === null ? null : new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
+  if (value === null) return null;
+  return `${new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value)} +GST`;
 }
 
 function buildChangeSummary(

@@ -1,20 +1,30 @@
 import { formatInTimeZone } from "date-fns-tz";
 
-export function formatCurrency(amount: number | null) {
+/**
+ * Format an NZD amount. All prices in the system are stored ex-GST, so
+ * by default we append " +GST" - this matches how the booking form
+ * displays prices and what the sales rep needs to quote. Pass
+ * `{ withGstLabel: false }` when rendering a value that's already been
+ * GST-handled elsewhere (e.g. customer receipts where the line items
+ * + GST line are shown separately).
+ */
+export function formatCurrency(amount: number | null, opts?: { withGstLabel?: boolean }) {
   if (amount === null) {
     return "-";
   }
 
   // Always show cents. Whole-dollar rounding misrepresented $99.75 as
-  // "$100" on customer-facing booking emails — the difference matters
+  // "$100" on customer-facing booking emails - the difference matters
   // both for customer trust and our own internal numbers (revenue
   // rollups, analytics).
-  return new Intl.NumberFormat("en-NZ", {
+  const formatted = new Intl.NumberFormat("en-NZ", {
     style: "currency",
     currency: "NZD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+
+  return opts?.withGstLabel === false ? formatted : `${formatted} +GST`;
 }
 
 export function formatMinutes(totalMinutes: number) {
