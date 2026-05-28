@@ -15,7 +15,9 @@ import { getShopContactsById } from "@/lib/email/shopContacts";
 import { sendApprovalRequestEmail, type ApprovalReason } from "@/lib/email/sendApprovalRequestEmail";
 import { scheduleLeadJob } from "@/lib/scheduling/leadJobs";
 import { llmDraftQuote, type LlmDraftInput } from "./llmDraftQuote";
+import { judgeCustomerNotes } from "./llmJudgeNotes";
 import { classifyVehicleViaLlm } from "./llmVehicleSize";
+import { lookupVehicleSizeFromCache } from "./vehicleSizeCache";
 import { classifyVehicle } from "./vehicleSizing";
 import {
   pickTemplateKey,
@@ -169,6 +171,28 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   const templateKey = pickTemplateKey(serviceRequested ?? "");
   const needsSize = templateNeedsSize(templateKey);
 
+  // LLM-judge the notes. ~60% of customer notes are info-only and don't
+  // need a human reply ("RAV4 2019, white", "had a dog in it"); the old
+  // any-notes-blocks-auto-send rule held those back. The judge sorts
+  // notes into auto_ok vs human_needed; only the latter forces approval.
+  // Conservative bias inside the prompt + the >=0.7 confidence floor
+  // here mean ambiguous notes still escalate to a human.
+  let notesVerdict: Awaited<ReturnType<typeof judgeCustomerNotes>> = null;
+  if (hasNotes) {
+    notesVerdict = await judgeCustomerNotes({
+      notes: cleanedNotes,
+      serviceRequested,
+      vehicleMake: makeRaw,
+      vehicleModel: modelRaw,
+    });
+  }
+  const notesAreAutoOk =
+    !!notesVerdict && notesVerdict.verdict === "auto_ok" && notesVerdict.confidence >= 0.7;
+  // The gate the rest of the pipeline reads. When the judge says
+  // auto_ok with high confidence we treat the notes as absent for
+  // routing purposes (the deterministic template stands on its own).
+  const notesBlockAutoSend = hasNotes && !notesAreAutoOk;
+
   // Classify vehicle size
   let sizingResult = null;
   if (makeRaw && modelRaw) {
@@ -181,22 +205,33 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   let reasonCode = sizingResult?.reasonCode ?? "unknown_model";
   let canonicalKey = sizingResult?.canonicalKey ?? "";
 
-  // LLM size lookup when DB miss. Old Sheets flow had a web-lookup
-  // equivalent — using Claude here gives us coverage for every make
-  // (Porsche, Tesla, Lexus, Volvo, etc.) without maintaining a huge
-  // model database. Failures fall through to the Medium-render fallback
-  // below + needs_approval gate.
+  // Three-tier vehicle size resolution when MODEL_DB missed:
+  //   1. vehicle_size_lookups cache (previously LLM-resolved or
+  //      staff-overridden). Free, instant.
+  //   2. LLM call (writes back to the cache on success).
+  //   3. Caller falls through to the Medium-render fallback +
+  //      needs_approval gate.
   let llmSize: Awaited<ReturnType<typeof classifyVehicleViaLlm>> = null;
   if (needsSize && !suggestedSize && makeRaw && modelRaw) {
-    const lookupInput = input as ProcessLeadInput & { vehicleYear?: string | null };
-    llmSize = await classifyVehicleViaLlm(makeRaw, modelRaw, lookupInput.vehicleYear ?? null);
-    if (llmSize && llmSize.confidence >= 0.6) {
-      suggestedSize = llmSize.size;
-      confidence = llmSize.confidence >= 0.85 ? "high" : "medium";
-      confNumeric = llmSize.confidence;
-      reasonCode = "llm_size_lookup";
-      canonicalKey = `llm|${makeRaw}|${modelRaw}`;
-      console.info("LLM resolved vehicle size", { makeRaw, modelRaw, size: llmSize.size, confidence: llmSize.confidence, rationale: llmSize.rationale });
+    const cached = await lookupVehicleSizeFromCache(makeRaw, modelRaw);
+    if (cached && cached.confidence >= 0.6) {
+      suggestedSize = cached.size;
+      confidence = cached.source === "staff_override" || cached.confidence >= 0.85 ? "high" : "medium";
+      confNumeric = cached.confidence;
+      reasonCode = cached.source === "staff_override" ? "size_cache_staff" : "size_cache_llm";
+      canonicalKey = `cache|${makeRaw}|${modelRaw}`;
+      console.info("Vehicle size cache hit", { makeRaw, modelRaw, size: cached.size, source: cached.source });
+    } else {
+      const lookupInput = input as ProcessLeadInput & { vehicleYear?: string | null };
+      llmSize = await classifyVehicleViaLlm(makeRaw, modelRaw, lookupInput.vehicleYear ?? null);
+      if (llmSize && llmSize.confidence >= 0.6) {
+        suggestedSize = llmSize.size;
+        confidence = llmSize.confidence >= 0.85 ? "high" : "medium";
+        confNumeric = llmSize.confidence;
+        reasonCode = "llm_size_lookup";
+        canonicalKey = `llm|${makeRaw}|${modelRaw}`;
+        console.info("LLM resolved vehicle size", { makeRaw, modelRaw, size: llmSize.size, confidence: llmSize.confidence, rationale: llmSize.rationale });
+      }
     }
   }
 
@@ -240,7 +275,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   }
 
   // Decision logic
-  console.log(`Auto-respond decision: lead=${leadId}, template=${templateKey}, needsSize=${needsSize}, suggestedSize=${suggestedSize}, confidence=${confidence} (${Math.round(confNumeric * 100)}%), hasNotes=${hasNotes}, draftError=${draftError || "none"}`);
+  console.log(`Auto-respond decision: lead=${leadId}, template=${templateKey}, needsSize=${needsSize}, suggestedSize=${suggestedSize}, confidence=${confidence} (${Math.round(confNumeric * 100)}%), hasNotes=${hasNotes}, notesVerdict=${notesVerdict?.verdict ?? "n/a"}@${notesVerdict ? Math.round(notesVerdict.confidence * 100) + "%" : "—"}, notesBlockAutoSend=${notesBlockAutoSend}, draftError=${draftError || "none"}`);
 
   let newStatus = "needs_approval";
   let internalNote = "";
@@ -255,16 +290,18 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
   // The Medium-render fallback above means staff-reviewed approvals
   // still show real prices, but we never blast a wrong-size quote.
   const sizeIsKnown = !needsSize || !!suggestedSize;
-  const shouldAutoSend = !draftError && !hasNotes && sizeIsKnown;
+  const shouldAutoSend = !draftError && !notesBlockAutoSend && sizeIsKnown;
 
   if (draftError) {
     newStatus = "needs_approval";
     internalNote = `Draft error: ${draftError}`;
     approvalReason = "draft_error";
     approvalReasonDetail = draftError;
-  } else if (hasNotes) {
+  } else if (notesBlockAutoSend) {
     newStatus = "needs_approval";
-    internalNote = "Needs approval: notes present.";
+    internalNote = notesVerdict
+      ? `Needs approval: notes flagged human_needed (${Math.round(notesVerdict.confidence * 100)}% — ${notesVerdict.rationale}).`
+      : "Needs approval: notes present (judge unavailable).";
     approvalReason = "notes_present";
   } else if (!sizeIsKnown) {
     newStatus = "needs_approval";
@@ -300,7 +337,10 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       const fallbackNote = sizeUsedFallback
         ? ` (size defaulted to Medium — vehicle ${makeRaw}/${modelRaw} not in DB)`
         : "";
-      internalNote = `Auto-send scheduled for ${scheduledFor}${fallbackNote}`;
+      const judgeNote = notesAreAutoOk && notesVerdict
+        ? ` (notes judged auto_ok ${Math.round(notesVerdict.confidence * 100)}% — ${notesVerdict.rationale})`
+        : "";
+      internalNote = `Auto-send scheduled for ${scheduledFor}${fallbackNote}${judgeNote}`;
       emailSent = false; // not yet — will flip when the job runs
     } catch (e) {
       newStatus = "needs_approval";

@@ -18,6 +18,7 @@
 
 import { callOpenRouter } from "@/lib/llm/openrouterClient";
 
+import { recordVehicleSizeToCache } from "./vehicleSizeCache";
 import type { VehicleSize } from "./vehicleSizing";
 
 const LLM_MODEL = "anthropic/claude-sonnet-4.5";
@@ -95,10 +96,28 @@ export async function classifyVehicleViaLlm(
     const validSizes: VehicleSize[] = ["Small", "Medium", "Large", "XL"];
     if (!validSizes.includes(parsed.size)) return null;
 
+    const confidence = typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0;
+    const rationale = typeof parsed.rationale === "string" ? parsed.rationale.slice(0, 200) : "";
+
+    // Persist to the cache so the next enquiry for this vehicle skips
+    // the LLM call. Only store reasonably confident verdicts — sub-0.6
+    // results are caller-rejected anyway and we don't want low-quality
+    // guesses cementing in the cache. Non-blocking.
+    if (confidence >= 0.6) {
+      void recordVehicleSizeToCache({
+        makeRaw,
+        modelRaw,
+        size: parsed.size,
+        confidence,
+        source: "llm",
+        rationale,
+      });
+    }
+
     return {
       size: parsed.size,
-      confidence: typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
-      rationale: typeof parsed.rationale === "string" ? parsed.rationale.slice(0, 200) : "",
+      confidence,
+      rationale,
       usage: {
         promptTokens: response.usage?.prompt_tokens,
         completionTokens: response.usage?.completion_tokens,
