@@ -73,6 +73,13 @@ export async function scheduleLeadJob(args: {
 /**
  * Convenience: schedule both 3-day and 7-day follow-ups for a lead whose
  * estimate has just been sent.
+ *
+ * Kill switch: lead estimate follow-ups (3d/7d/30d emails + 5d SMS) are
+ * disabled by default. The team turned them off 2026-05-28 — they felt
+ * pushy and were going out to customers who'd already chosen another
+ * shop. Set LEAD_FOLLOWUPS_ENABLED=true to re-enable. When disabled
+ * this function is a no-op so all three call sites (send-estimate,
+ * quick-send, process-scheduled auto-estimate) keep working unchanged.
  */
 export async function scheduleLeadFollowups(args: {
   shopId: string;
@@ -84,6 +91,14 @@ export async function scheduleLeadFollowups(args: {
   make: string | null;
   model: string | null;
 }) {
+  if (process.env.LEAD_FOLLOWUPS_ENABLED !== "true") {
+    console.info("Lead follow-ups disabled (LEAD_FOLLOWUPS_ENABLED!=true) — skipping schedule", {
+      leadId: args.leadId,
+      shopId: args.shopId,
+    });
+    return;
+  }
+
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
   const in3Days = new Date(now + 3 * DAY).toISOString();
