@@ -99,7 +99,7 @@ async function buildExportRows(args: {
     .from("bookings")
     .select(`
       id, shop_id, contact_id, price_estimate, created_at, scheduled_start, status,
-      gclid, gbraid, wbraid
+      gclid, gbraid, wbraid, series_id, series_sequence
     `)
     .neq("status", "cancelled")
     .gte("created_at", args.windowStartIso)
@@ -107,6 +107,23 @@ async function buildExportRows(args: {
 
   if (bookingsErr) throw bookingsErr;
   if (!bookings || bookings.length === 0) return [];
+
+  // Recurring-series dedupe. When a customer signs up for a recurring
+  // detail (e.g. quarterly), the CRM creates one booking row per future
+  // appointment in the series, all with the same series_id and identical
+  // price_estimate, all `created_at` within the same second. Each one
+  // landed in Ads as a separate conversion — Smart Bidding then thought
+  // a single click produced N× the actual revenue.
+  //
+  // Fix: only the first booking in each series (series_sequence=0) gets
+  // exported. Subsequent appointments in the same series are skipped.
+  // Non-recurring bookings (series_id IS NULL) are unaffected.
+  const bookingsDedupedBySeries = bookings.filter((b) => {
+    const seriesId = b.series_id as string | null;
+    if (!seriesId) return true;
+    const seq = b.series_sequence as number | null;
+    return seq === 0 || seq === null;
+  });
 
   // Fetch shop slugs separately. The PostgREST embedded `shop:shops(slug)`
   // join sometimes returns null on rows where it shouldn't — saw 4-of-5
@@ -121,7 +138,7 @@ async function buildExportRows(args: {
   }
 
   const contactIds = Array.from(
-    new Set(bookings.map((b) => b.contact_id).filter((v): v is string => Boolean(v)))
+    new Set(bookingsDedupedBySeries.map((b) => b.contact_id).filter((v): v is string => Boolean(v)))
   );
   if (contactIds.length === 0) return [];
 
@@ -158,7 +175,7 @@ async function buildExportRows(args: {
 
   const rows: ExportRow[] = [];
 
-  for (const booking of bookings) {
+  for (const booking of bookingsDedupedBySeries) {
     if (!booking.contact_id) continue;
     const contactLeads = leadsByContact.get(booking.contact_id as string) ?? [];
 
@@ -175,6 +192,22 @@ async function buildExportRows(args: {
 
     const email = emailByContact.get(booking.contact_id as string) ?? null;
     const emailHash = email ? await sha256Hex(email) : null;
+
+    const gclid = (booking.gclid as string | null) ?? matchingLead?.gclid ?? null;
+    const gbraid = (booking.gbraid as string | null) ?? matchingLead?.gbraid ?? null;
+    const wbraid = (booking.wbraid as string | null) ?? matchingLead?.wbraid ?? null;
+
+    // Skip rows with no attribution signal at all. Without a click ID OR
+    // a hashed email, Ads has nothing to match against — the row would be
+    // silently rejected. Log it so the gap is visible, and skip the upload.
+    if (!gclid && !gbraid && !wbraid && !emailHash) {
+      console.warn("[ads-export] booking has no attribution signal — skipping", {
+        booking_id: booking.id,
+        shop_id: booking.shop_id,
+        value,
+      });
+      continue;
+    }
 
     const shopSlug = slugByShopId.get(booking.shop_id as string);
 
@@ -194,9 +227,9 @@ async function buildExportRows(args: {
       // Direct booking gclid (set when the customer booked directly without
       // a preceding lead form) takes priority. Fall back to the originating
       // lead's gclid when the customer enquired before booking.
-      gclid: (booking.gclid as string | null) ?? matchingLead?.gclid ?? null,
-      gbraid: (booking.gbraid as string | null) ?? matchingLead?.gbraid ?? null,
-      wbraid: (booking.wbraid as string | null) ?? matchingLead?.wbraid ?? null,
+      gclid,
+      gbraid,
+      wbraid,
       email_sha256: emailHash,
     });
   }
@@ -229,13 +262,19 @@ async function buildFormRows(args: {
 }): Promise<ExportRow[]> {
   const supabase = getSupabaseAdminClient();
 
+  // Previously this query filtered to leads with a GCLID. Google's Ads UI
+  // started flagging "Importing limited user-provided data" — they want
+  // every event we have user data for, not just the click-attributed
+  // ones. Enhanced Conversions for Leads matches on hashed email alone
+  // (no GCLID needed), so dropping the filter ~doubles upload volume
+  // without sacrificing match quality. Rows with neither a click ID nor
+  // a hashed email are filtered below before they hit the sheet.
   const { data: leads, error: leadsErr } = await supabase
     .from("leads")
     .select(`
       id, shop_id, contact_id, created_at,
       gclid, gbraid, wbraid
     `)
-    .not("gclid", "is", null)
     .gte("created_at", args.windowStartIso)
     .lt("created_at", args.windowEndIso);
 
@@ -270,6 +309,21 @@ async function buildFormRows(args: {
   for (const lead of leads) {
     const email = lead.contact_id ? emailByContact.get(lead.contact_id as string) ?? null : null;
     const emailHash = email ? await sha256Hex(email) : null;
+    const gclid = lead.gclid as string | null;
+    const gbraid = lead.gbraid as string | null;
+    const wbraid = lead.wbraid as string | null;
+
+    // Require at least one attribution signal — click ID OR hashed email.
+    // Without either, Ads has no way to attribute the conversion to a
+    // user or click; the row would silently bounce.
+    if (!gclid && !gbraid && !wbraid && !emailHash) {
+      console.warn("[ads-export] lead has no attribution signal — skipping", {
+        lead_id: lead.id,
+        shop_id: lead.shop_id,
+      });
+      continue;
+    }
+
     const shopSlug = slugByShopId.get(lead.shop_id as string);
 
     rows.push({
@@ -281,9 +335,9 @@ async function buildFormRows(args: {
       conversion_time: lead.created_at as string,
       value: FORM_VALUE_NZD,
       currency: "NZD",
-      gclid: lead.gclid as string | null,
-      gbraid: lead.gbraid as string | null,
-      wbraid: lead.wbraid as string | null,
+      gclid,
+      gbraid,
+      wbraid,
       email_sha256: emailHash,
     });
   }
