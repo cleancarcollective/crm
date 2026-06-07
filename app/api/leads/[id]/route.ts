@@ -11,16 +11,37 @@ export async function PATCH(
   const shop = await requireCurrentShop();
   const user = await getCurrentUser();
   const body = await req.json();
-  const { status, won_source, notes, source } = body as { status?: string; won_source?: string; notes?: string; source?: string };
+  const { status, won_source, notes, source, last_disposition } = body as {
+    status?: string;
+    won_source?: string;
+    notes?: string;
+    source?: string;
+    last_disposition?: string;
+  };
 
   const supabase = getSupabaseAdminClient();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  // Disposition is allowed on either path (with or without status). The
+  // sales-disposition chips post `status` AND `last_disposition` together.
+  const VALID_DISPOSITIONS = ["neutral", "positive", "confirmed", "malfunction", "lost", "cooldown", "booked"];
+  if (last_disposition !== undefined) {
+    if (last_disposition !== null && !VALID_DISPOSITIONS.includes(last_disposition)) {
+      return NextResponse.json({ error: "invalid last_disposition" }, { status: 400 });
+    }
+    updates.last_disposition = last_disposition;
+    updates.last_disposition_at = new Date().toISOString();
+    updates.last_disposition_by = user?.userId ?? null;
+  }
 
   // Field-only updates (no status change)
   if (!status) {
     if (notes !== undefined) updates.notes = notes;
     if (source !== undefined) updates.source = source;
-    if (Object.keys(updates).length <= 1) {
+    // Allow a disposition-only update too (counts as a "real" update).
+    const hasMeaningfulUpdate =
+      notes !== undefined || source !== undefined || last_disposition !== undefined;
+    if (!hasMeaningfulUpdate) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
     const { error } = await supabase

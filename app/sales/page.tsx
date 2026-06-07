@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import { CooldownControls } from "@/components/dashboard/CooldownControls";
+import { LeadDispositionActions } from "@/components/dashboard/LeadDispositionActions";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getCurrentUser } from "@/lib/auth/currentShop";
 import {
@@ -67,6 +68,7 @@ export default async function SalesPage({
   });
 
   const isAdmin = user.role === "admin";
+  const isSales = user.role === "sales";
 
   function bucketHref(b: SalesBucket): Route {
     const sp = new URLSearchParams();
@@ -210,10 +212,16 @@ export default async function SalesPage({
                 <th>Contact</th>
                 <th>Vehicle</th>
                 <th>Service</th>
-                <th>Days since enquiry</th>
-                <th>Last touched</th>
-                <th>Status</th>
-                <th>{bucket === "cooldown" ? "Cool-down" : "Action"}</th>
+                {isSales ? (
+                  <th style={{ minWidth: 360 }}>{bucket === "cooldown" ? "Cool-down" : "Disposition"}</th>
+                ) : (
+                  <>
+                    <th>Days since enquiry</th>
+                    <th>Last touched</th>
+                    <th>Status</th>
+                    <th>{bucket === "cooldown" ? "Cool-down" : "Action"}</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -232,16 +240,32 @@ export default async function SalesPage({
                   </td>
                   <td>{e.vehicleLabel ?? <span style={{ color: "#9e9189" }}>—</span>}</td>
                   <td>{e.serviceRequested ?? <span style={{ color: "#9e9189" }}>—</span>}</td>
-                  <td>{e.daysSinceEnquiry}d</td>
-                  <td>{relativeAge(e.lastTouchedAt)}</td>
-                  <td><StatusBadge status={e.status} /></td>
-                  <td>
-                    <CooldownControls
-                      leadId={e.leadId}
-                      cooldownUntil={e.cooldownUntil}
-                      cooldownReason={e.cooldownReason}
-                    />
-                  </td>
+                  {isSales ? (
+                    <td>
+                      <LeadDispositionActions
+                        leadId={e.leadId}
+                        contactId={e.contactId}
+                        currentStatus={e.status}
+                        currentDisposition={e.lastDisposition}
+                        cooldownUntil={e.cooldownUntil}
+                        cooldownReason={e.cooldownReason}
+                        variant="compact"
+                      />
+                    </td>
+                  ) : (
+                    <>
+                      <td>{e.daysSinceEnquiry}d</td>
+                      <td>{relativeAge(e.lastTouchedAt)}</td>
+                      <td><StatusBadge status={e.status} /></td>
+                      <td>
+                        <CooldownControls
+                          leadId={e.leadId}
+                          cooldownUntil={e.cooldownUntil}
+                          cooldownReason={e.cooldownReason}
+                        />
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

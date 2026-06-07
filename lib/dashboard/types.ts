@@ -125,6 +125,11 @@ export type LeadRecord = {
   gbraid: string | null;
   wbraid: string | null;
   landing_url: string | null;
+  // Sales-disposition + cool-down state (drives the LeadDispositionActions UI)
+  last_disposition: string | null;
+  last_disposition_at: string | null;
+  cooldown_until: string | null;
+  cooldown_reason: string | null;
 };
 
 export type LeadWithVehicle = LeadRecord & {

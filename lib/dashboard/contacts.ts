@@ -540,7 +540,7 @@ async function getLeadsForContact(contactId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, quote_subject, quote_body, quote_html, template_key, suggested_size, confidence, reason_code, internal_notes, approved_size, created_at, updated_at, booked_at")
+    .select("id, shop_id, contact_id, vehicle_id, source, source_detail, service_requested, notes, status, won_source, quote_subject, quote_body, quote_html, template_key, suggested_size, confidence, reason_code, internal_notes, approved_size, created_at, updated_at, booked_at, last_disposition, last_disposition_at, cooldown_until, cooldown_reason")
     .eq("contact_id", contactId)
     .not("archived", "eq", true)
     .order("updated_at", { ascending: false });

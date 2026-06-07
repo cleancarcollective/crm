@@ -8,6 +8,7 @@ import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
 import { LeadSourceEditor } from "@/components/dashboard/LeadSourceEditor";
+import { LeadDispositionActions } from "@/components/dashboard/LeadDispositionActions";
 import { LeadStatusActions } from "@/components/dashboard/LeadStatusActions";
 import { getCurrentUser } from "@/lib/auth/currentShop";
 import { isSalesRole } from "@/lib/auth/roles";
@@ -180,6 +181,15 @@ export async function ContactProfile({ profile }: ContactProfileProps) {
                 <span>{lead.vehicle ? [lead.vehicle.year, lead.vehicle.make, lead.vehicle.model].filter(Boolean).join(" ") : "Vehicle not linked"}</span>
                 <LeadSourceEditor leadId={lead.id} currentSource={lead.source_detail ?? lead.source} />
                 <span>{formatDateTime(lead.updated_at, shop.timezone, "EEE d MMM yyyy, h:mm a")}</span>
+                <LeadDispositionActions
+                  leadId={lead.id}
+                  contactId={contact.id}
+                  currentStatus={lead.status}
+                  currentDisposition={lead.last_disposition ?? null}
+                  cooldownUntil={lead.cooldown_until ?? null}
+                  cooldownReason={lead.cooldown_reason ?? null}
+                  hasBooking={bookings.length > 0}
+                />
                 <LeadStatusActions
                   leadId={lead.id}
                   currentStatus={lead.status}

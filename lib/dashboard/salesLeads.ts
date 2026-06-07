@@ -38,6 +38,7 @@ export type SalesLeadEntry = {
   lastTouchedAt: string;
   cooldownUntil: string | null;
   cooldownReason: string | null;
+  lastDisposition: string | null;
 };
 
 export type SalesBucketCounts = {
@@ -117,7 +118,7 @@ export async function getSalesQueue(args: {
     .from("leads")
     .select(
       "id, shop_id, contact_id, vehicle_id, service_requested, status, source, created_at, updated_at, " +
-        "cooldown_until, cooldown_reason, " +
+        "cooldown_until, cooldown_reason, last_disposition, " +
         "contact:contacts(id, first_name, last_name, full_name, email, phone), " +
         "vehicle:vehicles(year, make, model, size)"
     )
@@ -193,6 +194,7 @@ export async function getSalesQueue(args: {
     updated_at: string;
     cooldown_until: string | null;
     cooldown_reason: string | null;
+    last_disposition: string | null;
     contact: {
       id: string;
       first_name: string | null;
@@ -250,6 +252,7 @@ export async function getSalesQueue(args: {
         lastTouchedAt: r.updated_at,
         cooldownUntil: r.cooldown_until,
         cooldownReason: r.cooldown_reason,
+        lastDisposition: r.last_disposition,
       };
     });
 
