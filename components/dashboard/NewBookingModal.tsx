@@ -48,6 +48,16 @@ export type InitialVehicle = {
   size: string | null;
 };
 
+type PricingService = {
+  name: string;
+  /** size label → ex-GST price. Flat-priced services carry only "Any". */
+  sizes: Record<string, number>;
+};
+
+// Display order for the size toggle. We only render sizes the selected
+// service actually has a price for.
+const SIZE_ORDER = ["Small", "Medium", "Large", "XL"];
+
 type Props = {
   defaultDate?: string; // yyyy-MM-dd
   onClose: () => void;
@@ -268,6 +278,15 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
   const [scheduledStart, setScheduledStart] = useState(defaultDateTime(defaultDate));
   const [durationMinutes, setDurationMinutes] = useState("");
   const [priceEstimate, setPriceEstimate] = useState("");
+  // Tracks whether the price field was auto-filled from the pricing table
+  // (so we know not to clobber a manual override on subsequent size changes).
+  const [priceManuallyEdited, setPriceManuallyEdited] = useState(false);
+
+  // Pricing catalogue for the current shop. Loaded once on mount.
+  // serviceMode: "catalogue" = picked from dropdown, "custom" = typed freehand.
+  const [pricing, setPricing] = useState<PricingService[]>([]);
+  const [serviceMode, setServiceMode] = useState<"catalogue" | "custom">("catalogue");
+  const [selectedSize, setSelectedSize] = useState<string>("");
   const [locationType, setLocationType] = useState("shop");
   const [serviceAddress, setServiceAddress] = useState("");
   const [status, setStatus] = useState("confirmed");
@@ -313,6 +332,65 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
   }, []);
 
   useEffect(() => { search(query); }, [query, search]);
+
+  // Load the shop's pricing catalogue once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/pricing");
+        if (!res.ok) return;
+        const data = (await res.json()) as { services: PricingService[] };
+        if (!cancelled) setPricing(data.services ?? []);
+      } catch {
+        // Non-fatal — modal falls back to free-text service entry.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Currently-selected catalogue service (if any).
+  const selectedService = pricing.find((s) => s.name === serviceName) ?? null;
+  // Which size chips to show: the sizes this service is priced for, in order.
+  // A flat-priced service (only "Any") shows no size toggle.
+  const availableSizes = selectedService
+    ? SIZE_ORDER.filter((sz) => selectedService.sizes[sz] !== undefined)
+    : [];
+  const isFlatPriced = !!selectedService && availableSizes.length === 0 && selectedService.sizes["Any"] !== undefined;
+
+  /** Apply the catalogue price for a service+size unless manually overridden. */
+  function applyCataloguePrice(service: PricingService | null, size: string) {
+    if (!service || priceManuallyEdited) return;
+    let price: number | undefined;
+    if (size && service.sizes[size] !== undefined) price = service.sizes[size];
+    else if (service.sizes["Any"] !== undefined) price = service.sizes["Any"];
+    if (price !== undefined) setPriceEstimate(String(price));
+  }
+
+  function pickService(name: string) {
+    setServiceName(name);
+    setPriceManuallyEdited(false);
+    const svc = pricing.find((s) => s.name === name) ?? null;
+    if (!svc) { setSelectedSize(""); return; }
+    // Pre-pick a size: keep the vehicle's known size if it matches, else
+    // default to the first available, else flat-price "Any".
+    const sizes = SIZE_ORDER.filter((sz) => svc.sizes[sz] !== undefined);
+    if (sizes.length === 0) {
+      setSelectedSize("");
+      applyCataloguePrice(svc, "");
+      return;
+    }
+    const vehicleSizeMatch = sizes.find((sz) => sz.toLowerCase() === nvSize.toLowerCase());
+    const initialSize = vehicleSizeMatch ?? sizes[0];
+    setSelectedSize(initialSize);
+    applyCataloguePrice(svc, initialSize);
+  }
+
+  function pickSize(size: string) {
+    setSelectedSize(size);
+    setPriceManuallyEdited(false);
+    applyCataloguePrice(selectedService, size);
+  }
 
   // Close on Escape
   useEffect(() => {
@@ -664,14 +742,95 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
             <div className="modalField">
               <label>Service name <span className="modalRequired">*</span></label>
-              <input
-                className="detailInput"
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                placeholder="e.g. Full Detail, Express Wash…"
-                required
-              />
+              {serviceMode === "catalogue" && pricing.length > 0 ? (
+                <>
+                  <select
+                    className="detailInput"
+                    value={selectedService ? serviceName : ""}
+                    onChange={(e) => {
+                      if (e.target.value === "__custom__") {
+                        setServiceMode("custom");
+                        setServiceName("");
+                        setSelectedSize("");
+                        setPriceManuallyEdited(false);
+                        return;
+                      }
+                      pickService(e.target.value);
+                    }}
+                  >
+                    <option value="">— Select a service —</option>
+                    {pricing.map((s) => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
+                    <option value="__custom__">✏️ Enter manually…</option>
+                  </select>
+                </>
+              ) : (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="detailInput"
+                    value={serviceName}
+                    onChange={(e) => setServiceName(e.target.value)}
+                    placeholder="e.g. Full Detail, Express Wash…"
+                    required
+                    style={{ flex: 1 }}
+                  />
+                  {pricing.length > 0 ? (
+                    <button
+                      type="button"
+                      className="buttonGhost"
+                      style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                      onClick={() => { setServiceMode("catalogue"); setServiceName(""); }}
+                    >
+                      Pick from list
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
+
+            {/* Size toggle — only for catalogue services priced by size. */}
+            {serviceMode === "catalogue" && availableSizes.length > 0 ? (
+              <div className="modalField">
+                <label>Vehicle size</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {availableSizes.map((sz) => {
+                    const active = selectedSize === sz;
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => pickSize(sz)}
+                        style={{
+                          flex: 1,
+                          padding: "6px 4px",
+                          fontSize: 13,
+                          fontWeight: active ? 700 : 500,
+                          border: active ? "2px solid #2563eb" : "1px solid rgba(0,0,0,0.15)",
+                          borderRadius: 8,
+                          background: active ? "#dbeafe" : "white",
+                          color: "#1f2937",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {sz}
+                        {selectedService?.sizes[sz] !== undefined ? (
+                          <span style={{ display: "block", fontSize: 11, color: "#5c5148", fontWeight: 400 }}>
+                            ${selectedService.sizes[sz]}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {serviceMode === "catalogue" && isFlatPriced ? (
+              <div style={{ fontSize: 12, color: "#5c5148", marginTop: -4, marginBottom: 4 }}>
+                Flat price — ${selectedService?.sizes["Any"]} ex GST (no size variants).
+              </div>
+            ) : null}
 
             <div className="modalRow2">
               <div className="modalField">
@@ -699,14 +858,21 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
             <div className="modalRow2">
               <div className="modalField">
-                <label>Price estimate ($)</label>
+                <label>
+                  Price estimate ($ ex GST)
+                  {selectedService && !priceManuallyEdited ? (
+                    <span style={{ fontSize: 11, color: "#16a34a", marginLeft: 6 }}>auto</span>
+                  ) : priceManuallyEdited ? (
+                    <span style={{ fontSize: 11, color: "#d97706", marginLeft: 6 }}>overridden</span>
+                  ) : null}
+                </label>
                 <input
                   className="detailInput"
                   type="number"
                   min="0"
                   step="0.01"
                   value={priceEstimate}
-                  onChange={(e) => setPriceEstimate(e.target.value)}
+                  onChange={(e) => { setPriceEstimate(e.target.value); setPriceManuallyEdited(true); }}
                   placeholder="e.g. 250"
                 />
               </div>

@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth/currentShop";
 import {
   getSalesQueue,
   type SalesBucket,
+  type SalesCategory,
   type SalesRange,
 } from "@/lib/dashboard/salesLeads";
 
@@ -30,10 +31,25 @@ function isBucket(v: string): v is SalesBucket {
   return v === "warm" || v === "cold" || v === "frozen" || v === "cooldown";
 }
 
+const CATEGORY_CHIPS: Array<{ value: SalesCategory; label: string; color: string }> = [
+  { value: "all", label: "All", color: "#374151" },
+  { value: "untouched", label: "Untouched", color: "#6b7280" },
+  { value: "neutral", label: "Neutral", color: "#9ca3af" },
+  { value: "positive", label: "Positive", color: "#16a34a" },
+  { value: "confirmed", label: "Confirmed", color: "#2563eb" },
+  { value: "malfunction", label: "Issue", color: "#d97706" },
+  { value: "lost", label: "Lost", color: "#dc2626" },
+  { value: "booked", label: "Booked", color: "#7e22ce" },
+];
+
+function isCategory(v: string): v is SalesCategory {
+  return CATEGORY_CHIPS.some((c) => c.value === v);
+}
+
 export default async function SalesPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ bucket?: string; range?: string; service?: string; untouched?: string; mode?: string }>;
+  searchParams?: Promise<{ bucket?: string; category?: string; range?: string; service?: string; untouched?: string; mode?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -50,6 +66,8 @@ export default async function SalesPage({
   const params = (await searchParams) ?? {};
   const bucketRaw = (params.bucket ?? "cold").trim();
   const bucket: SalesBucket = isBucket(bucketRaw) ? bucketRaw : "cold";
+  const categoryRaw = (params.category ?? "all").trim();
+  const category: SalesCategory = isCategory(categoryRaw) ? categoryRaw : "all";
   const rangeRaw = (params.range ?? "all").trim();
   const range: SalesRange = (["7-30d", "30-90d", "90-180d", "all"].includes(rangeRaw) ? rangeRaw : "all") as SalesRange;
   const service = (params.service ?? "").trim() || undefined;
@@ -58,9 +76,10 @@ export default async function SalesPage({
   const mode: "active" | "orbis" | "all" =
     modeRaw === "orbis" ? "orbis" : modeRaw === "all" ? "all" : "active";
 
-  const { entries, bucketCounts, rangeCounts, totalShown } = await getSalesQueue({
+  const { entries, bucketCounts, categoryCounts, rangeCounts, totalShown } = await getSalesQueue({
     shopId: shopForQueue.id,
     bucket,
+    category,
     range,
     service,
     untouchedOnly,
@@ -74,9 +93,23 @@ export default async function SalesPage({
     const sp = new URLSearchParams();
     sp.set("bucket", b);
     if (service) sp.set("service", service);
+    // Switching buckets resets the category filter (counts differ per bucket).
     // Range/mode/untouched only carry over for cold — they don't change
     // the warm/frozen/cooldown queries.
     if (b === "cold") {
+      if (range !== "all") sp.set("range", range);
+      if (mode !== "active") sp.set("mode", mode);
+      if (untouchedOnly) sp.set("untouched", "1");
+    }
+    return `/sales?${sp.toString()}` as Route;
+  }
+
+  function categoryHref(cat: SalesCategory): Route {
+    const sp = new URLSearchParams();
+    sp.set("bucket", bucket);
+    if (cat !== "all") sp.set("category", cat);
+    if (service) sp.set("service", service);
+    if (bucket === "cold") {
       if (range !== "all") sp.set("range", range);
       if (mode !== "active") sp.set("mode", mode);
       if (untouchedOnly) sp.set("untouched", "1");
@@ -125,6 +158,47 @@ export default async function SalesPage({
         ))}
       </div>
 
+      {/* Disposition overview — click a category to filter the list below.
+          Not shown on cool-down (every lead there shares one disposition). */}
+      {bucket !== "cooldown" ? (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            margin: "12px 0",
+            padding: "12px",
+            background: "rgba(0,0,0,0.02)",
+            borderRadius: 10,
+          }}
+        >
+          {CATEGORY_CHIPS.map((chip) => {
+            const active = category === chip.value;
+            const count = categoryCounts[chip.value];
+            return (
+              <Link
+                key={chip.value}
+                href={categoryHref(chip.value)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  minWidth: 78,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                  border: active ? `2px solid ${chip.color}` : "1px solid rgba(0,0,0,0.08)",
+                  background: active ? `${chip.color}14` : "white",
+                }}
+              >
+                <strong style={{ fontSize: 20, color: chip.color }}>{count}</strong>
+                <span style={{ fontSize: 12, color: "#374151", fontWeight: active ? 700 : 500 }}>{chip.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+
       {/* Cold-bucket only: keep the existing mode-switcher + range filter. */}
       {bucket === "cold" ? (
         <>
@@ -161,6 +235,7 @@ export default async function SalesPage({
           <form className="directoryFilterBar" method="get" action="/sales">
             <input type="hidden" name="bucket" value="cold" />
             <input type="hidden" name="mode" value={mode} />
+            {category !== "all" ? <input type="hidden" name="category" value={category} /> : null}
             {mode !== "orbis" ? (
               <label className="modalField">
                 <span>Range</span>
@@ -185,6 +260,7 @@ export default async function SalesPage({
       ) : (
         <form className="directoryFilterBar" method="get" action="/sales">
           <input type="hidden" name="bucket" value={bucket} />
+          {category !== "all" ? <input type="hidden" name="category" value={category} /> : null}
           <label className="modalField">
             <span>Service</span>
             <input className="detailInput" name="service" defaultValue={service ?? ""} placeholder="e.g. detail, wash" />

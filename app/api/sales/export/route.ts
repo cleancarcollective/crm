@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     range,
     service: service ?? undefined,
     untouchedOnly,
+    rangeQuery: true,
   });
 
   const header = [

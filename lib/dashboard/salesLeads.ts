@@ -48,12 +48,39 @@ export type SalesBucketCounts = {
   cooldown: number;
 };
 
+/**
+ * Category = disposition chip the rep last picked, plus a synthetic
+ * "untouched" (never actioned) and "all". Drives the overview strip above
+ * the lead list on each bucket page.
+ */
+export type SalesCategory =
+  | "all"
+  | "untouched"
+  | "neutral"
+  | "positive"
+  | "confirmed"
+  | "malfunction"
+  | "lost"
+  | "booked";
+
+export type SalesCategoryCounts = Record<SalesCategory, number>;
+
 export type SalesQueueResult = {
   entries: SalesLeadEntry[];
   bucketCounts: SalesBucketCounts;
+  categoryCounts: SalesCategoryCounts;
   rangeCounts: { "7-30d": number; "30-90d": number; "90-180d": number; all: number; orbis: number };
   totalShown: number;
 };
+
+function categoryOf(entry: SalesLeadEntry): Exclude<SalesCategory, "all"> {
+  const d = entry.lastDisposition;
+  if (d === "neutral" || d === "positive" || d === "confirmed" || d === "malfunction" || d === "lost" || d === "booked") {
+    return d;
+  }
+  // No disposition picked yet → untouched (rep hasn't actioned this lead).
+  return "untouched";
+}
 
 const CLOSED_STATUSES = ["won", "lost"];
 
@@ -97,9 +124,12 @@ function rangeBounds(range: SalesRange): { from: Date; to: Date } {
 export async function getSalesQueue(args: {
   shopId: string;
   bucket?: SalesBucket;
+  category?: SalesCategory;
   range?: SalesRange;
   service?: string;
   untouchedOnly?: boolean;
+  /** Admin CSV export: use the legacy range-bounded query, ignore buckets. */
+  rangeQuery?: boolean;
   /**
    * "Active" mode (default) is the daily caller workflow: leads from the
    * website 7-180 days old, not yet won/lost. "Orbis" mode surfaces
@@ -128,7 +158,17 @@ export async function getSalesQueue(args: {
     .limit(500);
 
   // Bucket gates — applied in addition to mode/source filters.
-  if (bucket === "cooldown") {
+  if (args.rangeQuery) {
+    // Legacy range-based query (used by the admin CSV export). Preserves the
+    // pre-bucketing behaviour: 7-180d window via rangeBounds(range), not
+    // won/lost, website source. Ignores the warm/cold/frozen split.
+    const { from, to } = rangeBounds(range);
+    q = q
+      .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
+      .neq("source", "orbis-import")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString());
+  } else if (bucket === "cooldown") {
     // Active cool-downs (resurface date in the future). No date-range
     // filter — show all cool-downs regardless of lead age.
     q = q.gt("cooldown_until", nowIso);
@@ -264,6 +304,29 @@ export async function getSalesQueue(args: {
     filtered = entries.filter((e) => new Date(e.updatedAt).getTime() < cutoff);
   }
 
+  // Category counts are derived from the bucket's entries (post booked-contact
+  // exclusion, post untouched-filter) so the overview strip matches the list.
+  const categoryCounts: SalesCategoryCounts = {
+    all: filtered.length,
+    untouched: 0,
+    neutral: 0,
+    positive: 0,
+    confirmed: 0,
+    malfunction: 0,
+    lost: 0,
+    booked: 0,
+  };
+  for (const e of filtered) {
+    categoryCounts[categoryOf(e)] += 1;
+  }
+
+  // Apply the category filter LAST so the counts above reflect the whole
+  // bucket, but the list only shows the chosen category.
+  const category = args.category ?? "all";
+  if (category !== "all") {
+    filtered = filtered.filter((e) => categoryOf(e) === category);
+  }
+
   const [bucketCounts, rangeCounts] = await Promise.all([
     getBucketCounts(args.shopId, args.service),
     getRangeCounts(args.shopId, args.service),
@@ -272,6 +335,7 @@ export async function getSalesQueue(args: {
   return {
     entries: filtered,
     bucketCounts,
+    categoryCounts,
     rangeCounts,
     totalShown: filtered.length,
   };
