@@ -1,19 +1,27 @@
 /**
- * Data layer for the /sales view (cold-lead caller queue).
+ * Data layer for the /sales view.
  *
- * Returns "callable" leads — created in a stale-but-not-dead window, not
- * already won or lost, and without a booking on file. Ordered by
- * least-recently-touched so a rep doesn't double-call someone they just
- * spoke to.
+ * Buckets a lead lives in EXACTLY ONE of:
+ *   warm     — inbound TODAY (NZ-local). Today's queue.
+ *   cold     — 1-14 days old. The "callable" middle window.
+ *   frozen   — >14 days old. Older / forgotten leads.
+ *   cooldown — manually flagged with cooldown_until > now(). Takes priority
+ *              over all age-based buckets.
  *
- * IMPORTANT: shop scope is always pinned to the caller-provided shopId,
- * NOT to the active-shop cookie. The /sales page resolves shopId from
- * the sales user's assigned_shop_id (or admin's current shop).
+ * "Callable" leads in any bucket exclude: archived, status in won/lost,
+ * and contacts who already have a booking on file. Cool-down rows additionally
+ * carry the reason + resurface date so the rep sees context without clicking in.
+ *
+ * Shop scope is always pinned to the caller-provided shopId, NOT the
+ * active-shop cookie. /sales resolves shopId from the sales user's
+ * assigned_shop_id (or admin's current shop).
  */
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type SalesRange = "7-30d" | "30-90d" | "90-180d" | "all";
+
+export type SalesBucket = "warm" | "cold" | "frozen" | "cooldown";
 
 export type SalesLeadEntry = {
   leadId: string;
@@ -28,15 +36,36 @@ export type SalesLeadEntry = {
   updatedAt: string;
   daysSinceEnquiry: number;
   lastTouchedAt: string;
+  cooldownUntil: string | null;
+  cooldownReason: string | null;
+};
+
+export type SalesBucketCounts = {
+  warm: number;
+  cold: number;
+  frozen: number;
+  cooldown: number;
 };
 
 export type SalesQueueResult = {
   entries: SalesLeadEntry[];
-  bucketCounts: { "7-30d": number; "30-90d": number; "90-180d": number; all: number; orbis: number };
+  bucketCounts: SalesBucketCounts;
+  rangeCounts: { "7-30d": number; "30-90d": number; "90-180d": number; all: number; orbis: number };
   totalShown: number;
 };
 
 const CLOSED_STATUSES = ["won", "lost"];
+
+/**
+ * Most-recent local midnight in Pacific/Auckland, returned as a UTC Date.
+ * Handles both NZST (+12) and NZDT (+13) without depending on the host TZ.
+ */
+function nzStartOfTodayUtc(): Date {
+  const todayYmd = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+  const tryStd = new Date(`${todayYmd}T00:00:00+12:00`);
+  if (tryStd.toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" }) === todayYmd) return tryStd;
+  return new Date(`${todayYmd}T00:00:00+13:00`);
+}
 
 function rangeBounds(range: SalesRange): { from: Date; to: Date } {
   const now = new Date();
@@ -66,6 +95,7 @@ function rangeBounds(range: SalesRange): { from: Date; to: Date } {
 
 export async function getSalesQueue(args: {
   shopId: string;
+  bucket?: SalesBucket;
   range?: SalesRange;
   service?: string;
   untouchedOnly?: boolean;
@@ -78,14 +108,16 @@ export async function getSalesQueue(args: {
   mode?: "active" | "orbis" | "all";
 }): Promise<SalesQueueResult> {
   const supabase = getSupabaseAdminClient();
+  const bucket = args.bucket ?? "cold";
   const range = args.range ?? "all";
   const mode = args.mode ?? "active";
-  const { from, to } = rangeBounds(range);
+  const nowIso = new Date().toISOString();
 
   let q = supabase
     .from("leads")
     .select(
       "id, shop_id, contact_id, vehicle_id, service_requested, status, source, created_at, updated_at, " +
+        "cooldown_until, cooldown_reason, " +
         "contact:contacts(id, first_name, last_name, full_name, email, phone), " +
         "vehicle:vehicles(year, make, model, size)"
     )
@@ -94,24 +126,55 @@ export async function getSalesQueue(args: {
     .order("updated_at", { ascending: true })
     .limit(500);
 
-  if (mode === "active") {
-    // Standard cold-lead queue: recent enquiries not yet closed.
-    q = q
-      .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
-      .neq("source", "orbis-import")
-      .gte("created_at", from.toISOString())
-      .lte("created_at", to.toISOString());
-  } else if (mode === "orbis") {
-    // OrbisX archive: imported leads regardless of status. No date range
-    // filter — these go back to 2024. Sort already by least-recently-
-    // touched so the rep doesn't double-call.
-    q = q.eq("source", "orbis-import");
+  // Bucket gates — applied in addition to mode/source filters.
+  if (bucket === "cooldown") {
+    // Active cool-downs (resurface date in the future). No date-range
+    // filter — show all cool-downs regardless of lead age.
+    q = q.gt("cooldown_until", nowIso);
   } else {
-    // "all" — include both, but still respect range bounds for non-orbis.
-    // Done as an OR: source='orbis-import' OR (status not closed AND in range)
-    q = q.or(
-      `source.eq.orbis-import,and(status.not.in.(${CLOSED_STATUSES.join(",")}),created_at.gte.${from.toISOString()},created_at.lte.${to.toISOString()})`,
-    );
+    // For non-cool-down buckets, exclude any lead currently in cool-down.
+    q = q.or(`cooldown_until.is.null,cooldown_until.lte.${nowIso}`);
+
+    const nzMidnight = nzStartOfTodayUtc();
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
+    if (bucket === "warm") {
+      // Inbound today (NZ-local). Active workflow only — orbis mode doesn't
+      // apply to "today's leads" (orbis is historical by definition).
+      q = q
+        .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
+        .neq("source", "orbis-import")
+        .gte("created_at", nzMidnight.toISOString());
+    } else if (bucket === "frozen") {
+      // Older than 14 days, not won/lost, still active queue (orbis stays
+      // on its own page-of-record via the existing mode filter on /sales).
+      if (mode === "orbis") {
+        q = q.eq("source", "orbis-import").lt("created_at", fourteenDaysAgo.toISOString());
+      } else {
+        q = q
+          .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
+          .neq("source", "orbis-import")
+          .lt("created_at", fourteenDaysAgo.toISOString());
+      }
+    } else {
+      // bucket === "cold": 1-14 days old, ≥1d old so we don't double-count
+      // warm. Honour the mode + range filters (existing UI semantics).
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      if (mode === "active") {
+        q = q
+          .not("status", "in", `(${CLOSED_STATUSES.join(",")})`)
+          .neq("source", "orbis-import")
+          .lt("created_at", oneDayAgo.toISOString())
+          .gte("created_at", fourteenDaysAgo.toISOString());
+      } else if (mode === "orbis") {
+        q = q.eq("source", "orbis-import");
+      } else {
+        // "all" — orbis OR (active cold-window)
+        q = q.or(
+          `source.eq.orbis-import,and(status.not.in.(${CLOSED_STATUSES.join(",")}),created_at.gte.${fourteenDaysAgo.toISOString()},created_at.lt.${oneDayAgo.toISOString()}))`,
+        );
+      }
+    }
   }
 
   if (args.service) {
@@ -128,6 +191,8 @@ export async function getSalesQueue(args: {
     status: string;
     created_at: string;
     updated_at: string;
+    cooldown_until: string | null;
+    cooldown_reason: string | null;
     contact: {
       id: string;
       first_name: string | null;
@@ -139,12 +204,13 @@ export async function getSalesQueue(args: {
     vehicle: { year: string | null; make: string | null; model: string | null; size: string | null } | null;
   }>;
 
-  // Filter out leads that already have a booking (one-call close means we
-  // only call people who haven't booked yet). One round-trip for all
-  // candidate contact IDs is cheaper than a join.
+  // Exclude contacts that already have a booking. One round-trip is cheaper
+  // than a join. Note: we DO show booked contacts on the cooldown bucket
+  // too — if a rep flagged someone who later booked elsewhere, they should
+  // still see why they were flagged.
   const contactIds = Array.from(new Set(rows.map((r) => r.contact_id).filter(Boolean) as string[]));
   const bookedContactIds = new Set<string>();
-  if (contactIds.length > 0) {
+  if (contactIds.length > 0 && bucket !== "cooldown") {
     const { data: bookingRows } = await supabase
       .from("bookings")
       .select("contact_id")
@@ -182,32 +248,81 @@ export async function getSalesQueue(args: {
         updatedAt: r.updated_at,
         daysSinceEnquiry: daysSince,
         lastTouchedAt: r.updated_at,
+        cooldownUntil: r.cooldown_until,
+        cooldownReason: r.cooldown_reason,
       };
     });
 
-  // Untouched filter: no team note OR no team email in the last 14 days.
-  // Approximation — we use the lead.updated_at as a proxy for last team
-  // activity. It bumps on note edits, status changes, and email sends.
+  // Untouched-only filter (cold bucket UI). Approximation — uses updated_at
+  // as a proxy for last team activity.
   let filtered = entries;
-  if (args.untouchedOnly) {
+  if (args.untouchedOnly && bucket === "cold") {
     const cutoff = now - 14 * dayMs;
     filtered = entries.filter((e) => new Date(e.updatedAt).getTime() < cutoff);
   }
 
-  const bucketCounts = await getBucketCounts(args.shopId, args.service);
+  const [bucketCounts, rangeCounts] = await Promise.all([
+    getBucketCounts(args.shopId, args.service),
+    getRangeCounts(args.shopId, args.service),
+  ]);
 
   return {
     entries: filtered,
     bucketCounts,
+    rangeCounts,
     totalShown: filtered.length,
   };
 }
 
-async function getBucketCounts(shopId: string, service?: string): Promise<SalesQueueResult["bucketCounts"]> {
-  // Cheap parallel count queries for the four range buckets. We don't
-  // bother filtering out already-booked contacts here — the headline
-  // count is enquiry volume, not exact callable count, and the actual
-  // list page does the precise filter.
+/**
+ * Counts for the 4 bucket tabs (warm/cold/frozen/cooldown). Counts apply the
+ * service filter but do NOT subtract booked-contacts (the badges are headline
+ * volume, not exact callable — the actual list page does the precise filter).
+ */
+async function getBucketCounts(shopId: string, service?: string): Promise<SalesBucketCounts> {
+  const supabase = getSupabaseAdminClient();
+  const nowIso = new Date().toISOString();
+  const nzMidnight = nzStartOfTodayUtc();
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  function base() {
+    let q = supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", shopId)
+      .not("archived", "eq", true);
+    if (service) q = q.ilike("service_requested", `%${service}%`);
+    return q;
+  }
+  function notCooldown<T extends ReturnType<typeof base>>(q: T): T {
+    return q.or(`cooldown_until.is.null,cooldown_until.lte.${nowIso}`) as T;
+  }
+  function activeNotClosed<T extends ReturnType<typeof base>>(q: T): T {
+    return q.not("status", "in", `(${CLOSED_STATUSES.join(",")})`).neq("source", "orbis-import") as T;
+  }
+
+  const [{ count: warm }, { count: cold }, { count: frozen }, { count: cooldown }] = await Promise.all([
+    activeNotClosed(notCooldown(base())).gte("created_at", nzMidnight.toISOString()),
+    activeNotClosed(notCooldown(base())).gte("created_at", fourteenDaysAgo.toISOString()).lt("created_at", oneDayAgo.toISOString()),
+    activeNotClosed(notCooldown(base())).lt("created_at", fourteenDaysAgo.toISOString()),
+    base().gt("cooldown_until", nowIso),
+  ]);
+
+  return {
+    warm: warm ?? 0,
+    cold: cold ?? 0,
+    frozen: frozen ?? 0,
+    cooldown: cooldown ?? 0,
+  };
+}
+
+/**
+ * Range bucket counts used by the existing /sales mode-switcher cards
+ * (Recent enquiries / OrbisX / Everything). Preserved so the existing UI
+ * keeps working alongside the new bucket tabs.
+ */
+async function getRangeCounts(shopId: string, service?: string): Promise<SalesQueueResult["rangeCounts"]> {
   const supabase = getSupabaseAdminClient();
   async function count(range: SalesRange) {
     const { from, to } = rangeBounds(range);
