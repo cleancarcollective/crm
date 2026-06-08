@@ -18,7 +18,7 @@
 alter table leads
   add column if not exists last_disposition text,
   add column if not exists last_disposition_at timestamptz,
-  add column if not exists last_disposition_by uuid references auth.users(id);
+  add column if not exists last_disposition_by uuid references staff_users(id) on delete set null;
 
 create index if not exists leads_last_disposition_idx on leads(last_disposition)
   where last_disposition is not null;

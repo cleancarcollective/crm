@@ -12,7 +12,7 @@
 alter table leads
   add column if not exists cooldown_until timestamptz,
   add column if not exists cooldown_reason text,
-  add column if not exists cooldown_set_by uuid references auth.users(id),
+  add column if not exists cooldown_set_by uuid references staff_users(id) on delete set null,
   add column if not exists cooldown_set_at timestamptz;
 
 create index if not exists leads_cooldown_until_idx on leads(cooldown_until)
