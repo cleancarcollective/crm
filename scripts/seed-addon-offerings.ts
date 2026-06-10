@@ -122,6 +122,24 @@ const ADDONS = [
     selling_points: "Bundle with pickup for office workers / parents - removes the \"I can't get there\" objection entirely.",
     notes: "",
   },
+  {
+    service_id: "photos-10",
+    display_name: "10 professional photos for selling",
+    rank: 30,
+    pricing_table: flat(50, 30),
+    description: "10 pro photos of the vehicle once it's clean - for online listings.",
+    selling_points: "Auto-offered on the customer booking form whenever they select a Premium Detail or Deluxe Detail. Lean on the listing angle - clean cars on Trade Me / Facebook Marketplace sell faster and for more. Cheap to add ($50) on top of a full detail.",
+    notes: "Surfaced as an inline upsell under the full-detail packages on the booking form. Don't bring it up unprompted on interior-only jobs - those get the 5-photo version below.",
+  },
+  {
+    service_id: "photos-5",
+    display_name: "5 professional photos for selling",
+    rank: 31,
+    pricing_table: flat(25, 15),
+    description: "5 pro interior shots once it's clean - for online listings.",
+    selling_points: "Auto-offered on the customer booking form whenever they select a Premium Interior or Deluxe Interior. Trigger: \"I'm getting it cleaned to sell.\" Cheap photo bundle to close the loop.",
+    notes: "Surfaced as an inline upsell under the interior-only packages on the booking form.",
+  },
 ];
 
 (async () => {
