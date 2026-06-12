@@ -35,26 +35,28 @@ export const TEMPLATE_DEFAULTS: TemplateDefault[] = [
     subject: "Detailing estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for getting in touch about a detail on your {{vehicle}}. We've got two main inside-and-out packages:
+Thanks for reaching out for a detailing estimate for your {{vehicle}}.
+We offer two main interior & exterior packages designed to suit different levels of cleaning and restoration:
 
-Deluxe Detail: {{deluxe_price}} (approx. 3.5-4 hours)
+Deluxe Detail -- {{deluxe_price}} (approx. 3.5-4 hours)
 - Exterior hand wash & dry
 - Wheel faces, barrels & tyres cleaned
-- Interior vacuum & plastics detailed
-- Door jambs & windows cleaned
-- 3-month paint sealant
+- Interior vacuum and plastics detailed
+- Door jamb & window cleaning
+- 3-month paint sealant applied for protection
 
-Premium Detail: {{premium_price}} (approx. 5.5-6.5 hours)
-- Everything in the Deluxe, plus:
+Premium Detail -- {{premium_price}} (approx. 5.5-6.5 hours)
+- Includes everything in the Deluxe Detail, plus:
 - Full interior shampoo (carpets, seats, mats)
-- Clay-bar paint decontamination
+- Clay bar treatment for paint decontamination
 - Engine bay cleaning
-- 6-month paint sealant
+- 6-month paint sealant applied
 
-We can tailor either one. Just shampoo the seats, skip the engine bay, whatever works.
+We can also tailor the package, for example, by just shampooing the seats or skipping the engine bay.
 
-If you're after long-term protection, ask about paint correction (swirl/scratch removal) and ceramic coatings (2-5+ years).
+If you're looking for the ultimate result, we also offer paint correction (removes light swirls & scratches) and ceramic coatings (2-5+ year protection). Happy to include pricing for those if you're interested.
 
+Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
 
 Cheers,
@@ -67,22 +69,25 @@ Cheers,
     subject: "Interior detailing estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for getting in touch about an interior detail on your {{vehicle}}. Two main options:
+Thanks for your enquiry about an interior detail for your {{vehicle}}.
+Here are our two main interior packages:
 
-Deluxe Interior: {{deluxe_interior_price}} (approx. 2.5-3 hours)
+Deluxe Interior -- {{deluxe_interior_price}} (approx. 2.5-3 hours)
 - Full interior vacuum (carpets, mats, seats)
-- Crevice detail
-- Plastics cleaned & protected
-- Door jambs & interior windows
+- Crevice detail for all surfaces
+- Interior plastics cleaned & protected
+- Door jambs & interior windows cleaned
 
-Premium Interior: {{premium_interior_price}} (approx. 3.5-4.5 hours)
-- Everything in the Deluxe, plus:
-- Full shampoo & extraction of seats, carpets & mats
+Premium Interior -- {{premium_interior_price}} (approx. 3.5-4.5 hours)
+- Includes everything in the Deluxe Interior, plus:
+- Shampoo & extraction of all seats, carpets, and mats
 - Double vacuum & stain extraction
 - Interior deodorising treatment
 
-Happy to customise too. Seats only, leather protection coating, whatever you need.
+We can also customise the job, for example, if you only want the seats shampooed, we can adjust pricing accordingly.
+If you're interested in long-term protection, we can add interior fabric/leather protection coatings to keep surfaces cleaner for longer.
 
+Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
 
 Cheers,
@@ -95,21 +100,23 @@ Cheers,
     subject: "Exterior detailing estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for getting in touch about an exterior clean on your {{vehicle}}. Two options depending on what you're after:
+Thanks for getting in touch about an exterior clean for your {{vehicle}}.
+We offer two main exterior hand wash services:
 
-Deluxe Exterior: {{deluxe_exterior_price}} (approx. 1.5-2 hours)
-- Hand wash & dry
+Deluxe Exterior -- {{deluxe_exterior_price}} (approx. 1.5-2 hours)
+- Exterior hand wash & dry
 - Wheel faces, barrels & tyres cleaned
-- Windows & mirrors
-- 3-month wax/paint sealant
+- Windows & mirrors cleaned
+- Wax/paint sealant applied for 3 months of protection
 
-Premium Exterior: {{premium_exterior_price}} (approx. 2.5-3 hours)
-- Everything in the Deluxe, plus:
-- Clay-bar treatment to remove bonded contaminants
+Premium Exterior -- {{premium_exterior_price}} (approx. 2.5-3 hours)
+- Includes everything in Deluxe, plus:
+- Clay bar treatment to remove bonded contaminants
 - Full paint decontamination for a smoother, glossier finish
 
-If your paint has visible swirls or scratches, ask about paint correction and ceramic coating packages for longer-term protection.
+If your paint has visible swirls or scratches, we also offer paint correction and ceramic coating packages for longer-term protection -- happy to provide details if you'd like.
 
+Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
 
 Cheers,
@@ -122,22 +129,25 @@ Cheers,
     subject: "Ceramic coating estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for reaching out about ceramic coating for your {{vehicle}}. We're CarPro authorised installers and run three coating levels:
+Thanks for reaching out about ceramic coating protection for your {{vehicle}}.
 
-Bronze: {{bronze_price}}
+We are CarPro authorised installers and offer three levels of coating to suit different vehicles and budgets:
+
+Bronze Package -- {{bronze_price}}
 - 1-year protection
 - Gloss enhancement & strong hydrophobic properties
 
-Silver: {{silver_price}}
+Silver Package -- {{silver_price}}
 - 3-year protection
 - Added chemical resistance & easy-clean surface
 
-Gold: {{gold_price}}
+Gold Package -- {{gold_price}}
 - 5-year protection (backed by our company warranty)
 - Maximum gloss retention, hardness improvement & top-tier hydrophobic performance
 
-All three include full surface prep (wash, decontamination, and spot polishing if needed).
+All coatings include a full surface prep (wash, decontamination, and spot polishing if needed).
 
+Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
 
 Cheers,
@@ -150,18 +160,21 @@ Cheers,
     subject: "Paint correction estimate for your {{vehicle}}",
     body_text: `Hi {{name}},
 
-Thanks for reaching out about paint correction for your {{vehicle}}. It removes swirls, oxidation, and scratches, and brings a lot of depth and gloss back to the paint.
+Thanks for reaching out about paint correction for your {{vehicle}}.
 
-1-Step Correction: {{one_step_price}}
+Paint correction removes light swirls, oxidation, and scratches, dramatically improving gloss and depth.
+
+1-Step Correction -- {{one_step_price}}
 - Removes up to 90% of light swirls & micro-marring
 - Great for most daily drivers
 
-2-Step Correction: {{two_step_price}}
+2-Step Correction -- {{two_step_price}}
 - Removes deeper scratches and watermarks
-- Maximum clarity and reflection for high-end results
+- Maximises clarity and reflection for high-end results
 
-Correction is the ideal prep step before a ceramic coating, so happy to bundle the two if you're interested.
+Correction is the perfect preparation step before applying a ceramic coating, ensuring a flawless, protected finish.
 
+Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
 
 Cheers,
