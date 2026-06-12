@@ -58,7 +58,14 @@ type ExportRow = {
   gclid: string | null;
   gbraid: string | null;
   wbraid: string | null;
-  // Hashed email for Enhanced Conversions for Leads (fallback when no gclid)
+  // Email for Enhanced Conversions for Leads (the match key when there's no
+  // gclid). NOTE: this carries the RAW (lowercased/trimmed) email, NOT a
+  // hash — the Google Sheets offline-import column is mapped as plain
+  // "Email", so Google hashes it server-side. Pre-hashing here caused a
+  // double-hash and zero user-data matches ("No user-provided data matches"
+  // diagnostic). The field key stays `email_sha256` for backwards-compat
+  // with the bound Apps Script, which maps this key → the sheet's "Email"
+  // column. (Sheet is access-controlled and already holds booking PII.)
   email_sha256: string | null;
 };
 
@@ -69,12 +76,14 @@ type ExportRow = {
  */
 const FORM_VALUE_NZD = 62;
 
-async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input.trim().toLowerCase());
-  const buffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+/**
+ * Normalise an email the way Google expects before it hashes it server-side:
+ * trim whitespace + lowercase. We deliberately DO NOT hash — the Sheets
+ * import column is plain "Email", so Google does the hashing. Pre-hashing
+ * caused a double-hash → zero Enhanced-Conversions matches.
+ */
+function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
 }
 
 /**
@@ -191,7 +200,7 @@ async function buildExportRows(args: {
     if (value <= 0) continue; // skip $0 conversions — Google Ads rejects them
 
     const email = emailByContact.get(booking.contact_id as string) ?? null;
-    const emailHash = email ? await sha256Hex(email) : null;
+    const emailNormalized = email ? normalizeEmail(email) : null;
 
     const gclid = (booking.gclid as string | null) ?? matchingLead?.gclid ?? null;
     const gbraid = (booking.gbraid as string | null) ?? matchingLead?.gbraid ?? null;
@@ -200,7 +209,7 @@ async function buildExportRows(args: {
     // Skip rows with no attribution signal at all. Without a click ID OR
     // a hashed email, Ads has nothing to match against — the row would be
     // silently rejected. Log it so the gap is visible, and skip the upload.
-    if (!gclid && !gbraid && !wbraid && !emailHash) {
+    if (!gclid && !gbraid && !wbraid && !emailNormalized) {
       console.warn("[ads-export] booking has no attribution signal — skipping", {
         booking_id: booking.id,
         shop_id: booking.shop_id,
@@ -230,7 +239,7 @@ async function buildExportRows(args: {
       gclid,
       gbraid,
       wbraid,
-      email_sha256: emailHash,
+      email_sha256: emailNormalized,
     });
   }
 
@@ -308,7 +317,7 @@ async function buildFormRows(args: {
   const rows: ExportRow[] = [];
   for (const lead of leads) {
     const email = lead.contact_id ? emailByContact.get(lead.contact_id as string) ?? null : null;
-    const emailHash = email ? await sha256Hex(email) : null;
+    const emailNormalized = email ? normalizeEmail(email) : null;
     const gclid = lead.gclid as string | null;
     const gbraid = lead.gbraid as string | null;
     const wbraid = lead.wbraid as string | null;
@@ -316,7 +325,7 @@ async function buildFormRows(args: {
     // Require at least one attribution signal — click ID OR hashed email.
     // Without either, Ads has no way to attribute the conversion to a
     // user or click; the row would silently bounce.
-    if (!gclid && !gbraid && !wbraid && !emailHash) {
+    if (!gclid && !gbraid && !wbraid && !emailNormalized) {
       console.warn("[ads-export] lead has no attribution signal — skipping", {
         lead_id: lead.id,
         shop_id: lead.shop_id,
@@ -338,7 +347,7 @@ async function buildFormRows(args: {
       gclid,
       gbraid,
       wbraid,
-      email_sha256: emailHash,
+      email_sha256: emailNormalized,
     });
   }
 
