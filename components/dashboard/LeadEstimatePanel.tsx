@@ -29,8 +29,14 @@ export function LeadEstimatePanel({
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // Only show for leads needing approval
-  if (currentStatus !== "needs_approval" && currentStatus !== "held") return null;
+  // Show whenever an auto-draft exists and the estimate hasn't actually
+  // been sent / closed out yet. Previously this was gated to
+  // needs_approval/held only - which hid the draft as soon as staff
+  // moved the lead to Contacted, even though the estimate had never
+  // been sent. Hide once the lead reaches a terminal state.
+  const STATUSES_HIDING_DRAFT = new Set(["sent", "quoted", "won", "lost", "booked", "archived"]);
+  if (STATUSES_HIDING_DRAFT.has(currentStatus)) return null;
+  if (!draftBody && !draftSubject) return null;
 
   function handleSend() {
     if (!subject.trim() || !body.trim()) {
@@ -65,7 +71,7 @@ export function LeadEstimatePanel({
   return (
     <div className="estimatePanel">
       <div className="estimatePanelHeader">
-        <h3 className="estimatePanelTitle">Needs approval — estimate draft</h3>
+        <h3 className="estimatePanelTitle">{currentStatus === "needs_approval" || currentStatus === "held" ? "Needs approval — estimate draft" : "Estimate draft (not yet sent)"}</h3>
         <div className="estimatePanelMeta">
           {internalNote ? <span className="estimatePanelNote">{internalNote}</span> : null}
           {confidence ? <span className="estimatePanelBadge">Confidence: {confidence}{suggestedSize ? ` · ${suggestedSize}` : ""}</span> : null}
