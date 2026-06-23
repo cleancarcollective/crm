@@ -59,6 +59,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
   const [durationMinutes, setDurationMinutes] = useState(String(booking.duration_minutes ?? ""));
   const [priceEstimate, setPriceEstimate] = useState(String(booking.price_estimate ?? ""));
   const [locationType, setLocationType] = useState(booking.location_type ?? "");
+  const [serviceAddress, setServiceAddress] = useState(booking.service_address ?? "");
   const [notes, setNotes] = useState(booking.notes ?? "");
   const [savedMessage, setSavedMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -82,6 +83,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
           duration_minutes: durationMinutes ? Number(durationMinutes) : null,
           price_estimate: priceEstimate ? Number(priceEstimate) : null,
           location_type: locationType || null,
+          service_address: locationType === "mobile" ? (serviceAddress.trim() || null) : null,
           notes: notes || null,
           send_update_email: sendUpdateEmail,
         }),
@@ -268,6 +270,18 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
               <option value="mobile">Mobile</option>
             </select>
           </EditItem>
+
+          {locationType === "mobile" && (
+            <EditItem label="Mobile address">
+              <input
+                type="text"
+                className="detailInput"
+                value={serviceAddress}
+                onChange={(e) => setServiceAddress(e.target.value)}
+                placeholder="Street address where we'll meet the vehicle"
+              />
+            </EditItem>
+          )}
 
           <ReadItem label="Source" value={booking.booking_source} />
           <ReadItem label="Service ID" value={booking.service_id} />

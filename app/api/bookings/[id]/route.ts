@@ -17,6 +17,7 @@ type BookingUpdatePayload = {
   duration_minutes?: number | null;
   price_estimate?: number | null;
   location_type?: string | null;
+  service_address?: string | null;
   notes?: string | null;
   send_update_email?: boolean;
 };
@@ -115,6 +116,7 @@ export async function PATCH(
     duration_minutes: durationMinutes,
     price_estimate: payload.price_estimate ?? existingBooking.price_estimate,
     location_type: payload.location_type ?? existingBooking.location_type,
+    service_address: payload.service_address !== undefined ? payload.service_address : existingBooking.service_address,
     notes: payload.notes ?? existingBooking.notes
   };
 
