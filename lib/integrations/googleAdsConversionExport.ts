@@ -87,6 +87,25 @@ function normalizeEmail(input: string): string {
 }
 
 /**
+ * Format a timestamp the way Google Ads Data Manager requires for the
+ * Conversion Time column: "yyyy-MM-dd HH:mm:ss±HH:mm" — a SPACE separator
+ * and NO fractional seconds.
+ *
+ * Postgres timestamptz serialises to ISO 8601 with microseconds and a "T",
+ * e.g. "2026-05-18T06:56:26.417416+00:00". The legacy Sheets importer
+ * tolerated that, but the newer Data Manager importer rejects it with
+ * "Make sure that this column contains a valid timestamp" — silently
+ * failing EVERY row (0 imported). This converts it to the accepted form:
+ * "2026-05-18 06:56:26+00:00".
+ */
+function formatAdsConversionTime(iso: string): string {
+  return iso
+    .replace("T", " ")        // T separator → space
+    .replace(/\.\d+/, "")      // strip fractional seconds
+    .replace(/Z$/, "+00:00");  // normalise a trailing Z to an explicit offset
+}
+
+/**
  * Pull bookings that were CREATED in [windowStart, windowEnd) and turn them
  * into export rows. Joins to the booking's contact's most-recent lead at
  * or before the booking to find the gclid.
@@ -230,7 +249,7 @@ async function buildExportRows(args: {
       // shops — they're routed by which tab/sheet the row lands in, not
       // by conversion action name.
       conversion_action: "Booking value (CRM offline)",
-      conversion_time: booking.created_at as string,
+      conversion_time: formatAdsConversionTime(booking.created_at as string),
       value,
       currency: "NZD",
       // Direct booking gclid (set when the customer booked directly without
@@ -341,7 +360,7 @@ async function buildFormRows(args: {
       booking_id: null,
       shop_slug: shopSlug ?? "unknown",
       conversion_action: "Estimate form (CRM offline)",
-      conversion_time: lead.created_at as string,
+      conversion_time: formatAdsConversionTime(lead.created_at as string),
       value: FORM_VALUE_NZD,
       currency: "NZD",
       gclid,
