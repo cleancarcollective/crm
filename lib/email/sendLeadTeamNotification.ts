@@ -1,5 +1,5 @@
 import type { ShopRecord } from "@/lib/dashboard/types";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -176,16 +176,16 @@ export async function sendLeadTeamNotification({
   if (insertError) throw insertError;
 
   try {
-    const postmark = getPostmarkClient();
-    const response = await postmark.sendEmail({
+    // Via Gmail SMTP, not Postmark: this internal alert goes from the shop's
+    // own address to its own team inbox (hello@ → hello@ for Wellington).
+    // Postmark (external) sending self-addressed mail gets silently rejected
+    // by Google as spoofing. Gmail SMTP is an authenticated self-send → inbox.
+    const response = await sendViaGmailSmtp({
       From: from,
       To: recipient,
       Subject: subject,
       TextBody: textBody,
       HtmlBody: renderLeadNotificationHtml(shop, lead),
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: shop.id,

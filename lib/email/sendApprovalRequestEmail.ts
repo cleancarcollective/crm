@@ -11,7 +11,7 @@
 
 import type { ShopRecord } from "@/lib/dashboard/types";
 import { signActionToken } from "@/lib/auth/signedTokens";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -325,17 +325,15 @@ export async function sendApprovalRequestEmail(args: ApprovalRequestArgs): Promi
   }
 
   try {
-    const postmark = getPostmarkClient();
-    const response = await postmark.sendEmail({
+    // Via Gmail SMTP, not Postmark — same reason as the other team alerts:
+    // hello@ → hello@ (self-addressed) via an external service gets silently
+    // rejected by Google as spoofing. Gmail SMTP is an authenticated self-send.
+    const response = await sendViaGmailSmtp({
       From: from,
       To: recipient,
       Subject: subject,
       TextBody: textBody,
       HtmlBody: htmlBody,
-      MessageStream: "booking-emails",
-      // Internal notification - don't track clicks (no customer intent signal).
-      TrackOpens: false,
-      TrackLinks: "None" as never,
       Metadata: {
         email_message_id: messageRecord.id,
         shop_id: shop.id,
