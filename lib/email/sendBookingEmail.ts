@@ -60,7 +60,6 @@ import { getBookingDisplayName, getVehicleLabel } from "@/lib/dashboard/bookings
 import { formatCurrency } from "@/lib/dashboard/format";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
 import { signActionToken } from "@/lib/auth/signedTokens";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { renderTemplate } from "@/lib/email/templateRenderer";
@@ -179,41 +178,30 @@ export async function sendBookingEmail({
   });
 
   try {
-    // Route customer-facing templates via Gmail SMTP (Primary tab); keep
-    // the booking-team-notification on Postmark since it's internal and
-    // benefits from event tracking.
-    const isInternal = templateKey === "booking-team-notification";
+    // ALL booking emails — customer confirmations AND the internal team
+    // notification — go via Gmail SMTP (our own authenticated Google server).
+    //
+    // The team notification used to go via Postmark. For Wellington that
+    // meant an EXTERNAL service sending hello@ → hello@ (the from address and
+    // the team inbox are the same), which Google Workspace silently rejects
+    // as self-spoofing — the alerts never arrived (not even spam/quarantine).
+    // Sending the same self-addressed mail via Gmail SMTP is a legitimate
+    // authenticated self-send and lands in the inbox. We lose Postmark's
+    // open/click tracking on the internal alert, which we don't need.
     const fromLine = getShopContacts(shop).from_line;
-    const response = isInternal
-      ? await getPostmarkClient().sendEmail({
-          From: fromLine,
-          To: recipient,
-          Subject: rendered.subject,
-          TextBody: rendered.textBody,
-          HtmlBody: rendered.htmlBody,
-          MessageStream: "booking-emails",
-          TrackOpens: false,
-          TrackLinks: "None" as never,
-          Metadata: {
-            email_message_id: messageRecord.id,
-            booking_id: booking.id,
-            shop_id: shop.id,
-            template_key: templateKey,
-          },
-        })
-      : await sendViaGmailSmtp({
-          From: fromLine,
-          To: recipient,
-          Subject: rendered.subject,
-          TextBody: rendered.textBody,
-          HtmlBody: rendered.htmlBody,
-          Metadata: {
-            email_message_id: messageRecord.id,
-            booking_id: booking.id,
-            shop_id: shop.id,
-            template_key: templateKey,
-          },
-        });
+    const response = await sendViaGmailSmtp({
+      From: fromLine,
+      To: recipient,
+      Subject: rendered.subject,
+      TextBody: rendered.textBody,
+      HtmlBody: rendered.htmlBody,
+      Metadata: {
+        email_message_id: messageRecord.id,
+        booking_id: booking.id,
+        shop_id: shop.id,
+        template_key: templateKey,
+      },
+    });
 
     await updateEmailMessageSent({
       id: messageRecord.id,
