@@ -15,7 +15,7 @@ import { addDays, formatISO, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 import type { ShopRecord } from "@/lib/dashboard/types";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -279,16 +279,14 @@ export async function sendDailyDigestForShop(shop: ShopRecord) {
   const yesterdayLabel = formatInTimeZone(stats.windowStartIso, shop.timezone, "EEE d MMM");
   const subject = `📊 ${shop.name.replace("Clean Car Collective ", "")} - daily digest (${yesterdayLabel})`;
 
-  const postmark = getPostmarkClient();
-  const response = await postmark.sendEmail({
+  // Gmail SMTP, not Postmark — internal team email (shop's own address →
+  // its own team inbox). External self-addressed sends get rejected by Google.
+  const response = await sendViaGmailSmtp({
     From: from,
     To: team_email,
     Subject: subject,
     TextBody: text,
     HtmlBody: html,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
     Metadata: {
       shop_id: shop.id,
       template_key: "daily_digest",

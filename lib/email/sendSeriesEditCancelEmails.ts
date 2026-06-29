@@ -12,7 +12,6 @@
  * email_templates would require a per-shop seed migration.
  */
 
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { getShopContacts, getShopContactsById } from "@/lib/email/shopContacts";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopById } from "@/lib/dashboard/bookings";
@@ -61,15 +60,14 @@ export async function sendSeriesEditTeamNotification(args: {
     ctaLabel: "Open series in CRM →",
   });
 
-  await getPostmarkClient().sendEmail({
+  // Gmail SMTP, not Postmark — internal team email (self-addressed sends
+  // via an external service get rejected by Google as spoofing).
+  await sendViaGmailSmtp({
     From: from_line,
     To: team_email,
     Subject: subject,
     TextBody: textBody,
     HtmlBody: htmlBody,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
     Metadata: {
       shop_id: args.shopId,
       series_id: args.seriesId,
@@ -184,15 +182,13 @@ export async function sendSeriesCancelTeamNotification(args: {
     ctaLabel: "Open series in CRM →",
   });
 
-  await getPostmarkClient().sendEmail({
+  // Gmail SMTP, not Postmark — internal team email (self-spoof fix).
+  await sendViaGmailSmtp({
     From: from_line,
     To: team_email,
     Subject: subject,
     TextBody: textBody,
     HtmlBody: htmlBody,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
     Metadata: {
       shop_id: args.shopId,
       series_id: args.seriesId,

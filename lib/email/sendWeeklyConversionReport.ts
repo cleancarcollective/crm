@@ -25,7 +25,7 @@ import { addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 import type { ShopRecord } from "@/lib/dashboard/types";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
+import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -510,16 +510,14 @@ export async function sendWeeklyConversionReportForShop(shop: ShopRecord) {
   const { team_email, from_line: from } = getShopContacts(shop);
   const subject = `📈 ${shop.name.replace("Clean Car Collective ", "")} - weekly conversion (${stats.cohortLabel})`;
 
-  const postmark = getPostmarkClient();
-  const response = await postmark.sendEmail({
+  // Gmail SMTP, not Postmark — internal team email (self-addressed sends
+  // via an external service get rejected by Google as spoofing).
+  const response = await sendViaGmailSmtp({
     From: from,
     To: team_email,
     Subject: subject,
     TextBody: text,
     HtmlBody: html,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
     Metadata: {
       shop_id: shop.id,
       template_key: "weekly_conversion_report",

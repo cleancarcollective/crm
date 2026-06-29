@@ -18,7 +18,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 
 import { formatCurrency } from "@/lib/dashboard/format";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import type { ShopRecord } from "@/lib/dashboard/types";
@@ -235,15 +234,13 @@ export async function sendSeriesTeamNotification(args: Args) {
   `.trim();
 
   try {
-    await getPostmarkClient().sendEmail({
+    // Gmail SMTP, not Postmark — internal team email (self-spoof fix).
+    await sendViaGmailSmtp({
       From: from_line,
       To: team_email,
       Subject: subject,
       TextBody: textBody,
       HtmlBody: htmlBody,
-      MessageStream: "booking-emails",
-      TrackOpens: false,
-      TrackLinks: "None" as never,
       Metadata: {
         shop_id: args.shop.id,
         series_id: args.seriesId,
