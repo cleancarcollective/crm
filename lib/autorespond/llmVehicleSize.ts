@@ -25,12 +25,13 @@ const LLM_MODEL = "anthropic/claude-sonnet-4.5";
 
 const SYSTEM_PROMPT = `You classify vehicles into a size category for car-detailing pricing in New Zealand. Four categories only:
 
-- Small: superminis, small hatches (Toyota Yaris, VW Polo, Suzuki Swift, Mini Cooper, Mazda 2)
-- Medium: sedans, small SUVs, hot hatches, small coupes (Toyota Corolla, Honda Civic, BMW 3 Series, Mazda CX-3, VW Golf, Porsche 911, Tesla Model 3)
+- Small: superminis, small hatches, AND 2-door sports cars / 2-seater coupes (Toyota Yaris, VW Polo, Suzuki Swift, Mini Cooper, Mazda 2, Toyota 86/GR86, Mazda MX-5, Subaru BRZ, Nissan Z, Porsche 911, Porsche Cayman/Boxster, Audi TT)
+- Medium: sedans, small SUVs, hot hatches, larger GT/muscle coupes (Toyota Corolla, Honda Civic, BMW 3 Series, Mazda CX-3, VW Golf, Ford Mustang, Tesla Model 3)
 - Large: full-size SUVs, wagons, large sedans, executive cars (Toyota RAV4, Subaru Outback, BMW X5, Mercedes E-Class, Tesla Model Y, Volvo XC60)
 - XL: utes/pickups, vans, 7-seaters, full-size SUVs (Ford Ranger, Toyota Hilux, Toyota Hiace, Land Cruiser, Tesla Model X, Range Rover, Toyota Alphard)
 
-Sports cars and coupes are Medium (even high-performance ones like 911 Turbo S — they're physically small).
+2-door sports cars and 2-seater coupes are Small — they're physically small with minimal interior, so there's less to detail (e.g. Porsche 911 Turbo S, Toyota 86, Mazda MX-5 are all Small). Only big GT/muscle coupes and 2+2s with real back seats (Mustang, BMW 4 Series) are Medium.
+IMPORTANT: a "Turbo S" or "Turbo" badge on a Porsche defaults to the 911 (Small) UNLESS the model clearly says Cayenne (Large), Panamera (Large), or Macan (Large) — those are SUVs/sedans.
 Classic and pre-1990 cars: use modern equivalent body type.
 
 Return ONLY a JSON object:
