@@ -115,8 +115,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     ``,
     `Here's what the regular rates look like:`,
     ``,
-    ...rateLines.map((l) => `- ${l}`),
-    ``,
+    ...rateLines.flatMap((l) => [`- ${l}`, ``]),
     perksLine,
     ``,
     replyCta,
@@ -132,9 +131,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   <p>Hi ${escapeHtml(firstName)},</p>
   <p>${escapeHtml(opener)}</p>
   <p>Here's what the regular rates look like:</p>
-  <ul>
-    ${rateLines.map((l) => `<li>${escapeHtml(l)}</li>`).join("\n    ")}
-  </ul>
+  ${rateLines.map((l) => `<p>- ${escapeHtml(l)}</p>`).join("\n  ")}
   <p>${escapeHtml(perksLine)}</p>
   <p>${escapeHtml(replyCta)}</p>
   <p>${escapeHtml(closingLine)}</p>
