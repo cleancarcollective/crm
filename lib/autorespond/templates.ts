@@ -133,6 +133,10 @@ export type QuotePackage = {
   bookingServiceId: string;
 };
 
+function fmtMoney(price: number): string {
+  return Number.isInteger(price) ? String(price) : price.toFixed(2);
+}
+
 function pkg(
   pricing: PricingMap,
   serviceName: string,
@@ -142,7 +146,7 @@ function pkg(
   const price = getPrice(pricing, serviceName, sizeKey);
   const label = price === null
     ? "price on request"
-    : `${opts.fromPrice ? "from " : ""}$${price} + GST`;
+    : `${opts.fromPrice ? "from " : ""}$${fmtMoney(price)} + GST`;
   return {
     name: opts.name,
     price,
