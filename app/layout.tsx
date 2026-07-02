@@ -122,6 +122,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {user.role === "admin" ? (
               <>
                 <a href="/analytics" className="globalNavLink">Funnel</a>
+                <a href="/journey" className="globalNavLink">Journey</a>
                 <a href="/settings" className="globalNavLink">Settings</a>
               </>
             ) : null}

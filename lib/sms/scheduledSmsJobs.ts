@@ -70,6 +70,7 @@ export async function scheduleBookingReminderSms({
     contact_id: contactId,
     phone,
     message,
+    template_key: "booking_reminder_day",
     scheduled_for: reminderAt.toISOString(),
     status: "pending",
   });
@@ -162,6 +163,7 @@ export async function scheduleReviewSms({
     contact_id: contactId,
     phone,
     message,
+    template_key: "review_request",
     scheduled_for: scheduledFor,
     status: "pending",
   });
@@ -220,6 +222,10 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
     // their trigger. Only run the booking-status guard for templates where
     // a past/cancelled booking actually invalidates the message (reminders).
     const isPostDetailTouchpoint = !!tmpl && POST_DETAIL_TOUCHPOINT_KEY_SET.has(tmpl);
+    // Review requests fire ~23h AFTER completion — "completed" is their
+    // trigger, not a cancellation reason. Only a cancelled/deleted booking
+    // invalidates them (guarded separately below).
+    const isReviewRequest = tmpl === "review_request";
 
     // Booking-context reminders (no lead, not a post-detail touchpoint) MUST
     // have a live booking. Skip if:
@@ -229,7 +235,22 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
     //   - the booking row is gone (defensive: a future schema change could
     //     flip the FK to CASCADE — handles both NULL and missing rows)
     //   - the booking is cancelled / completed / in the past
-    const isBookingReminder = !job.lead_id && !isPostDetailTouchpoint;
+    const isBookingReminder = !job.lead_id && !isPostDetailTouchpoint && !isReviewRequest;
+    if (isReviewRequest && job.booking_id) {
+      const { data: b } = await supabase
+        .from("bookings")
+        .select("status")
+        .eq("id", job.booking_id)
+        .maybeSingle();
+      if (!b || b.status === "cancelled") {
+        await supabase
+          .from("scheduled_sms_jobs")
+          .update({ status: "cancelled", last_error: b ? "Booking was cancelled" : "Booking no longer exists" })
+          .eq("id", job.id);
+        results.push({ id: job.id as string, status: "skipped" });
+        continue;
+      }
+    }
     if (isBookingReminder) {
       if (!job.booking_id) {
         await supabase

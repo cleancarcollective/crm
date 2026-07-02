@@ -73,6 +73,7 @@ const SALES_ALLOWED_PREFIXES: ReadonlyArray<string> = [
 const SALES_DENIED_PREFIXES: ReadonlyArray<string> = [
   "/settings",
   "/analytics",
+  "/journey",
   "/sales/stats", // sales rep cannot see their own attribution stats
 ];
 
