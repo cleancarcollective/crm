@@ -30,6 +30,12 @@ export type LeadIntakePayload = {
 // Lead statuses that indicate an enquiry is still in progress
 const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
 
+// Instant on-page quote is launched Wellington-only. Christchurch leads
+// never receive a quote in the response, so their lead form keeps the
+// existing thank-you redirect + manual email route. Add "christchurch"
+// here to roll it out to both shops.
+const QUOTE_ENABLED_SHOP_SLUGS = new Set(["wellington"]);
+
 // Auto-respond runs LLM calls (notes judge, vehicle-size fallback) in the
 // hot path — give the route headroom beyond the default 10s.
 export const maxDuration = 60;
@@ -380,12 +386,27 @@ export async function POST(request: Request) {
     // and hit the auto-send gate; the lead form falls back to the
     // "we'll email you" screen whenever this is absent.
     const autoRespondResult = results[2];
-    const quote =
+    const quoteReady =
       autoRespondResult.status === "fulfilled" &&
       autoRespondResult.value &&
       (autoRespondResult.value as AutoRespondOutcome).decision === "quote"
         ? (autoRespondResult.value as Extract<AutoRespondOutcome, { decision: "quote" }>)
         : null;
+
+    // Wellington-only launch: only surface the quote to enabled shops.
+    const quote = QUOTE_ENABLED_SHOP_SLUGS.has(shop.slug) ? quoteReady : null;
+
+    // Layer-1 tracking: stamp the lead the moment we actually show a quote,
+    // so "quote_shown → booking" has a reliable denominator. Non-blocking.
+    if (quote) {
+      void getSupabaseAdminClient()
+        .from("leads")
+        .update({ quote_shown_at: new Date().toISOString() })
+        .eq("id", leadId)
+        .then(({ error }) => {
+          if (error) console.error("quote_shown_at stamp failed (non-fatal)", error.message);
+        });
+    }
 
     return withCors(NextResponse.json({
       success: true,

@@ -212,11 +212,18 @@ export async function POST(request: Request) {
 
     if (existingLead) {
       // Attribute the conversion back to the original lead source.
-      // - If the lead received an auto-respond estimate (template_id present),
-      //   the booking is attributed to that template → won_source='auto_email'
-      // - Otherwise the customer booked without an estimate email → 'direct_booking'
-      //   (e.g. they called, or the lead was still in 'new'/'needs_approval').
-      const wonSource = existingLead.template_id ? "auto_email" : "direct_booking";
+      // - Booked via the instant on-page quote (deep-link carried src=quote,
+      //   so booking_source='quote') → won_source='quote'
+      // - Else if the lead received an auto-respond estimate (template_id) →
+      //   'auto_email'
+      // - Otherwise the customer booked without an estimate email →
+      //   'direct_booking' (called, or lead still in 'new'/'needs_approval').
+      const wonSource =
+        normalized.data.booking.bookingSource === "quote"
+          ? "quote"
+          : existingLead.template_id
+            ? "auto_email"
+            : "direct_booking";
 
       const { error: leadUpdateError } = await supabase
         .from("leads")
