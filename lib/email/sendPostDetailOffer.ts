@@ -63,7 +63,7 @@ function openerFor(key: TouchpointKey, _shopName: string): string {
     case "post_detail_recurring_offer_next_day":
       return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we offer a regular detail rate that saves you up to 15% on every visit. No contracts - cancel or pause whenever.`;
     case "post_detail_recurring_offer_6w":
-      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a fortnightly rate and we'll knock 15% off every visit. No commitment, cancel or pause whenever you like.`;
+      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a regular rate and we'll knock 15% off every visit. No commitment, cancel or pause whenever you like.`;
     case "post_detail_recurring_offer_10w":
       return `Quick one - you're heading into the 3-month window since we last sorted your car. If you want to keep things tidy, lock in a 3-monthly rate now and save 10% every visit. Heads up though: after this the 10% rate is gone and you'll be looking at the 5% tier from here on.`;
     case "post_detail_recurring_offer_16w":
@@ -83,27 +83,9 @@ function priceLine(basePrice: number | null, discount: number): string | null {
   return `${formatCurrency(discounted)} per visit (${discount}% off ${formatCurrency(basePrice)})`;
 }
 
-function buildLockInUrl(args: TouchpointEmailArgs): string {
-  const token = signActionToken(
-    {
-      a: "lock_in_recurring",
-      r: args.bookingId,
-      s: args.shop.id,
-    },
-    30 * 24 * 60 * 60
-  );
-  // Featured cadence is sent as a query param so the lock-in page can
-  // pre-select it without unpacking the token client-side.
-  const url = new URL(`${CRM_BASE_URL}/lock-in-recurring`);
-  url.searchParams.set("token", token);
-  url.searchParams.set("cadence", String(args.featuredCadenceMonths));
-  return url.toString();
-}
-
 export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   const firstName = args.contact.firstName ?? "there";
   const subject = subjectFor(args.touchpointKey, firstName);
-  const lockInUrl = buildLockInUrl(args);
   const opener = openerFor(args.touchpointKey, args.shop.name);
 
   const cadenceRows = ALL_CADENCES.map((c) => {
@@ -112,45 +94,49 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     return { ...c, priceText: line, isFeatured };
   });
 
-  // Deliberately plain, personal-note style. The original branded HTML shell
-  // (dark header, pricing table, CTA button, discount badges) pattern-matched
-  // straight into Gmail's Promotions tab — audited 2 Jul 2026, and Promotions
-  // placement is as good as unseen. A short note that looks hand-written from
-  // a real mailbox lands in Primary. Same offer, same signed link.
-  const featured = cadenceRows.find((c) => c.isFeatured) ?? cadenceRows[0]!;
-  const others = cadenceRows.filter((c) => c !== featured);
+  // Deliberately plain, personal-note style: default font, no button, no
+  // link, no branded shell. The original HTML template pattern-matched
+  // straight into Gmail's Promotions tab (audited 2 Jul 2026) and
+  // Promotions placement is as good as unseen. Conversion is reply-based:
+  // the customer answers this email and staff set the series up in the CRM.
+  const rateLines = cadenceRows.map((c) => {
+    const rate = c.priceText ?? `${c.discount}% off every visit`;
+    return `${c.label}: ${rate}${c.isFeatured ? " (most popular)" : ""}`;
+  });
 
-  const featuredSentence = featured.priceText
-    ? `Most people go ${featured.label.toLowerCase()} - that works out to ${featured.priceText}.`
-    : `Most people go ${featured.label.toLowerCase()} - that saves you ${featured.discount}% on every visit.`;
-  const othersSentence = others.length
-    ? `We also do ${others.map((c) => `${c.label.toLowerCase()} (${c.discount}% off)`).join(" or ")} if that suits better.`
-    : "";
-
-  const optOutLine = `No contracts - pause or cancel whenever you like. And if you'd rather not get these emails, just reply and let me know.`;
+  const perksLine = `Every option includes free mobile service (worth $80 +GST) and priority booking slots.`;
+  const replyCta = `Keen? Just reply to this email and we'll set it up for you.`;
+  const optOutLine = `No contracts, pause or cancel whenever you like. And if you'd rather not get these emails, reply "no thanks" and we'll stop.`;
 
   const textBody = [
     `Hi ${firstName},`,
     ``,
     opener,
     ``,
-    featuredSentence,
-    othersSentence,
+    `Here's what the regular rates look like:`,
     ``,
-    `You can lock it in here: ${lockInUrl}`,
+    ...rateLines.map((l) => `- ${l}`),
+    ``,
+    perksLine,
+    ``,
+    replyCta,
     ``,
     optOutLine,
     ``,
     `Cheers,`,
     `${args.shop.name}`,
-  ].filter((l) => l !== "").join("\n\n").replace(/\n\n\n+/g, "\n\n");
+  ].join("\n");
 
   const htmlBody = `
 <div dir="ltr">
   <p>Hi ${escapeHtml(firstName)},</p>
   <p>${escapeHtml(opener)}</p>
-  <p>${escapeHtml(featuredSentence)}${othersSentence ? ` ${escapeHtml(othersSentence)}` : ""}</p>
-  <p>You can <a href="${escapeHtml(lockInUrl)}">lock it in here</a> - takes about a minute.</p>
+  <p>Here's what the regular rates look like:</p>
+  <ul>
+    ${rateLines.map((l) => `<li>${escapeHtml(l)}</li>`).join("\n    ")}
+  </ul>
+  <p>${escapeHtml(perksLine)}</p>
+  <p>${escapeHtml(replyCta)}</p>
   <p>${escapeHtml(optOutLine)}</p>
   <p>Cheers,<br/>${escapeHtml(args.shop.name)}</p>
 </div>
