@@ -20,7 +20,7 @@ import type { TouchpointKey } from "@/lib/bookings/postDetailTouchpoints";
 
 const CRM_BASE_URL = process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz";
 
-type Cadence = 2 | 3 | 4;
+type Cadence = 1 | 3 | 6;
 
 type TouchpointEmailArgs = {
   shop: ShopRecord;
@@ -52,7 +52,7 @@ function subjectFor(key: TouchpointKey, firstName: string): string {
     case "post_detail_recurring_offer_6w":
       return `${firstName} - how's the car holding up?`;
     case "post_detail_recurring_offer_10w":
-      return `Heads up ${firstName} - the 10% rate is about to disappear`;
+      return `Heads up ${firstName} - the 20% rate is about to disappear`;
     case "post_detail_recurring_offer_16w":
       return `${firstName} - last call before the car needs a proper deep clean`;
   }
@@ -61,20 +61,20 @@ function subjectFor(key: TouchpointKey, firstName: string): string {
 function openerFor(key: TouchpointKey, _shopName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_next_day":
-      return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we offer a regular detail rate that saves you up to 15% on every visit. No contracts - cancel or pause whenever.`;
+      return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we offer a regular detail rate that saves you up to 35% on every visit. No contracts - cancel or pause whenever.`;
     case "post_detail_recurring_offer_6w":
-      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a regular rate and we'll knock 15% off every visit. No commitment, cancel or pause whenever you like.`;
+      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a regular rate and we'll knock 35% off every visit. No commitment, cancel or pause whenever you like.`;
     case "post_detail_recurring_offer_10w":
-      return `Quick one - you're heading into the 3-month window since we last sorted your car. If you want to keep things tidy, lock in a 3-monthly rate now and save 10% every visit. Heads up though: after this the 10% rate is gone and you'll be looking at the 5% tier from here on.`;
+      return `Quick one - you're heading into the 3-month window since we last sorted your car. If you want to keep things tidy, lock in a 3-monthly rate now and save 20% every visit. Heads up though: after this the 20% rate is gone and you'll be looking at the 10% tier from here on.`;
     case "post_detail_recurring_offer_16w":
-      return `It's been about 4 months since we detailed your car - past this point most cars need a proper deep clean rather than a quick refresh. This is the last nudge from us. If you'd like to keep things on a schedule and avoid the big resets, lock in a 4-monthly rate and save 5% every visit.`;
+      return `It's been about 4 months since we detailed your car - past this point most cars need a proper deep clean rather than a quick refresh. This is the last nudge from us. If you'd like to keep things on a schedule and avoid the big resets, lock in a 6-monthly rate and save 10% every visit.`;
   }
 }
 
 const ALL_CADENCES: Array<{ months: Cadence; label: string; discount: number }> = [
-  { months: 2, label: "Every 2 months", discount: 15 },
-  { months: 3, label: "Every 3 months", discount: 10 },
-  { months: 4, label: "Every 4 months", discount: 5 },
+  { months: 1, label: "Every month", discount: 35 },
+  { months: 3, label: "Every 3 months", discount: 20 },
+  { months: 6, label: "Every 6 months", discount: 10 },
 ];
 
 function priceLine(basePrice: number | null, discount: number): string | null {
@@ -106,7 +106,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
 
   const perksLine = `Every option includes free mobile service (worth $80 +GST) and priority booking slots.`;
   const replyCta = `Keen? Just reply to this email and we'll set it up for you.`;
-  const optOutLine = `No contracts, pause or cancel whenever you like. And if you'd rather not get these emails, reply "no thanks" and we'll stop.`;
+  const closingLine = `No contracts, pause or cancel whenever you like.`;
 
   const textBody = [
     `Hi ${firstName},`,
@@ -121,7 +121,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     ``,
     replyCta,
     ``,
-    optOutLine,
+    closingLine,
     ``,
     `Cheers,`,
     `${args.shop.name}`,
@@ -137,7 +137,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   </ul>
   <p>${escapeHtml(perksLine)}</p>
   <p>${escapeHtml(replyCta)}</p>
-  <p>${escapeHtml(optOutLine)}</p>
+  <p>${escapeHtml(closingLine)}</p>
   <p>Cheers,<br/>${escapeHtml(args.shop.name)}</p>
 </div>
 `.trim();
@@ -206,13 +206,13 @@ export function renderPostDetailOfferSms(args: {
   const url = args.url;
   switch (args.touchpointKey) {
     case "post_detail_recurring_offer_next_day":
-      return `Hey ${fn}, hope you're loving how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 15% every visit: ${url} - Clean Car Collective`;
+      return `Hey ${fn}, hope you're loving how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 35% every visit: ${url} - Clean Car Collective`;
     case "post_detail_recurring_offer_6w":
-      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 15% every visit? Have a look: ${url}`;
+      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 35% every visit? Have a look: ${url}`;
     case "post_detail_recurring_offer_10w":
-      return `Hey ${fn}, heading into the 3-month mark since your last detail. Sort a 3-monthly rate now and save 10% every visit - after this the discount drops: ${url}`;
+      return `Hey ${fn}, heading into the 3-month mark since your last detail. Sort a 3-monthly rate now and save 20% every visit - after this the discount drops: ${url}`;
     case "post_detail_recurring_offer_16w":
-      return `Hey ${fn}, been 4 months since your detail - past this and the car usually needs a proper deep clean. Last chance to lock in a 4-monthly rate at 5% off: ${url}`;
+      return `Hey ${fn}, been 4 months since your detail - past this and the car usually needs a proper deep clean. Last chance to lock in a 6-monthly rate at 10% off: ${url}`;
   }
 }
 

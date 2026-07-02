@@ -12,7 +12,7 @@ import {
   type TimeSlot,
 } from "@/lib/customer/availability";
 
-type CadenceMonths = 2 | 3 | 4;
+type CadenceMonths = 1 | 3 | 6;
 
 type CadenceOption = {
   months: CadenceMonths;
@@ -61,7 +61,7 @@ const EXPANDED_DAYS_VISIBLE = 60;
 const PRE_TARGET_DAYS = 14;
 
 function cadenceLabel(months: CadenceMonths): string {
-  return `Every ${months} months`;
+  return months === 1 ? "Every month" : `Every ${months} months`;
 }
 
 function locationToKind(loc: "in-store" | "mobile"): LocationKind {

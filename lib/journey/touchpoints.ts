@@ -241,7 +241,7 @@ export function buildJourneyStages(): Stage[] {
       touchpoints: [
         {
           id: "drip_next_day",
-          label: "Next-day offer (15% off, 2-monthly)",
+          label: "Next-day offer (35% off, monthly)",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+1 day, 9am",
@@ -259,7 +259,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_6w",
-          label: "6-week offer (15% off, 2-monthly)",
+          label: "6-week offer (35% off, monthly)",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+42 days, 11am",
@@ -277,7 +277,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_10w",
-          label: "10-week offer (10% off, 3-monthly)",
+          label: "10-week offer (20% off, 3-monthly)",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+70 days, 11am",
@@ -295,7 +295,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_16w",
-          label: "16-week offer (5% off, 4-monthly)",
+          label: "16-week offer (10% off, 6-monthly)",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+112 days, 11am",

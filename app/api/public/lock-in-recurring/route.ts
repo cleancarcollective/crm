@@ -35,9 +35,9 @@ type Body = {
 };
 
 function discountForCadence(months: number): number | null {
-  if (months === 2) return 15;
-  if (months === 3) return 10;
-  if (months === 4) return 5;
+  if (months === 1) return 35;
+  if (months === 3) return 20;
+  if (months === 6) return 10;
   return null;
 }
 

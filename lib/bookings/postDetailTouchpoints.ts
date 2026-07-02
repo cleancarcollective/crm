@@ -34,15 +34,15 @@ export type TouchpointDef = {
   key: TouchpointKey;
   offsetDays: number;
   fireAtLocalHour: number;
-  featuredCadenceMonths: 2 | 3 | 4;
+  featuredCadenceMonths: 1 | 3 | 6;
   discountPercent: number;
 };
 
 export const POST_DETAIL_TOUCHPOINTS: TouchpointDef[] = [
-  { key: "post_detail_recurring_offer_next_day", offsetDays: 1,   fireAtLocalHour: 9,  featuredCadenceMonths: 2, discountPercent: 15 },
-  { key: "post_detail_recurring_offer_6w",   offsetDays: 42,  fireAtLocalHour: 11, featuredCadenceMonths: 2, discountPercent: 15 },
-  { key: "post_detail_recurring_offer_10w",  offsetDays: 70,  fireAtLocalHour: 11, featuredCadenceMonths: 3, discountPercent: 10 },
-  { key: "post_detail_recurring_offer_16w",  offsetDays: 112, fireAtLocalHour: 11, featuredCadenceMonths: 4, discountPercent: 5  },
+  { key: "post_detail_recurring_offer_next_day", offsetDays: 1,   fireAtLocalHour: 9,  featuredCadenceMonths: 1, discountPercent: 35 },
+  { key: "post_detail_recurring_offer_6w",   offsetDays: 42,  fireAtLocalHour: 11, featuredCadenceMonths: 1, discountPercent: 35 },
+  { key: "post_detail_recurring_offer_10w",  offsetDays: 70,  fireAtLocalHour: 11, featuredCadenceMonths: 3, discountPercent: 20 },
+  { key: "post_detail_recurring_offer_16w",  offsetDays: 112, fireAtLocalHour: 11, featuredCadenceMonths: 6, discountPercent: 10 },
 ];
 
 export const POST_DETAIL_TOUCHPOINT_KEYS: TouchpointKey[] = POST_DETAIL_TOUCHPOINTS.map((t) => t.key);

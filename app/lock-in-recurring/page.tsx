@@ -20,20 +20,20 @@ import { LockInRecurringClient } from "@/components/dashboard/LockInRecurringCli
 import { verifyActionToken } from "@/lib/auth/signedTokens";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-type CadenceMonths = 2 | 3 | 4;
+type CadenceMonths = 1 | 3 | 6;
 
 function discountForCadence(months: CadenceMonths): number {
   // Mirrors the table in docs/recurring-discounts-plan.md.
-  if (months === 2) return 15;
-  if (months === 3) return 10;
-  return 5;
+  if (months === 1) return 35;
+  if (months === 3) return 20;
+  return 10;
 }
 
 function parseCadenceParam(raw: string | undefined): CadenceMonths {
   const n = Number(raw);
-  if (n === 2 || n === 3 || n === 4) return n;
-  // Default to the headline 15%/2-month tier when no param is supplied.
-  return 2;
+  if (n === 1 || n === 3 || n === 6) return n;
+  // Default to the headline 35%/monthly tier when no param is supplied.
+  return 1;
 }
 
 export default async function LockInRecurringPage({
@@ -139,7 +139,7 @@ export default async function LockInRecurringPage({
 
   // Per-cadence pricing for the picker — server is source of truth on price.
   const basePrice = booking.price_estimate ?? null;
-  const cadenceOptions = [2, 3, 4].map((m) => {
+  const cadenceOptions = [1, 3, 6].map((m) => {
     const months = m as CadenceMonths;
     const discount = discountForCadence(months);
     const discounted = basePrice != null
