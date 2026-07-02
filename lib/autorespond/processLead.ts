@@ -20,8 +20,10 @@ import { classifyVehicleViaLlm } from "./llmVehicleSize";
 import { lookupVehicleSizeFromCache } from "./vehicleSizeCache";
 import { classifyVehicle } from "./vehicleSizing";
 import {
+  buildQuotePackages,
   pickTemplateKey,
   templateNeedsSize,
+  type QuotePackage,
 } from "./templates";
 import {
   buildTemplateContext,
@@ -31,6 +33,31 @@ import {
 import type { VehicleSize } from "./vehicleSizing";
 
 const AUTO_ESTIMATE_DELAY_MINUTES = 3;
+
+/**
+ * Outcome surfaced to the intake route so the lead form can render an
+ * instant on-page quote. "quote" is returned ONLY on the exact same gate
+ * as the scheduled auto-send email (no notes blocking, size known, no
+ * draft error) — every other path is "escalated" and the customer sees
+ * the existing we'll-email-you behavior.
+ */
+export type AutoRespondOutcome =
+  | {
+      decision: "quote";
+      templateKey: string;
+      size: VehicleSize | null;
+      packages: QuotePackage[];
+      /** Booking-app vehicle type matching the resolved size, for Book-now prefill. */
+      bookingVehicleType: string | null;
+    }
+  | { decision: "escalated" };
+
+const SIZE_TO_BOOKING_VEHICLE: Record<string, string> = {
+  Small: "Coupe / Hatchback",
+  Medium: "Sedan / Wagon",
+  Large: "Small / Medium SUV",
+  XL: "Large SUV / Ute",
+};
 
 type ProcessLeadInput = {
   leadId: string;
@@ -162,7 +189,7 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
     .eq("id", messageRecord.id);
 }
 
-export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<void> {
+export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<AutoRespondOutcome> {
   const supabase = getSupabaseAdminClient();
   const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes } = input;
 
@@ -481,6 +508,27 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<v
       console.error("Approval request email failed (non-fatal)", { leadId, err });
     }
   }
+
+  // Instant on-page quote: only on the exact auto-send path ("scheduled").
+  // needs_approval / draft errors / unknown size all fall back to the
+  // existing email flow on the customer side.
+  if (newStatus === "scheduled") {
+    try {
+      const packages = buildQuotePackages(templateKey, effectiveSize, await loadPricing(shopId));
+      if (packages.length > 0) {
+        return {
+          decision: "quote",
+          templateKey,
+          size: effectiveSize,
+          packages,
+          bookingVehicleType: effectiveSize ? SIZE_TO_BOOKING_VEHICLE[effectiveSize] ?? null : null,
+        };
+      }
+    } catch (err) {
+      console.error("buildQuotePackages failed (non-fatal — falling back to email-only)", { leadId, err });
+    }
+  }
+  return { decision: "escalated" };
 }
 
 /**

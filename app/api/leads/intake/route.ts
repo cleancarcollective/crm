@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { sendLeadConfirmationEmail } from "@/lib/email/sendLeadConfirmationEmail";
 import { sendLeadTeamNotification } from "@/lib/email/sendLeadTeamNotification";
 import { parseLeadVehicleInput } from "@/lib/leads/parseVehicleInput";
-import { processLeadAutoRespond } from "@/lib/autorespond/processLead";
+import { processLeadAutoRespond, type AutoRespondOutcome } from "@/lib/autorespond/processLead";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export type LeadIntakePayload = {
@@ -29,6 +29,10 @@ export type LeadIntakePayload = {
 
 // Lead statuses that indicate an enquiry is still in progress
 const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
+
+// Auto-respond runs LLM calls (notes judge, vehicle-size fallback) in the
+// hot path — give the route headroom beyond the default 10s.
+export const maxDuration = 60;
 
 function withCors(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
@@ -332,8 +336,10 @@ export async function POST(request: Request) {
         },
       }),
 
-      // Auto-respond (check setting, then process if enabled)
-      (async () => {
+      // Auto-respond (check setting, then process if enabled). Returns an
+      // AutoRespondOutcome so the response can carry an instant on-page
+      // quote when the auto-send gate passes.
+      (async (): Promise<AutoRespondOutcome | null> => {
         const supabaseInner = getSupabaseAdminClient();
         const { data: settings, error: settingsError } = await supabaseInner
           .from("shop_settings")
@@ -343,12 +349,12 @@ export async function POST(request: Request) {
 
         if (settingsError) {
           console.error("Auto-respond settings query failed:", settingsError.message);
-          return;
+          return null;
         }
 
-        if (!settings?.auto_respond_enabled) return;
+        if (!settings?.auto_respond_enabled) return null;
 
-        await processLeadAutoRespond({
+        return processLeadAutoRespond({
           leadId,
           shopId: shop.id,
           contactId,
@@ -370,12 +376,38 @@ export async function POST(request: Request) {
       }
     }
 
+    // Instant on-page quote payload. Present only when auto-respond ran
+    // and hit the auto-send gate; the lead form falls back to the
+    // "we'll email you" screen whenever this is absent.
+    const autoRespondResult = results[2];
+    const quote =
+      autoRespondResult.status === "fulfilled" &&
+      autoRespondResult.value &&
+      (autoRespondResult.value as AutoRespondOutcome).decision === "quote"
+        ? (autoRespondResult.value as Extract<AutoRespondOutcome, { decision: "quote" }>)
+        : null;
+
     return withCors(NextResponse.json({
       success: true,
       lead_id: leadId,
       contact_id: contactId,
       is_new_contact: isNewContact,
       is_new_lead: isNewLead,
+      quote: quote
+        ? {
+            template_key: quote.templateKey,
+            size: quote.size,
+            booking_vehicle_type: quote.bookingVehicleType,
+            packages: quote.packages.map((p) => ({
+              name: p.name,
+              price: p.price,
+              price_label: p.priceLabel,
+              duration: p.duration,
+              highlights: p.highlights,
+              booking_service_id: p.bookingServiceId,
+            })),
+          }
+        : null,
     }));
 
   } catch (error) {

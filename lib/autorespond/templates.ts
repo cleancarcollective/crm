@@ -115,6 +115,155 @@ export function templateNeedsSize(key: TemplateKey): boolean {
   return key === "inside_out" || key === "interior_only" || key === "exterior_only";
 }
 
+// ── Structured quote packages (instant on-page quote) ─────────────────────
+// Mirrors the pricing lines inside buildEstimateDraft exactly — same
+// service names, same PricingMap lookups — but returns structured data the
+// lead form can render instead of prose. bookingServiceId matches the ids
+// in the booking apps' constants.ts for Book-now prefill.
+
+export type QuotePackage = {
+  name: string;
+  /** Ex-GST price, null when the pricing table has no row. */
+  price: number | null;
+  /** "$355 + GST" or "from $637.50 + GST" for size-independent services
+   *  whose booking-page price scales with vehicle size. */
+  priceLabel: string;
+  duration: string;
+  highlights: string[];
+  bookingServiceId: string;
+};
+
+function pkg(
+  pricing: PricingMap,
+  serviceName: string,
+  sizeKey: string,
+  opts: { name: string; duration: string; highlights: string[]; bookingServiceId: string; fromPrice?: boolean }
+): QuotePackage {
+  const price = getPrice(pricing, serviceName, sizeKey);
+  const label = price === null
+    ? "price on request"
+    : `${opts.fromPrice ? "from " : ""}$${price} + GST`;
+  return {
+    name: opts.name,
+    price,
+    priceLabel: label,
+    duration: opts.duration,
+    highlights: opts.highlights,
+    bookingServiceId: opts.bookingServiceId,
+  };
+}
+
+export function buildQuotePackages(
+  templateKey: TemplateKey,
+  size: VehicleSize | null,
+  pricing: PricingMap
+): QuotePackage[] {
+  const sizeKey = size ?? "Any";
+
+  if (templateKey === "inside_out") {
+    return [
+      pkg(pricing, "Deluxe Detail", sizeKey, {
+        name: "Deluxe Detail",
+        duration: "approx. 3.5-4 hours",
+        highlights: ["Exterior hand wash & dry", "Wheels, barrels & tires cleaned", "Interior vacuum + plastics detailed", "3-month paint sealant"],
+        bookingServiceId: "deluxe-detail",
+      }),
+      pkg(pricing, "Premium Detail", sizeKey, {
+        name: "Premium Detail",
+        duration: "approx. 5.5-6.5 hours",
+        highlights: ["Everything in Deluxe, plus:", "Full interior shampoo", "Clay bar decontamination", "Engine bay clean + 6-month sealant"],
+        bookingServiceId: "premium-detail",
+      }),
+    ];
+  }
+
+  if (templateKey === "interior_only") {
+    return [
+      pkg(pricing, "Deluxe Interior Detail", sizeKey, {
+        name: "Deluxe Interior",
+        duration: "approx. 2.5-3 hours",
+        highlights: ["Full interior vacuum", "Crevice detail all surfaces", "Plastics cleaned & protected", "Door jambs + interior windows"],
+        bookingServiceId: "deluxe-interior",
+      }),
+      pkg(pricing, "Premium Interior Detail", sizeKey, {
+        name: "Premium Interior",
+        duration: "approx. 3.5-4.5 hours",
+        highlights: ["Everything in Deluxe, plus:", "Shampoo & extraction of seats, carpets, mats", "Double vacuum & stain extraction", "Interior deodorising"],
+        bookingServiceId: "premium-interior",
+      }),
+    ];
+  }
+
+  if (templateKey === "exterior_only") {
+    return [
+      pkg(pricing, "Deluxe Exterior Detail", sizeKey, {
+        name: "Deluxe Exterior",
+        duration: "approx. 1.5-2 hours",
+        highlights: ["Exterior hand wash & dry", "Wheels, barrels & tires cleaned", "Windows & mirrors", "3-month wax/sealant"],
+        bookingServiceId: "deluxe-exterior",
+      }),
+      pkg(pricing, "Premium Exterior Detail", sizeKey, {
+        name: "Premium Exterior",
+        duration: "approx. 2.5-3 hours",
+        highlights: ["Everything in Deluxe, plus:", "Clay bar treatment", "Full paint decontamination"],
+        bookingServiceId: "premium-exterior",
+      }),
+    ];
+  }
+
+  if (templateKey === "ceramic") {
+    // Ceramic prices are stored size-independent ("Any") but the booking
+    // page scales them by vehicle — label as "from" so the numbers never
+    // contradict each other.
+    return [
+      pkg(pricing, "Ceramic Bronze (1 Year)", "Any", {
+        name: "Bronze Package",
+        duration: "1-year protection",
+        highlights: ["Gloss enhancement", "Strong hydrophobic properties"],
+        bookingServiceId: "ceramic-bronze",
+        fromPrice: true,
+      }),
+      pkg(pricing, "Ceramic Silver (2 Year)", "Any", {
+        name: "Silver Package",
+        duration: "3-year protection",
+        highlights: ["Added chemical resistance", "Easy-clean surface"],
+        bookingServiceId: "ceramic-silver",
+        fromPrice: true,
+      }),
+      pkg(pricing, "Ceramic Gold (5 Year)", "Any", {
+        name: "Gold Package",
+        duration: "5-year protection",
+        highlights: ["Backed by company warranty", "Maximum gloss retention & hardness"],
+        bookingServiceId: "ceramic-gold",
+        fromPrice: true,
+      }),
+    ];
+  }
+
+  if (templateKey === "paint_correction") {
+    return [
+      pkg(pricing, "Paint Correction 1-Step", "Any", {
+        name: "1-Step Correction",
+        duration: "approx. 4-5 hours",
+        highlights: ["Removes up to 90% of light swirls", "Great for most daily drivers"],
+        bookingServiceId: "1-step-correction",
+        fromPrice: true,
+      }),
+      pkg(pricing, "Paint Correction 2-Step", "Any", {
+        name: "2-Step Correction",
+        duration: "approx. 7-8 hours",
+        highlights: ["Removes deeper scratches & watermarks", "Maximises clarity & reflection"],
+        bookingServiceId: "2-step-correction",
+        fromPrice: true,
+      }),
+    ];
+  }
+
+  // "other" (incl. paint protection film) has no priced packages — the
+  // caller should fall back to the email flow.
+  return [];
+}
+
 // ── Template builders ──────────────────────────────────────────────────────
 
 export function buildEstimateDraft(
