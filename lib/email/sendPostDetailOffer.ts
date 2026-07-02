@@ -112,79 +112,49 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     return { ...c, priceText: line, isFeatured };
   });
 
-  const accent = "#1a4d2e";
+  // Deliberately plain, personal-note style. The original branded HTML shell
+  // (dark header, pricing table, CTA button, discount badges) pattern-matched
+  // straight into Gmail's Promotions tab — audited 2 Jul 2026, and Promotions
+  // placement is as good as unseen. A short note that looks hand-written from
+  // a real mailbox lands in Primary. Same offer, same signed link.
+  const featured = cadenceRows.find((c) => c.isFeatured) ?? cadenceRows[0]!;
+  const others = cadenceRows.filter((c) => c !== featured);
+
+  const featuredSentence = featured.priceText
+    ? `Most people go ${featured.label.toLowerCase()} - that works out to ${featured.priceText}.`
+    : `Most people go ${featured.label.toLowerCase()} - that saves you ${featured.discount}% on every visit.`;
+  const othersSentence = others.length
+    ? `We also do ${others.map((c) => `${c.label.toLowerCase()} (${c.discount}% off)`).join(" or ")} if that suits better.`
+    : "";
+
+  const optOutLine = `No contracts - pause or cancel whenever you like. And if you'd rather not get these emails, just reply and let me know.`;
 
   const textBody = [
     `Hi ${firstName},`,
     ``,
     opener,
     ``,
-    `Here are your options:`,
-    ...cadenceRows.map((c) => `  ${c.isFeatured ? "→ " : "  "}${c.label} - save ${c.discount}%${c.priceText ? ` (${c.priceText})` : ""}`),
+    featuredSentence,
+    othersSentence,
     ``,
-    `Lock in your rate: ${lockInUrl}`,
+    `You can lock it in here: ${lockInUrl}`,
     ``,
-    `No contracts - pause or cancel whenever you like.`,
+    optOutLine,
     ``,
     `Cheers,`,
     `${args.shop.name}`,
-  ].join("\n");
+  ].filter((l) => l !== "").join("\n\n").replace(/\n\n\n+/g, "\n\n");
 
   const htmlBody = `
-<!doctype html>
-<html lang="en">
-  <body style="margin:0;padding:0;background:#E5E4E2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#E5E4E2;padding:32px 16px;">
-      <tr><td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;">
-          <tr>
-            <td style="background:#1a1713;padding:28px 32px;border-radius:16px 16px 0 0;">
-              <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c9c5c0;">${escapeHtml(args.shop.name)}</p>
-              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;line-height:1.25;">Lock in a recurring rate, save up to 15%</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e8e0d6;border-right:1px solid #e8e0d6;">
-              <p style="margin:0 0 14px;font-size:14px;line-height:1.55;color:#1a1713;">Hi ${escapeHtml(firstName)},</p>
-              <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#1a1713;">${escapeHtml(opener)}</p>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e8e0d6;border-radius:10px;margin:0 0 18px;">
-                ${cadenceRows
-                  .map((c, idx) => {
-                    const isLast = idx === cadenceRows.length - 1;
-                    const bg = c.isFeatured ? "#f4f9f5" : "#ffffff";
-                    const labelHtml = c.isFeatured
-                      ? `<strong style="color:${accent};">${escapeHtml(c.label)} (featured)</strong>`
-                      : escapeHtml(c.label);
-                    return `<tr>
-                      <td style="padding:14px 16px;${isLast ? "" : "border-bottom:1px solid #e8e0d6;"}font-size:14px;color:#1a1713;background:${bg};">${labelHtml}</td>
-                      <td style="padding:14px 16px;${isLast ? "" : "border-bottom:1px solid #e8e0d6;"}font-size:14px;color:#1a1713;background:${bg};font-weight:600;text-align:right;">Save ${c.discount}%${c.priceText ? `<br/><span style="font-weight:400;font-size:12px;color:#7a6f68;">${escapeHtml(c.priceText)}</span>` : ""}</td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </table>
-
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:6px 0 14px;">
-                <tr><td align="center">
-                  <a href="${escapeHtml(lockInUrl)}" style="display:inline-block;padding:14px 32px;background:${accent};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:10px;">Lock in ${escapeHtml(ALL_CADENCES.find((c) => c.months === args.featuredCadenceMonths)?.label ?? "")} at ${args.featuredDiscountPercent}% off</a>
-                </td></tr>
-              </table>
-
-              <p style="margin:0 0 6px;font-size:12px;line-height:1.55;color:#7a6f68;">No contracts - pause or cancel whenever you like.</p>
-              <p style="margin:18px 0 0;font-size:14px;line-height:1.55;color:#1a1713;">Cheers,<br/>${escapeHtml(args.shop.name)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#1a1713;padding:18px 32px;border-radius:0 0 16px 16px;">
-              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} · ${escapeHtml(getShopContacts(args.shop).reply_email)}</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-    </table>
-  </body>
-</html>
-  `.trim();
+<div dir="ltr">
+  <p>Hi ${escapeHtml(firstName)},</p>
+  <p>${escapeHtml(opener)}</p>
+  <p>${escapeHtml(featuredSentence)}${othersSentence ? ` ${escapeHtml(othersSentence)}` : ""}</p>
+  <p>You can <a href="${escapeHtml(lockInUrl)}">lock it in here</a> - takes about a minute.</p>
+  <p>${escapeHtml(optOutLine)}</p>
+  <p>Cheers,<br/>${escapeHtml(args.shop.name)}</p>
+</div>
+`.trim();
 
   const fromLine = getShopContacts(args.shop).from_line;
   try {
