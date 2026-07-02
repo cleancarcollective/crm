@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   "/api/leads/intake",
   "/api/bookings/intake",
   "/api/booking-series/intake",
+  "/api/quote-events",               // instant-quote funnel beacons (sendBeacon, no session)
   "/api/email-events/",
   "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
   "/api/emails/process-scheduled",   // pg_cron every minute
