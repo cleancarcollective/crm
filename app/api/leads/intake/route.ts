@@ -5,6 +5,7 @@ import { sendLeadTeamNotification } from "@/lib/email/sendLeadTeamNotification";
 import { parseLeadVehicleInput } from "@/lib/leads/parseVehicleInput";
 import { processLeadAutoRespond, type AutoRespondOutcome } from "@/lib/autorespond/processLead";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { signActionToken } from "@/lib/auth/signedTokens";
 
 export type LeadIntakePayload = {
   first_name: string;
@@ -408,6 +409,13 @@ export async function POST(request: Request) {
         });
     }
 
+    // Short-lived token so a "Book" click can prefill the booking form with
+    // the contact + vehicle details the customer just entered — without any
+    // PII in the URL. Exchanged at /api/public/booking-prefill.
+    const prefillToken = quote
+      ? signActionToken({ a: "booking_prefill", r: leadId, s: shop.id }, 2 * 60 * 60)
+      : null;
+
     return withCors(NextResponse.json({
       success: true,
       lead_id: leadId,
@@ -419,6 +427,7 @@ export async function POST(request: Request) {
             template_key: quote.templateKey,
             size: quote.size,
             booking_vehicle_type: quote.bookingVehicleType,
+            prefill_token: prefillToken,
             packages: quote.packages.map((p) => ({
               name: p.name,
               price: p.price,
