@@ -31,11 +31,10 @@ export type LeadIntakePayload = {
 // Lead statuses that indicate an enquiry is still in progress
 const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
 
-// Instant on-page quote is launched Wellington-only. Christchurch leads
-// never receive a quote in the response, so their lead form keeps the
-// existing thank-you redirect + manual email route. Add "christchurch"
-// here to roll it out to both shops.
-const QUOTE_ENABLED_SHOP_SLUGS = new Set(["wellington"]);
+// Instant on-page quote shops. Both shops have full pricing + auto-respond,
+// so the on-page quote (with Book-now prefill) is live for both. Remove a
+// slug here to fall a shop back to the thank-you redirect + email-only route.
+const QUOTE_ENABLED_SHOP_SLUGS = new Set(["wellington", "christchurch"]);
 
 // Auto-respond runs LLM calls (notes judge, vehicle-size fallback) in the
 // hot path — give the route headroom beyond the default 10s.
@@ -371,6 +370,7 @@ export async function POST(request: Request) {
           modelRaw: parsedVehicle.model,
           serviceRequested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
+          landingUrl: payload.landing_url ?? null,
         });
       })(),
     ]);
@@ -428,6 +428,7 @@ export async function POST(request: Request) {
             size: quote.size,
             booking_vehicle_type: quote.bookingVehicleType,
             prefill_token: prefillToken,
+            promo_code: quote.promoCode,
             packages: quote.packages.map((p) => ({
               name: p.name,
               price: p.price,

@@ -49,6 +49,8 @@ export type AutoRespondOutcome =
       packages: QuotePackage[];
       /** Booking-app vehicle type matching the resolved size, for Book-now prefill. */
       bookingVehicleType: string | null;
+      /** Ad-promo discount code to pre-apply at booking (e.g. "CCC10"), or null. */
+      promoCode: string | null;
     }
   | { decision: "escalated" };
 
@@ -69,7 +71,38 @@ type ProcessLeadInput = {
   modelRaw: string | null;
   serviceRequested: string | null;
   notes: string | null;
+  /** Landing page the lead came from (captured client-side). Used to apply
+   *  page-specific ad promos to the quote, e.g. the /10-off-road-trip/ page
+   *  auto-discounts the shown prices 10% (code CCC10). */
+  landingUrl: string | null;
 };
+
+/**
+ * Ad-page promos. If a lead's landing_url matches one of these, the auto-quote
+ * shows the discounted prices and mentions the code. The actual discount is
+ * applied by the booking app at checkout via the code, so this is display-only
+ * (no double-discount). Add new ad promos here.
+ */
+const LANDING_PROMOS: Array<{ match: string; percentOff: number; code: string; label: string }> = [
+  // More-specific matches first — "christchurch-10-off-road-trip" also
+  // contains "10-off-road-trip", so the CHC entry must be checked first.
+  { match: "christchurch-10-off-road-trip", percentOff: 10, code: "CCC10", label: "CHC Road Trip 10% off" },
+  { match: "10-off-road-trip", percentOff: 10, code: "CCC10", label: "Road Trip 10% off" },
+];
+
+function resolveLandingPromo(landingUrl: string | null) {
+  const url = (landingUrl ?? "").toLowerCase();
+  if (!url) return null;
+  return LANDING_PROMOS.find((p) => url.includes(p.match)) ?? null;
+}
+
+/** Return a copy of the pricing map with every price reduced by percentOff. */
+function discountPricing(pricing: PricingMap, percentOff: number): PricingMap {
+  const factor = 1 - percentOff / 100;
+  const out: PricingMap = new Map();
+  for (const [key, price] of pricing) out.set(key, Math.round(price * factor));
+  return out;
+}
 
 function cleanNotes(s: string | null): string {
   const raw = (s || "").trim();
@@ -191,7 +224,8 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
 
 export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<AutoRespondOutcome> {
   const supabase = getSupabaseAdminClient();
-  const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes } = input;
+  const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes, landingUrl } = input;
+  const landingPromo = resolveLandingPromo(landingUrl);
 
   const cleanedNotes = cleanNotes(notes);
   const hasNotes = cleanedNotes.length > 0;
@@ -280,7 +314,12 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     : null;
 
   try {
-    const pricing = await loadPricing(shopId);
+    let pricing = await loadPricing(shopId);
+    // Ad-page promo: discount every shown price so the quote reflects the
+    // offer (e.g. /10-off-road-trip/ => 10% off, code CCC10).
+    if (landingPromo) {
+      pricing = discountPricing(pricing, landingPromo.percentOff);
+    }
     const ctx = buildTemplateContext(
       templateKey,
       firstName,
@@ -296,6 +335,23 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     draftHtml = rendered.htmlBody;
     templateId = rendered.templateId;
     templateVariant = rendered.variant;
+
+    // Ad-page promo: the prices above are already discounted; add a banner so
+    // the customer sees the offer is applied, and the code carries to booking.
+    if (landingPromo) {
+      draftSubject = `${draftSubject} (${landingPromo.percentOff}% off applied)`;
+      draftBody =
+        `Your ${landingPromo.percentOff}% discount is already applied to the prices below. ` +
+        `Code ${landingPromo.code} carries through automatically when you book.\n\n` +
+        draftBody;
+      const banner =
+        `<div style="margin:0 0 18px;padding:12px 16px;background:#0e3b2e;color:#eafff5;` +
+        `border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;` +
+        `font-size:14px;line-height:1.5;">` +
+        `<strong>${landingPromo.percentOff}% off applied</strong> &mdash; the prices below already include your ` +
+        `discount. Code <strong>${landingPromo.code}</strong> carries through automatically when you book.</div>`;
+      draftHtml = banner + draftHtml;
+    }
   } catch (e) {
     draftError = e instanceof Error ? e.message : String(e);
     console.error("Auto-respond draft error:", draftError);
@@ -514,7 +570,11 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
   // existing email flow on the customer side.
   if (newStatus === "scheduled") {
     try {
-      const packages = buildQuotePackages(templateKey, effectiveSize, await loadPricing(shopId));
+      let quotePricing = await loadPricing(shopId);
+      if (landingPromo) {
+        quotePricing = discountPricing(quotePricing, landingPromo.percentOff);
+      }
+      const packages = buildQuotePackages(templateKey, effectiveSize, quotePricing);
       if (packages.length > 0) {
         return {
           decision: "quote",
@@ -522,6 +582,9 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
           size: effectiveSize,
           packages,
           bookingVehicleType: effectiveSize ? SIZE_TO_BOOKING_VEHICLE[effectiveSize] ?? null : null,
+          // Ad-promo code to pre-apply in the booking app (Book-now appends
+          // it to the booking URL; null for normal leads).
+          promoCode: landingPromo?.code ?? null,
         };
       }
     } catch (err) {
