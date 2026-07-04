@@ -128,6 +128,9 @@ export type QuotePackage = {
   /** "$355 + GST" or "from $637.50 + GST" for size-independent services
    *  whose booking-page price scales with vehicle size. */
   priceLabel: string;
+  /** Pre-discount sticker label when an ad promo discounted this package
+   *  (e.g. "$650 + GST"); null/undefined when no promo applies. */
+  originalPriceLabel?: string | null;
   duration: string;
   highlights: string[];
   bookingServiceId: string;

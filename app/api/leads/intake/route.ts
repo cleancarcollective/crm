@@ -429,10 +429,12 @@ export async function POST(request: Request) {
             booking_vehicle_type: quote.bookingVehicleType,
             prefill_token: prefillToken,
             promo_code: quote.promoCode,
+            promo_percent_off: quote.promoPercentOff,
             packages: quote.packages.map((p) => ({
               name: p.name,
               price: p.price,
               price_label: p.priceLabel,
+              original_price_label: p.originalPriceLabel ?? null,
               duration: p.duration,
               highlights: p.highlights,
               booking_service_id: p.bookingServiceId,

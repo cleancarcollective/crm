@@ -51,6 +51,8 @@ export type AutoRespondOutcome =
       bookingVehicleType: string | null;
       /** Ad-promo discount code to pre-apply at booking (e.g. "CCC10"), or null. */
       promoCode: string | null;
+      /** Percent off applied by the landing promo (e.g. 10), or null. */
+      promoPercentOff: number | null;
     }
   | { decision: "escalated" };
 
@@ -570,11 +572,21 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
   // existing email flow on the customer side.
   if (newStatus === "scheduled") {
     try {
-      let quotePricing = await loadPricing(shopId);
-      if (landingPromo) {
-        quotePricing = discountPricing(quotePricing, landingPromo.percentOff);
-      }
+      const basePricing = await loadPricing(shopId);
+      const quotePricing = landingPromo
+        ? discountPricing(basePricing, landingPromo.percentOff)
+        : basePricing;
       const packages = buildQuotePackages(templateKey, effectiveSize, quotePricing);
+      if (landingPromo) {
+        // Attach the pre-discount sticker label so the quote screen can show
+        // a strike-through "was $X" next to the discounted promo price.
+        const originalPackages = buildQuotePackages(templateKey, effectiveSize, basePricing);
+        const origLabelByName = new Map(originalPackages.map((p) => [p.name, p.priceLabel]));
+        for (const p of packages) {
+          const orig = origLabelByName.get(p.name);
+          if (orig && orig !== p.priceLabel) p.originalPriceLabel = orig;
+        }
+      }
       if (packages.length > 0) {
         return {
           decision: "quote",
@@ -585,6 +597,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
           // Ad-promo code to pre-apply in the booking app (Book-now appends
           // it to the booking URL; null for normal leads).
           promoCode: landingPromo?.code ?? null,
+          promoPercentOff: landingPromo?.percentOff ?? null,
         };
       }
     } catch (err) {
