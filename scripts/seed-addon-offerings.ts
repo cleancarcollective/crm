@@ -99,7 +99,7 @@ const ADDONS = [
     service_id: "ceramic-sealant",
     display_name: "6 Month Ceramic Sealant",
     rank: 27,
-    pricing_table: flat(60, 30),
+    pricing_table: flat(100, 30),
     description: "SiO2 booster for the paint - stronger + longer than the standard 3-month sealant.",
     selling_points: "Upsell from the standard 3-month sealant for customers who want longer protection but aren't ready for a full ceramic coating.",
     notes: "",
