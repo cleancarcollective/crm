@@ -18,6 +18,11 @@ import { NextResponse } from "next/server";
 
 import { sendEstimateEmail, type SendEstimateArgs } from "@/lib/autorespond/processLead";
 import {
+  renderAdNurtureEmail,
+  type AdNurtureJobType,
+  type AdNurturePayload,
+} from "@/lib/autorespond/adNurture";
+import {
   buildTemplateContext,
   loadAndRenderTemplate,
 } from "@/lib/autorespond/templateRenderer";
@@ -183,9 +188,139 @@ async function dispatch(job: ScheduledJob) {
     case "lead_followup_7day":
     case "lead_followup_30day":
       return handleLeadFollowup(job);
+    case "ad_nurture_day1":
+    case "ad_nurture_day3":
+    case "ad_nurture_day6":
+      return handleAdNurture(job);
     default:
       throw new Error(`Unknown job_type: ${job.job_type}`);
   }
+}
+
+/**
+ * Defensive booking check shared by the lead follow-up + ad-nurture handlers:
+ * if the contact's email OR phone has a recent confirmed booking for this
+ * shop, the lead converted (possibly under a different contact row) and the
+ * follow-up must not send. Back-fixes lead.status='won' when it fires.
+ */
+async function contactHasRecentBooking(
+  job: ScheduledJob,
+  contact: { email: string | null; phone: string | null } | null,
+  leadTemplateId: string | null
+): Promise<boolean> {
+  if (!contact || (!contact.email && !contact.phone)) return false;
+  const supabase = getSupabaseAdminClient();
+
+  const { data: matchingContacts } = await supabase
+    .from("contacts")
+    .select("id")
+    .eq("shop_id", job.shop_id)
+    .or(
+      [
+        contact.email ? `email.eq.${contact.email}` : null,
+        contact.phone ? `phone.eq.${contact.phone}` : null,
+      ]
+        .filter(Boolean)
+        .join(",")
+    );
+
+  const contactIds = (matchingContacts ?? []).map((c) => c.id as string);
+  if (contactIds.length === 0) return false;
+
+  const { count: recentBookings } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", job.shop_id)
+    .in("contact_id", contactIds)
+    .in("status", ["pending", "confirmed", "completed"])
+    .gte("scheduled_start", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+  if ((recentBookings ?? 0) === 0) return false;
+
+  console.info(`${job.job_type}: skipping — contact has a recent booking despite open lead`, {
+    leadId: job.lead_id,
+    email: contact.email,
+    phone: contact.phone,
+  });
+  if (job.lead_id) {
+    await supabase
+      .from("leads")
+      .update({
+        status: "won",
+        won_source: leadTemplateId ? "auto_email" : "direct_booking",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.lead_id);
+  }
+  return true;
+}
+
+/**
+ * Ad-lead nurture touches (3 emails over 6 days, promo-landing leads only).
+ * Renders from the payload snapshot taken at quote time; every touch
+ * re-checks the lead at send time so status changes, bookings, bounces and
+ * cooldowns all pull the lead out of the sequence.
+ */
+async function handleAdNurture(job: ScheduledJob) {
+  if (!job.lead_id) throw new Error(`${job.job_type}: missing lead_id`);
+  const payload = job.payload_json as unknown as AdNurturePayload | null;
+  if (!payload) throw new Error(`${job.job_type}: missing payload`);
+  const supabase = getSupabaseAdminClient();
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("status, email_bounced_at, cooldown_until, template_id")
+    .eq("id", job.lead_id)
+    .maybeSingle();
+
+  if (!lead) throw new Error(`${job.job_type}: lead not found`);
+  if (lead.status !== "sent") {
+    console.info(`${job.job_type}: skipping, lead status is ${lead.status}`, { leadId: job.lead_id });
+    return;
+  }
+  if (lead.email_bounced_at) {
+    console.info(`${job.job_type}: skipping, estimate email bounced`, { leadId: job.lead_id });
+    return;
+  }
+  if (lead.cooldown_until && Date.parse(lead.cooldown_until as string) > Date.now()) {
+    console.info(`${job.job_type}: skipping, lead in cooldown`, { leadId: job.lead_id });
+    return;
+  }
+
+  const { data: contact } = job.contact_id
+    ? await supabase.from("contacts").select("first_name, email, phone").eq("id", job.contact_id).maybeSingle()
+    : { data: null };
+
+  if (await contactHasRecentBooking(job, contact, (lead.template_id as string | null) ?? null)) {
+    return;
+  }
+
+  const email = contact?.email ?? payload.email;
+  if (!email) throw new Error(`${job.job_type}: no email for lead`);
+
+  const { getShopContactsById } = await import("@/lib/email/shopContacts");
+  const contacts = await getShopContactsById(job.shop_id);
+  const { data: shopRow } = await supabase.from("shops").select("slug").eq("id", job.shop_id).maybeSingle();
+
+  const rendered = renderAdNurtureEmail(
+    job.job_type as AdNurtureJobType,
+    { ...payload, firstName: contact?.first_name ?? payload.firstName },
+    (shopRow?.slug as string) ?? "christchurch",
+    contacts.sender_name
+  );
+
+  await sendEstimateEmail({
+    to: email,
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+    shopId: job.shop_id,
+    leadId: job.lead_id,
+    contactId: job.contact_id,
+    templateId: null,
+    templateKey: job.job_type ?? "ad_nurture",
+    templateVariant: "default",
+  });
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────
@@ -294,47 +429,8 @@ async function handleLeadFollowup(job: ScheduledJob) {
   // but this same email OR phone has a recent confirmed booking for this shop,
   // skip the follow-up. Looks beyond contact_id, which is the only match key
   // the booking intake currently uses.
-  if (contact && (contact.email || contact.phone)) {
-    const { data: matchingContacts } = await supabase
-      .from("contacts")
-      .select("id")
-      .eq("shop_id", job.shop_id)
-      .or(
-        [
-          contact.email ? `email.eq.${contact.email}` : null,
-          contact.phone ? `phone.eq.${contact.phone}` : null,
-        ]
-          .filter(Boolean)
-          .join(",")
-      );
-
-    const contactIds = (matchingContacts ?? []).map((c) => c.id as string);
-    if (contactIds.length > 0) {
-      const { count: recentBookings } = await supabase
-        .from("bookings")
-        .select("id", { count: "exact", head: true })
-        .eq("shop_id", job.shop_id)
-        .in("contact_id", contactIds)
-        .in("status", ["pending", "confirmed", "completed"])
-        .gte("scheduled_start", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      if ((recentBookings ?? 0) > 0) {
-        console.info(
-          `${job.job_type}: skipping — contact has a recent booking despite lead.status=sent`,
-          { leadId: job.lead_id, email: contact.email, phone: contact.phone }
-        );
-        // Also back-fix the lead so the funnel reflects reality
-        await supabase
-          .from("leads")
-          .update({
-            status: "won",
-            won_source: lead.template_id ? "auto_email" : "direct_booking",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", job.lead_id);
-        return;
-      }
-    }
+  if (await contactHasRecentBooking(job, contact, (lead.template_id as string | null) ?? null)) {
+    return;
   }
 
   const { data: leadWithVehicle } = await supabase

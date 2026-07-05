@@ -588,12 +588,44 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
         }
       }
       if (packages.length > 0) {
+        const bookingVehicleType = effectiveSize
+          ? SIZE_TO_BOOKING_VEHICLE[effectiveSize] ?? null
+          : null;
+
+        // Ad leads (promo landing pages) get the 3-touch nurture drip —
+        // cold social traffic converts on follow-up, not first visit.
+        // Non-fatal: a scheduling failure must never break lead intake.
+        if (landingPromo) {
+          try {
+            const { scheduleAdLeadNurture } = await import("@/lib/autorespond/adNurture");
+            await scheduleAdLeadNurture({
+              shopId,
+              leadId,
+              contactId,
+              email,
+              firstName,
+              vehicleLabel: [makeRaw, modelRaw].filter(Boolean).join(" "),
+              promoCode: landingPromo.code,
+              promoPercentOff: landingPromo.percentOff,
+              packages: packages.map((p) => ({
+                name: p.name,
+                priceLabel: p.priceLabel,
+                originalPriceLabel: p.originalPriceLabel ?? null,
+              })),
+              bookingVehicleType,
+              quotedAt: new Date().toISOString(),
+            });
+          } catch (err) {
+            console.error("Ad-lead nurture scheduling failed (non-fatal)", { leadId, err });
+          }
+        }
+
         return {
           decision: "quote",
           templateKey,
           size: effectiveSize,
           packages,
-          bookingVehicleType: effectiveSize ? SIZE_TO_BOOKING_VEHICLE[effectiveSize] ?? null : null,
+          bookingVehicleType,
           // Ad-promo code to pre-apply in the booking app (Book-now appends
           // it to the booking URL; null for normal leads).
           promoCode: landingPromo?.code ?? null,
