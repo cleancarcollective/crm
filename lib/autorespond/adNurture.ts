@@ -136,8 +136,6 @@ function packageLinesHtml(payload: AdNurturePayload): string {
     .join("");
 }
 
-const STOP_LINE = "If you'd rather not hear from us about this, just reply and say so — that's the last you'll get.";
-
 export function renderAdNurtureEmail(
   jobType: AdNurtureJobType,
   payload: AdNurturePayload,
@@ -173,9 +171,7 @@ Booking takes about a minute and there's nothing to pay until the day.
 Any questions, just reply — a real person reads these.
 
 ${senderFirstName}
-Clean Car Collective
-
-${STOP_LINE}`;
+Clean Car Collective`;
     const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
 <p>Quick one from us at Clean Car Collective — your quote for the ${veh} is still active, and the <strong>${code}</strong> code (${pct}% off) on it is good for another <strong>${left} days</strong>.</p>
@@ -187,7 +183,6 @@ ${hasPackages
 <p>Booking takes about a minute and there's nothing to pay until the day.</p>
 <p>Any questions, just reply — a real person reads these.</p>
 <p>${senderFirstName}<br>Clean Car Collective</p>
-<p style="color:#888;font-size:12px;">${STOP_LINE}</p>
 </div>`;
     return { subject, textBody, htmlBody };
   }
@@ -214,9 +209,7 @@ ${featuredLineText}- Every package can be tailored to your car. Mention anything
 Your code has a few days left on it. Reply if you'd like a hand choosing.
 
 ${senderFirstName}
-Clean Car Collective
-
-${STOP_LINE}`;
+Clean Car Collective`;
     const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
 <p>No rush — just making sure you still have your ${pct}% off quote for the ${veh} handy: <a href="${link}">book with the code applied</a>.</p>
@@ -228,7 +221,6 @@ ${featuredLineHtml}
 </ul>
 <p>Your code has a few days left on it. Reply if you'd like a hand choosing.</p>
 <p>${senderFirstName}<br>Clean Car Collective</p>
-<p style="color:#888;font-size:12px;">${STOP_LINE}</p>
 </div>`;
     return { subject, textBody, htmlBody };
   }
@@ -247,9 +239,7 @@ ${link}
 After tomorrow the quote reverts to full price. Either way, thanks for considering us.
 
 ${senderFirstName}
-Clean Car Collective
-
-${STOP_LINE}`;
+Clean Car Collective`;
   const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
 <p>Your <strong>${code}</strong> code wraps up tomorrow, so this is the last nudge from us.</p>
@@ -257,7 +247,6 @@ ${STOP_LINE}`;
 <p><a href="${link}">Book with your ${pct}% off here</a>.</p>
 <p>After tomorrow the quote reverts to full price. Either way, thanks for considering us.</p>
 <p>${senderFirstName}<br>Clean Car Collective</p>
-<p style="color:#888;font-size:12px;">${STOP_LINE}</p>
 </div>`;
   return { subject, textBody, htmlBody };
 }
