@@ -77,6 +77,8 @@ type ProcessLeadInput = {
    *  page-specific ad promos to the quote, e.g. the /10-off-road-trip/ page
    *  auto-discounts the shown prices 10% (code CCC10). */
   landingUrl: string | null;
+  /** Customer phone — used by the ad-lead nurture SMS touch. */
+  phone: string | null;
 };
 
 /**
@@ -226,7 +228,7 @@ export async function sendEstimateEmail(args: SendEstimateArgs) {
 
 export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<AutoRespondOutcome> {
   const supabase = getSupabaseAdminClient();
-  const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes, landingUrl } = input;
+  const { leadId, shopId, contactId, firstName, email, makeRaw, modelRaw, serviceRequested, notes, landingUrl, phone } = input;
   const landingPromo = resolveLandingPromo(landingUrl);
 
   const cleanedNotes = cleanNotes(notes);
@@ -614,6 +616,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
               })),
               bookingVehicleType,
               quotedAt: new Date().toISOString(),
+              phone,
             });
           } catch (err) {
             console.error("Ad-lead nurture scheduling failed (non-fatal)", { leadId, err });

@@ -1,7 +1,7 @@
 /**
- * Ad-lead nurture drip — 3 emails over 6 days for leads that came from a
- * paid-ad landing page (resolveLandingPromo matched, e.g. /10-off-road-trip/)
- * and received an instant quote but haven't booked.
+ * Ad-lead nurture drip — 3 emails + 1 SMS over 6 days for leads that came
+ * from a paid-ad landing page (resolveLandingPromo matched, e.g.
+ * /10-off-road-trip/) and received an instant quote but haven't booked.
  *
  * Scoped deliberately: the global lead follow-ups (LEAD_FOLLOWUPS_ENABLED)
  * stay off — this sequence only ever targets promo-landing leads, who are
@@ -13,7 +13,11 @@
  *   - skips if the contact's email/phone has any recent booking
  *   - skips if the lead's email hard-bounced or a cooldown is set
  *   - booking intake cancels all pending lead jobs (cancelLeadJobs)
- *   - hard cap: 3 touches, then the sequence is over
+ *   - hard cap: 3 emails + 1 SMS, then the sequence is over
+ *
+ * Copy approved by the owner 2026-07-06 — kiwi tone, no em dashes, no hard
+ * sell. Plain-note style so it lands in Gmail Primary; emails 1-2 carry no
+ * link (reply CTA), email 3 carries one bare booking link.
  *
  * Kill switch: AD_LEAD_NURTURE_ENABLED=false disables scheduling (default on).
  */
@@ -28,6 +32,8 @@ export const AD_NURTURE_JOB_TYPES: AdNurtureJobType[] = [
   "ad_nurture_day3",
   "ad_nurture_day6",
 ];
+
+export const AD_NURTURE_SMS_TEMPLATE_KEY = "ad_nurture_sms_day4";
 
 export type AdNurturePackage = {
   name: string;
@@ -48,6 +54,8 @@ export type AdNurturePayload = {
   bookingVehicleType: string | null;
   /** ISO timestamp of when the quote was shown — drives "X days left" copy. */
   quotedAt: string;
+  /** Customer phone for the day-4 SMS touch; null skips the SMS. */
+  phone?: string | null;
 };
 
 // WP pages embedding the booking apps. Links go to the top-level page with
@@ -67,7 +75,8 @@ function bookingLink(shopSlug: string, payload: AdNurturePayload): string {
 }
 
 /**
- * Schedule the 3-touch nurture for a fresh ad lead. Called from the instant
+ * Schedule the nurture touches for a fresh ad lead: emails at +22h, +3d,
+ * +6d and an SMS at +4d (when a phone exists). Called from the instant
  * quote path in processLeadAutoRespond. Non-fatal by design — callers wrap
  * in try/catch so a scheduling hiccup never breaks lead intake.
  */
@@ -102,12 +111,70 @@ export async function scheduleAdLeadNurture(payload: AdNurturePayload) {
       payload: payload as never,
     });
   }
+
+  if (payload.phone) {
+    try {
+      await scheduleAdNurtureSms(payload, new Date(now + 4 * DAY).toISOString());
+    } catch (e) {
+      console.error("Ad-nurture SMS scheduling failed (non-fatal)", { leadId: payload.leadId, e });
+    }
+  }
+}
+
+/**
+ * Day-4 SMS. Message is pre-rendered at schedule time (nothing in it is
+ * time-sensitive); the SMS processor's lead-context guard re-checks
+ * lead.status='sent' + recent bookings at send time, same as the emails.
+ */
+export async function scheduleAdNurtureSms(payload: AdNurturePayload, scheduledFor: string) {
+  if (!payload.phone) return;
+  const { getShopContactsById } = await import("@/lib/email/shopContacts");
+  const contacts = await getShopContactsById(payload.shopId);
+  const veh = payload.vehicleLabel || "car";
+
+  const message =
+    `Hi ${payload.firstName || "there"}, ${contacts.sender_name} from Clean Car Collective here! ` +
+    `Just reaching out as I saw you were interested in getting your ${veh} detailed, but haven't booked in yet. ` +
+    `I wanted to check and see if there was any other info you needed, as your 10% off code only has a couple of days left. ` +
+    `If you'd like to lock in a time to secure one of our remaining slots, let me know!`;
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("scheduled_sms_jobs").insert({
+    shop_id: payload.shopId,
+    lead_id: payload.leadId,
+    booking_id: null,
+    contact_id: payload.contactId,
+    phone: payload.phone,
+    message,
+    template_key: AD_NURTURE_SMS_TEMPLATE_KEY,
+    scheduled_for: scheduledFor,
+    status: "pending",
+  });
+  if (error) {
+    // Unique (shop_id, lead_id, template_key) makes re-schedules a no-op.
+    if (!/duplicate|unique/i.test(error.message)) throw error;
+  }
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
-// Hand-written plain-note style, same reasoning as the post-detail drip:
-// branded promo shells pattern-match into Gmail's Promotions tab. Default
-// font, prices in sentences, one plain link, reply-to-stop line.
+// Owner-approved copy. Plain-note style: default font, no images, prices in
+// sentences. Emails 1-2 have no link (reply CTA); email 3 has one bare link.
+
+/** Outcome-led package descriptions, keyed by quoted package name. */
+const PACKAGE_DESCRIPTIONS: Record<string, string> = {
+  "Deluxe Detail":
+    "Built for daily drivers, we start with a full exterior hand wash (the Clean Car Collective way), wheels and door jambs detailed properly, interior vacuumed with every single plastic surface detailed and protected, then a 3-month paint sealant over the top. The car feels brand new, inside and out in around 4 hours.",
+  "Premium Detail":
+    "For cars that need a deep reset. Everything in the Deluxe, plus a full shampoo of seats, carpets, and floor mats, a clay bar decontamination so the paint feels glass smooth, engine bay cleaned and dressed, and a 6-month ceramic paint sealant. This package is for cars that need some extra love to get them back to a showroom shine. It's our most popular for busy families or professionals who just want a detail done right!",
+  "Deluxe Interior":
+    "Built for daily drivers, a full interior vacuum, every plastic surface detailed and protected, crevices done properly, plus door jambs and interior windows. The inside feels fresh again in a few hours.",
+  "Premium Interior":
+    "For interiors that need a deep reset. Everything in the Deluxe Interior, plus a full shampoo and extraction of seats, carpets, and floor mats, stain extraction, and interior deodorising. Built for cars that have lived a life, kids, pets, the lot!",
+  "Deluxe Exterior":
+    "A proper exterior refresh. Full hand wash (the Clean Car Collective way), wheels, barrels, and tyres detailed, windows and mirrors done, finished with a 3-month wax/sealant to keep it easy to wash.",
+  "Premium Exterior":
+    "For paint that needs extra care. Everything in the Deluxe Exterior, plus a clay bar treatment and full paint decontamination, so the paint feels glass smooth and comes up to a proper shine.",
+};
 
 function daysLeft(payload: AdNurturePayload, atTouch: number): number {
   // Code is "valid 7 days from quote"; touch N lands ~N days in.
@@ -116,24 +183,21 @@ function daysLeft(payload: AdNurturePayload, atTouch: number): number {
   return Math.max(1, 7 - Math.max(elapsed, atTouch));
 }
 
-function packageLines(payload: AdNurturePayload): string {
-  return payload.packages
-    .map((p) => {
-      const was = p.originalPriceLabel ? ` (was ${p.originalPriceLabel.replace(" + GST", "")})` : "";
-      return `- ${p.name}: ${p.priceLabel}${was}`;
-    })
-    .join("\n");
+function priceSuffix(p: AdNurturePackage): string {
+  const orig = p.originalPriceLabel
+    ? ` (usually ${p.originalPriceLabel.replace(" + GST", "")})`
+    : "";
+  return `${p.priceLabel.replace(" + GST", "")} + GST with your code${orig}`;
 }
 
-function packageLinesHtml(payload: AdNurturePayload): string {
-  return payload.packages
-    .map((p) => {
-      const was = p.originalPriceLabel
-        ? ` <span style="color:#888;text-decoration:line-through;">${p.originalPriceLabel.replace(" + GST", "")}</span>`
-        : "";
-      return `<li>${p.name}: <strong>${p.priceLabel}</strong>${was}</li>`;
-    })
-    .join("");
+/** Text + HTML block for one quoted package: name, price, outcome copy. */
+function packageBlock(p: AdNurturePackage): { text: string; html: string } {
+  const desc = PACKAGE_DESCRIPTIONS[p.name] ?? "";
+  const priceLine = `The ${p.name} - ${priceSuffix(p)}.`;
+  return {
+    text: `${priceLine}\n\n${desc}`.trim(),
+    html: `<p><strong>The ${p.name} - ${priceSuffix(p)}.</strong></p>${desc ? `<p>${desc}</p>` : ""}`,
+  };
 }
 
 export function renderAdNurtureEmail(
@@ -143,110 +207,113 @@ export function renderAdNurtureEmail(
   senderFirstName: string
 ): { subject: string; textBody: string; htmlBody: string } {
   const link = bookingLink(shopSlug, payload);
-  const veh = payload.vehicleLabel || "your vehicle";
+  const veh = payload.vehicleLabel || "car";
   const first = payload.firstName || "there";
-  const pct = payload.promoPercentOff;
   const code = payload.promoCode;
-
+  const pct = payload.promoPercentOff;
   const hasPackages = payload.packages.length > 0;
 
   if (jobType === "ad_nurture_day1") {
     const left = daysLeft(payload, 1);
-    const subject = `Your ${pct}% off quote for the ${veh}`;
-    const priceBlockText = hasPackages
-      ? `Where it stands:
-${packageLines(payload)}
+    const subject = `${first}, let's get your ${veh} looking brand new!`;
 
-Those prices already include the ${pct}% off, and the code applies automatically when you book here:`
-      : `The full breakdown is in the estimate email we sent you, and the code applies automatically when you book here:`;
+    const packagesIntro = "We offer a wide range of packages, but our two most popular are;";
+    const blocks = payload.packages.map(packageBlock);
+    const packagesText = hasPackages
+      ? `${packagesIntro}\n\n${blocks.map((b) => b.text).join("\n\n")}`
+      : `Your full quote and prices are in the estimate email we sent you.`;
+    const packagesHtml = hasPackages
+      ? `<p>${packagesIntro}</p>${blocks.map((b) => b.html).join("")}`
+      : `<p>Your full quote and prices are in the estimate email we sent you.</p>`;
+
     const textBody = `Hi ${first},
 
-Quick one from us at Clean Car Collective — your quote for the ${veh} is still active, and the ${code} code (${pct}% off) on it is good for another ${left} days.
+Thanks for reaching out for a quote to get your ${veh} detailed! I wanted to personally reach out and check if you needed any further information or wanted to explore our various options.
 
-${priceBlockText}
-${link}
+Your quote is still valid, and we're offering you ${pct}% off with code ${code} for another ${left} days.
 
-Booking takes about a minute and there's nothing to pay until the day.
+${packagesText}
 
-Any questions, just reply — a real person reads these.
+If you'd like to secure a booking while the code is active, just reply with a day that suits, and I'll set it up for you. Nothing to pay until the detail is done and we've confirmed you're happy with the results.
 
-${senderFirstName}
-Clean Car Collective`;
+Thanks,
+${senderFirstName}`;
+
     const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
-<p>Quick one from us at Clean Car Collective — your quote for the ${veh} is still active, and the <strong>${code}</strong> code (${pct}% off) on it is good for another <strong>${left} days</strong>.</p>
-${hasPackages
-    ? `<p>Where it stands:</p>
-<ul>${packageLinesHtml(payload)}</ul>
-<p>Those prices already include the ${pct}% off, and the code applies automatically when you <a href="${link}">book here</a>.</p>`
-    : `<p>The full breakdown is in the estimate email we sent you, and the code applies automatically when you <a href="${link}">book here</a>.</p>`}
-<p>Booking takes about a minute and there's nothing to pay until the day.</p>
-<p>Any questions, just reply — a real person reads these.</p>
-<p>${senderFirstName}<br>Clean Car Collective</p>
+<p>Thanks for reaching out for a quote to get your ${veh} detailed! I wanted to personally reach out and check if you needed any further information or wanted to explore our various options.</p>
+<p>Your quote is still valid, and we're offering you ${pct}% off with code <strong>${code}</strong> for another <strong>${left} days</strong>.</p>
+${packagesHtml}
+<p>If you'd like to secure a booking while the code is active, just reply with a day that suits, and I'll set it up for you. Nothing to pay until the detail is done and we've confirmed you're happy with the results.</p>
+<p>Thanks,<br>${senderFirstName}</p>
 </div>`;
     return { subject, textBody, htmlBody };
   }
 
   if (jobType === "ad_nurture_day3") {
-    const featured = payload.packages[payload.packages.length - 1] ?? payload.packages[0];
-    const featuredLineText = featured
-      ? `- Most customers in your spot go for the ${featured.name} — ${featured.priceLabel} with your code applied.\n`
-      : "";
-    const featuredLineHtml = featured
-      ? `<li>Most customers in your spot go for the ${featured.name} — <strong>${featured.priceLabel}</strong> with your code applied.</li>`
-      : "";
-    const subject = `Still thinking it over? (${veh})`;
+    const subject = `Any questions about detailing your ${veh}?`;
     const textBody = `Hi ${first},
 
-No rush — just making sure you still have your ${pct}% off quote for the ${veh} handy:
-${link}
+${senderFirstName} here again, just floating this back to the top of your inbox in case it got buried. Happy to answer anything about getting the ${veh} detailed if you're still weighing it up.
 
-A couple of things people usually want to know before they book:
+The questions we get most often:
 
-- We're a 5.0-star shop on Google (230+ reviews) and every detail comes with a money-back guarantee.
-${featuredLineText}- Every package can be tailored to your car. Mention anything specific when you book and we'll sort it.
+"Will it actually come up looking brand new?" That's the whole job. We're rated 5.0 from 230+ Google reviews, and every detail is backed by our money back guarantee. If you're not happy with the result, you don't pay.
 
-Your code has a few days left on it. Reply if you'd like a hand choosing.
+"My car's got dog hair / kid mess / stains / swirl marks." Tell us what you're dealing with and we'll tell you honestly what result to expect. Every package gets tailored to the car in front of us.
 
-${senderFirstName}
-Clean Car Collective`;
+"I'm too busy for this." We make the detail about you. No queues, no waiting. Your car is our only focus on the day, so we don't leave you stranded without it.
+
+Your ${pct}% off code (${code}) still has a few days left. Reply any time with a question or a day that suits, and we'll sort the rest.
+
+Thanks,
+${senderFirstName}`;
+
     const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
-<p>No rush — just making sure you still have your ${pct}% off quote for the ${veh} handy: <a href="${link}">book with the code applied</a>.</p>
-<p>A couple of things people usually want to know before they book:</p>
-<ul>
-<li>We're a 5.0-star shop on Google (230+ reviews) and every detail comes with a money-back guarantee.</li>
-${featuredLineHtml}
-<li>Every package can be tailored to your car. Mention anything specific when you book and we'll sort it.</li>
-</ul>
-<p>Your code has a few days left on it. Reply if you'd like a hand choosing.</p>
-<p>${senderFirstName}<br>Clean Car Collective</p>
+<p>${senderFirstName} here again, just floating this back to the top of your inbox in case it got buried. Happy to answer anything about getting the ${veh} detailed if you're still weighing it up.</p>
+<p>The questions we get most often:</p>
+<p><strong>"Will it actually come up looking brand new?"</strong> That's the whole job. We're rated 5.0 from 230+ Google reviews, and every detail is backed by our money back guarantee. If you're not happy with the result, you don't pay.</p>
+<p><strong>"My car's got dog hair / kid mess / stains / swirl marks."</strong> Tell us what you're dealing with and we'll tell you honestly what result to expect. Every package gets tailored to the car in front of us.</p>
+<p><strong>"I'm too busy for this."</strong> We make the detail about you. No queues, no waiting. Your car is our only focus on the day, so we don't leave you stranded without it.</p>
+<p>Your ${pct}% off code (<strong>${code}</strong>) still has a few days left. Reply any time with a question or a day that suits, and we'll sort the rest.</p>
+<p>Thanks,<br>${senderFirstName}</p>
 </div>`;
     return { subject, textBody, htmlBody };
   }
 
-  // ad_nurture_day6 — last call + sealant upgrade sweetener on full details.
-  const subject = `Last day for your ${pct}% off (${veh})`;
+  // ad_nurture_day6 — last call + package-matched sweeteners.
+  const subject = `Last chance to get your ${veh} looking brand new, ${first}`;
   const textBody = `Hi ${first},
 
-Your ${code} code wraps up tomorrow, so this is the last nudge from us.
+Your ${code} code (${pct}% off) wraps up tomorrow, so this is my last note about it.
 
-To make it an easy yes: book a Deluxe or Premium Detail this week and we'll upgrade the standard 3-month sealant to our 6 Month Ceramic Sealant free — that's a $100 extra, on us. Just mention "sealant upgrade" in the booking notes.
+To sweeten the deal if you book this week:
 
-Book with your ${pct}% off here:
+Book the Deluxe Detail and we'll upgrade your 3-month paint sealant to our 6 Month Ceramic Sealant, no charge. That's a $100 extra on us, and it keeps the paint protected and easy to wash right through winter.
+
+Book the Premium Detail and we'll add a ceramic coating for your windscreen and front windows, normally $150. Better visibility in the rain and the wipers barely have to work.
+
+You can book with the code applied here:
 ${link}
 
-After tomorrow the quote reverts to full price. Either way, thanks for considering us.
+Or simply reply with a day that suits and I'll lock it in for you. As always, nothing to pay until the detail is done and you're happy with the results.
 
-${senderFirstName}
-Clean Car Collective`;
+After tomorrow the quote reverts to full price. Either way, thanks for considering us!
+
+Thanks,
+${senderFirstName}`;
+
   const htmlBody = `<div style="font-family:inherit;font-size:14px;line-height:1.6;color:#222;">
 <p>Hi ${first},</p>
-<p>Your <strong>${code}</strong> code wraps up tomorrow, so this is the last nudge from us.</p>
-<p>To make it an easy yes: book a <strong>Deluxe or Premium Detail</strong> this week and we'll upgrade the standard 3-month sealant to our <strong>6 Month Ceramic Sealant free</strong> — that's a $100 extra, on us. Just mention "sealant upgrade" in the booking notes.</p>
-<p><a href="${link}">Book with your ${pct}% off here</a>.</p>
-<p>After tomorrow the quote reverts to full price. Either way, thanks for considering us.</p>
-<p>${senderFirstName}<br>Clean Car Collective</p>
+<p>Your <strong>${code}</strong> code (${pct}% off) wraps up tomorrow, so this is my last note about it.</p>
+<p>To sweeten the deal if you book this week:</p>
+<p><strong>Book the Deluxe Detail</strong> and we'll upgrade your 3-month paint sealant to our 6 Month Ceramic Sealant, no charge. That's a $100 extra on us, and it keeps the paint protected and easy to wash right through winter.</p>
+<p><strong>Book the Premium Detail</strong> and we'll add a ceramic coating for your windscreen and front windows, normally $150. Better visibility in the rain and the wipers barely have to work.</p>
+<p>You can book with the code applied here:<br><a href="${link}">${link}</a></p>
+<p>Or simply reply with a day that suits and I'll lock it in for you. As always, nothing to pay until the detail is done and you're happy with the results.</p>
+<p>After tomorrow the quote reverts to full price. Either way, thanks for considering us!</p>
+<p>Thanks,<br>${senderFirstName}</p>
 </div>`;
   return { subject, textBody, htmlBody };
 }

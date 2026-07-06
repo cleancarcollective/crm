@@ -371,6 +371,7 @@ export async function POST(request: Request) {
           serviceRequested: payload.service_requested ?? null,
           notes: payload.notes ?? null,
           landingUrl: payload.landing_url ?? null,
+          phone: payload.phone ?? null,
         });
       })(),
     ]);
