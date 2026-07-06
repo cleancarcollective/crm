@@ -310,7 +310,7 @@ ${senderFirstName}`;
 <p>To sweeten the deal if you book this week:</p>
 <p><strong>Book the Deluxe Detail</strong> and we'll upgrade your 3-month paint sealant to our 6 Month Ceramic Sealant, no charge. That's a $100 extra on us, and it keeps the paint protected and easy to wash right through winter.</p>
 <p><strong>Book the Premium Detail</strong> and we'll add a ceramic coating for your windscreen and front windows, normally $150. Better visibility in the rain and the wipers barely have to work.</p>
-<p>You can book with the code applied here:<br><a href="${link}">${link}</a></p>
+<p><a href="${link}"><strong>Book your ${veh} in with the code applied here</strong></a></p>
 <p>Or simply reply with a day that suits and I'll lock it in for you. As always, nothing to pay until the detail is done and you're happy with the results.</p>
 <p>After tomorrow the quote reverts to full price. Either way, thanks for considering us!</p>
 <p>Thanks,<br>${senderFirstName}</p>
