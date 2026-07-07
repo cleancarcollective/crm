@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/integrations/meta-capi",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/emails/daily-approval-pending",
