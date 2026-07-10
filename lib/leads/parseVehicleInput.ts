@@ -41,7 +41,9 @@ export function parseLeadVehicleInput(input: VehicleInput): ParsedLeadVehicle {
     const withoutYear = combined.replace(/\b(19|20)\d{2}\b/, "").replace(/\s+/g, " ").trim();
 
     if (!withoutYear) {
-      return { year, make: combined, model: null, raw: combined };
+      // Input was only a year (e.g. "2009") — don't duplicate it into make,
+      // which used to render labels like "2009 2009".
+      return { year, make: year ? null : combined, model: null, raw: combined };
     }
 
     const parts = withoutYear.split(" ");
