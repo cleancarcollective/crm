@@ -17,10 +17,13 @@ type BookingDetailProps = {
   seriesStatus?: string | null;
 };
 
-function toDateTimeLocal(iso: string) {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+// Wall-clock string for <input type="datetime-local"> rendered in the
+// SHOP timezone (not browser or SSR node tz). Prevents cross-tz drift
+// where a stored 22 July 01:30 NZ time gets rendered as 21 July 09:30
+// on a UTC-4 machine and re-saved incorrectly.
+import { formatInTimeZone as _formatInTz, fromZonedTime } from "date-fns-tz";
+function toDateTimeLocal(iso: string, timezone: string) {
+  return _formatInTz(new Date(iso), timezone, "yyyy-MM-dd'T'HH:mm");
 }
 
 function ReadItem({ label, value }: { label: string; value: string | null }) {
@@ -55,7 +58,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
 
   const [serviceName, setServiceName] = useState(booking.service_name);
   const [status, setStatus] = useState(booking.status);
-  const [scheduledStart, setScheduledStart] = useState(toDateTimeLocal(booking.scheduled_start));
+  const [scheduledStart, setScheduledStart] = useState(toDateTimeLocal(booking.scheduled_start, shop.timezone));
   const [durationMinutes, setDurationMinutes] = useState(String(booking.duration_minutes ?? ""));
   const [priceEstimate, setPriceEstimate] = useState(String(booking.price_estimate ?? ""));
   const [locationType, setLocationType] = useState(booking.location_type ?? "");
@@ -79,7 +82,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
         body: JSON.stringify({
           service_name: serviceName,
           status,
-          scheduled_start: new Date(scheduledStart).toISOString(),
+          scheduled_start: fromZonedTime(scheduledStart, shop.timezone).toISOString(),
           duration_minutes: durationMinutes ? Number(durationMinutes) : null,
           price_estimate: priceEstimate ? Number(priceEstimate) : null,
           location_type: locationType || null,

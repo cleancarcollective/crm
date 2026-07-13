@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+
+// Both CCC shops are NZ - hardcode for now. Prevents datetime-local
+// input from drifting when the user's browser or SSR node is in a
+// non-NZ timezone (Vercel default = UTC).
+const SHOP_TZ = "Pacific/Auckland";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -223,10 +229,11 @@ function previewOccurrenceCount(rule: BuiltRule | null): { count: number; lastDa
 }
 
 function defaultDateTime(date?: string) {
-  const base = date ? new Date(`${date}T08:00:00`) : new Date();
-  base.setSeconds(0, 0);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
+  // If a specific yyyy-MM-dd is passed (e.g. from day-detail page), open
+  // at 8am shop-local on that day. Otherwise use "now" rendered as NZ
+  // wall-clock time regardless of browser/SSR tz.
+  if (date) return `${date}T08:00`;
+  return formatInTimeZone(new Date(), SHOP_TZ, "yyyy-MM-dd'T'HH:mm");
 }
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -445,7 +452,7 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
     const body: Record<string, unknown> = {
       service_name: serviceName.trim(),
-      scheduled_start: new Date(scheduledStart).toISOString(),
+      scheduled_start: fromZonedTime(scheduledStart, SHOP_TZ).toISOString(),
       duration_minutes: durationMinutes ? Number(durationMinutes) : undefined,
       price_estimate: priceEstimate ? Number(priceEstimate) : undefined,
       location_type: locationType || undefined,
@@ -483,7 +490,7 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
     try {
       if (isRecurring) {
-        const firstDate = new Date(scheduledStart);
+        const firstDate = fromZonedTime(scheduledStart, SHOP_TZ);
         const monthDesc = describeMonthlyNthWeekdayLocal(firstDate);
         const rule = buildRecurrenceRule({
           preset: recurPreset,
@@ -911,7 +918,7 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
             </div>
 
             {isRecurring && (() => {
-              const firstDate = scheduledStart ? new Date(scheduledStart) : new Date();
+              const firstDate = scheduledStart ? fromZonedTime(scheduledStart, SHOP_TZ) : new Date();
               const monthDesc = describeMonthlyNthWeekdayLocal(firstDate);
               const rule = buildRecurrenceRule({
                 preset: recurPreset,
