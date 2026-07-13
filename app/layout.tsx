@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { GlobalNavLinks } from "@/components/dashboard/GlobalNavLinks";
+import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
 import { ShopSwitcher } from "@/components/dashboard/ShopSwitcher";
@@ -131,6 +132,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           )}
           <GlobalNavLinks items={navItems} />
           <div className="globalNavRight">
+            <GlobalSearch />
             <NewBookingButton className="buttonPrimary globalNavCta" />
             <span className="globalNavUser">{user.name}</span>
             <LogoutButton />
