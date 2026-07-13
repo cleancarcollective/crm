@@ -1,4 +1,3 @@
-import Link from "next/link";
 
 import { ContactDirectoryList } from "@/components/dashboard/ContactDirectoryList";
 import { DirectoryFilterBar } from "@/components/dashboard/DirectoryFilterBar";
@@ -41,11 +40,6 @@ export default async function LeadsPage({
           <p className="eyebrow">Clean Car Collective CRM</p>
           <h1 className="pageTitle">Leads</h1>
           <p className="detailSubtitle">{shop.name}</p>
-        </div>
-        <div className="topbarMeta directoryNav">
-          <Link href="/" className="textLink">Calendar</Link>
-          <Link href="/leads" className="textLink directoryNavActive">Leads</Link>
-          <Link href="/clients" className="textLink">Clients</Link>
         </div>
       </div>
 

@@ -187,7 +187,8 @@ export default async function SalesPage({
                   padding: "8px 10px",
                   borderRadius: 8,
                   textDecoration: "none",
-                  border: active ? `2px solid ${chip.color}` : "1px solid rgba(0,0,0,0.08)",
+                  border: `1px solid ${active ? chip.color : "rgba(0,0,0,0.08)"}`,
+                  boxShadow: active ? `inset 0 0 0 1px ${chip.color}` : "none",
                   background: active ? `${chip.color}14` : "white",
                 }}
               >
@@ -281,6 +282,7 @@ export default async function SalesPage({
               : "No callable leads in this window."}
           </p>
         ) : (
+          <div className="tableScroll">
           <table className="staffTable">
             <thead>
               <tr>
@@ -346,6 +348,7 @@ export default async function SalesPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </main>

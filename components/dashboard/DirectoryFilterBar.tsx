@@ -24,7 +24,7 @@ export function DirectoryFilterBar({
   showDateRange = false,
 }: DirectoryFilterBarProps) {
   return (
-    <form action={action} className="filterBar">
+    <form action={action} className={showDateRange ? "filterBar filterBar--dates" : "filterBar"}>
       <label className="filterField">
         <span>Search</span>
         <input

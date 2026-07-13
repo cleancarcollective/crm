@@ -14,7 +14,11 @@ const STATUS_CLASS_MAP: Record<string, string> = {
   completed: "statusBadge statusCompleted",
   cancelled: "statusBadge statusCancelled",
   no_show: "statusBadge statusCancelled",
-  reminder_sent: "statusBadge statusInfo"
+  reminder_sent: "statusBadge statusInfo",
+  won: "statusBadge statusConfirmed",
+  needs_approval: "statusBadge statusPending",
+  held: "statusBadge statusPending",
+  sent: "statusBadge statusInfo"
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {

@@ -188,15 +188,19 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
             <option value="no_show">No Show</option>
           </select>
 
-          <div className="detailActions">
+          {/* Fixed-height status line so save/pickup feedback appearing
+              never reflows the button row underneath it. */}
+          <div className="detailStatusLine">
             {savedMessage && !isPending && <span className="editorSaved">{savedMessage}</span>}
             {pickupMessage && !pickupPending && <span className="editorSaved">{pickupMessage}</span>}
             {seriesBanner && <span className="editorSaved">{seriesBanner}</span>}
             {errorMessage && <span className="editorError">{errorMessage}</span>}
+          </div>
+          <div className="detailActions">
             {/* When the parent series is cancelled, this occurrence is in the
                 past or has been left as a tombstone — disable mutation. */}
             <button
-              className="buttonGhost"
+              className="buttonGhost buttonGhostDanger"
               onClick={() => (inSeries ? setScopeChoice("cancel") : handleDelete())}
               disabled={isPending || pickupPending || seriesCancelled}
             >
@@ -250,37 +254,37 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
                 setDurationMinutes(String(t));
               };
               return (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div className="durationRow">
                   <input
                     className="detailInput"
                     type="number"
                     min="0"
-                    value={d}
+                    value={d || ""}
+                    placeholder="0"
                     onChange={(e) => update(Number(e.target.value), h, m)}
-                    style={{ width: 60 }}
                   />
-                  <span style={{ fontSize: 12 }}>d</span>
+                  <span className="durationUnit">d</span>
                   <input
                     className="detailInput"
                     type="number"
                     min="0"
                     max="23"
-                    value={h}
+                    value={h || ""}
+                    placeholder="0"
                     onChange={(e) => update(d, Number(e.target.value), m)}
-                    style={{ width: 60 }}
                   />
-                  <span style={{ fontSize: 12 }}>h</span>
+                  <span className="durationUnit">h</span>
                   <input
                     className="detailInput"
                     type="number"
                     min="0"
                     max="59"
-                    value={m}
+                    value={m || ""}
+                    placeholder="0"
                     onChange={(e) => update(d, h, Number(e.target.value))}
-                    style={{ width: 60 }}
                   />
-                  <span style={{ fontSize: 12 }}>m</span>
-                  <span style={{ fontSize: 11, color: "#888", marginLeft: 6 }}>= {totalMin} min</span>
+                  <span className="durationUnit">m</span>
+                  <span className="durationTotal">= {totalMin} min</span>
                 </div>
               );
             })()}

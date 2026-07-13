@@ -31,7 +31,10 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
 
       <div className="weekHeader">
         {WEEK_DAYS.map((day) => (
-          <span key={day}>{day}</span>
+          <span key={day}>
+            <span className="weekDayFull">{day}</span>
+            <span className="weekDayShort">{day.slice(0, 3)}</span>
+          </span>
         ))}
       </div>
 
@@ -67,8 +70,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
                 <div
                   key={`cont-${booking.id}`}
                   className="calendarPreview calendarPreview--continuation"
-                  title={`Continues from ${booking.scheduled_start.slice(0, 10)} · ${booking.duration_minutes ?? "?"}m total`}
-                  style={{ opacity: 0.7, fontStyle: "italic" }}
+                  title={`${booking.service_name} · continues from ${booking.scheduled_start.slice(0, 10)}`}
                 >
                   <span>
                     → cont.{isMobile ? " 🚐" : ""} {booking.service_name}
@@ -96,7 +98,9 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
                 isMobile ? "calendarPreview--mobile" : "",
                 needsReschedule ? "calendarPreview--reschedule" : "",
               ].filter(Boolean).join(" ");
-              const tooltipParts: string[] = [];
+              // Always lead with the service name - previews ellipsize, so
+              // the tooltip is where the full name lives.
+              const tooltipParts: string[] = [booking.service_name];
               if (isMobile && booking.service_address) tooltipParts.push(`Mobile — ${booking.service_address}`);
               if (needsReschedule) tooltipParts.push("Customer requested a reschedule — open booking to confirm");
               if (isRecurring) tooltipParts.push("Part of recurring series");
@@ -104,7 +108,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
                 <div
                   key={booking.id}
                   className={classes}
-                  title={tooltipParts.length ? tooltipParts.join(" · ") : undefined}
+                  title={tooltipParts.join(" · ")}
                 >
                   <span>
                     {needsReschedule ? "🔄 " : ""}

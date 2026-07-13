@@ -10,12 +10,39 @@
   --accent-soft: #e7e2db;
   --success: #2f7a57;
   --warning: #9a6a12;
+  --warning-strong: #f4b942;
   --danger: #a04333;
   --shadow: 0 16px 42px rgba(17, 17, 17, 0.08);
+  --shadow-sm: 0 2px 8px rgba(17, 17, 17, 0.10);
+  --shadow-lg: 0 24px 64px rgba(17, 17, 17, 0.18);
+  /* Aliases - a handful of rules referenced these names before they
+     existed; keep them resolving to the house palette. */
+  --border: var(--line);
+  --foreground: var(--text);
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Single consistent keyboard-focus ring app-wide; suppress the UA
+   outline for mouse focus so buttons don't flash squares on click. */
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
 }
 
 html,
@@ -61,6 +88,12 @@ textarea {
   margin-bottom: 24px;
 }
 
+/* Long dynamic titles must wrap inside the shell, not shove the
+   right-hand actions off-canvas. */
+.pageTopbar > div:first-child {
+  min-width: 0;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   text-transform: uppercase;
@@ -73,8 +106,12 @@ textarea {
 .pageTitle {
   margin: 0;
   font-size: clamp(32px, 5vw, 48px);
-  line-height: 1;
+  /* 1.08 keeps the editorial tightness on one-liners without ascender/
+     descender collisions when a long service name wraps to two lines. */
+  line-height: 1.08;
   font-weight: 700;
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 .topbarMeta {
@@ -109,6 +146,48 @@ textarea {
   box-shadow: var(--shadow);
 }
 
+/* Clients page adds From/To date fields - give the grid real columns
+   for them instead of letting 5 fields fight over 3 tracks. */
+.filterBar--dates {
+  grid-template-columns: minmax(0, 1.4fr) minmax(140px, 0.7fr) minmax(130px, 0.6fr) minmax(130px, 0.6fr) auto;
+}
+
+/* Wide tables scroll inside their panel instead of blowing out the
+   page on narrow screens. */
+.tableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -22px;
+  padding: 0 22px;
+}
+
+/* Sales-page filter forms reuse modalField internals but had no bar
+   styling at all - give them the same frosted card as .filterBar. */
+.directoryFilterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(211, 205, 197, 0.82);
+  border-radius: 18px;
+}
+
+.directoryFilterBar .modalField {
+  flex: 0 1 220px;
+}
+
+.directoryFilterBar .detailInput {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  text-align: left;
+  max-width: none;
+}
+
 .filterField {
   display: flex;
   flex-direction: column;
@@ -135,7 +214,7 @@ textarea {
 
 .filterInput:focus,
 .filterSelect:focus {
-  outline: 2px solid rgba(17, 17, 17, 0.14);
+  outline: 2px solid rgba(17, 17, 17, 0.4);
   outline-offset: 1px;
 }
 
@@ -149,10 +228,16 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #2d2d2d, #111111);
+  background: #111111;
   color: white;
   font-weight: 700;
-  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.16);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.filterButton:hover {
+  background: #2b2b2b;
 }
 
 .leadActionBlock {
@@ -248,7 +333,7 @@ textarea {
   background: #f1ebe4;
   padding: 1px 5px;
   border-radius: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 .markdownBody a { color: #1a5fb4; text-decoration: underline; }
@@ -434,14 +519,19 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
+  min-height: 42px;
   padding: 0 20px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   border: 1px solid rgba(17, 17, 17, 0.12);
-  background: linear-gradient(180deg, #2d2d2d, #111111);
+  background: #111111;
   color: white;
   font-weight: 700;
-  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.16);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s ease;
+}
+
+.calendarNav:hover {
+  background: #2b2b2b;
 }
 
 .textLink {
@@ -451,6 +541,11 @@ textarea {
   background: transparent;
   color: var(--accent);
   box-shadow: none;
+  transition: opacity 0.12s;
+}
+
+.textLink:hover {
+  opacity: 0.72;
 }
 
 .calendarTitleWrap {
@@ -460,6 +555,7 @@ textarea {
 .calendarTitle {
   margin: 0;
   font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.08;
 }
 
 .calendarSubtitle,
@@ -478,6 +574,10 @@ textarea {
   font-size: 16px;
   font-weight: 500;
   text-align: center;
+}
+
+.weekDayShort {
+  display: none;
 }
 
 .calendarGrid {
@@ -514,7 +614,17 @@ textarea {
 }
 
 .calendarCardMuted {
-  opacity: 0.48;
+  opacity: 0.6;
+}
+
+/* Adjacent-month cells: keep the day number for orientation but drop
+   the booking previews + hover lift - they read as noise. */
+.calendarCardMuted .calendarPreview {
+  display: none;
+}
+
+.calendarCardMuted:hover {
+  transform: none;
 }
 
 .calendarCardToday {
@@ -580,9 +690,40 @@ textarea {
   font-size: 11px;
 }
 
+/* Long service names truncate with an ellipsis instead of wrapping the
+   whole cell taller - the full name lives in the title tooltip. */
+.calendarPreview span,
+.calendarPreview a {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .calendarPreview span:first-child {
   font-weight: 700;
   color: var(--text);
+}
+
+.calendarPreview .profileNameLink {
+  color: var(--muted);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.calendarPreview .profileNameLink:hover {
+  text-decoration: underline;
+}
+
+/* Multi-day bookings rendered on their continuation days. */
+.calendarPreview--continuation {
+  font-style: italic;
+}
+
+.calendarPreview--continuation span:first-child {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 /* Mobile bookings — red bar + tint matching the CCC van livery so the
@@ -672,12 +813,6 @@ textarea {
 }
 .staffRoleSelect {
   width: 140px;
-}
-.buttonDanger {
-  color: #b3261e;
-}
-.buttonDanger:hover {
-  background: rgba(179,38,30,0.08);
 }
 
 .profileGrid {
@@ -868,8 +1003,7 @@ textarea {
   gap: 8px;
 }
 
-.directoryTop,
-.directoryMeta {
+.directoryTop {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -877,7 +1011,14 @@ textarea {
   flex-wrap: wrap;
 }
 
+/* Meta line reads left-to-right as one sentence - space-between was
+   scattering two items to opposite edges of the row. */
 .directoryMeta {
+  display: flex;
+  justify-content: flex-start;
+  gap: 4px 18px;
+  align-items: baseline;
+  flex-wrap: wrap;
   color: var(--muted);
 }
 
@@ -1104,6 +1245,7 @@ textarea {
   gap: 18px;
   padding: 12px 0;
   border-bottom: 1px solid rgba(211, 205, 197, 0.58);
+  flex-wrap: wrap;
 }
 
 .detailItem:last-child {
@@ -1120,24 +1262,60 @@ textarea {
 }
 
 .detailInput {
-  background: transparent;
+  /* Soft filled field with a solid baseline - the old transparent +
+     dashed-underline look read as unfinished. */
+  background: rgba(240, 239, 237, 0.55);
   border: none;
-  border-bottom: 1px dashed rgba(211, 205, 197, 0.45);
-  border-radius: 0;
-  padding: 2px 4px;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.18);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  padding: 6px 10px;
   font-size: 14px;
   font-family: inherit;
   color: inherit;
   text-align: right;
   width: 100%;
   max-width: 220px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .detailInput:focus {
   outline: none;
   border-bottom-color: var(--accent);
-  border-bottom-style: solid;
+  background: #ffffff;
+}
+
+/* Modal + search contexts: fields are full-width and left-aligned. */
+.modalField .detailInput,
+.contactSearch .detailInput {
+  max-width: 100%;
+  text-align: left;
+}
+
+/* d/h/m duration triple-input (BookingDetail + NewBookingModal). */
+.durationRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.durationRow .detailInput {
+  flex: 0 1 52px;
+  width: 52px;
+  min-width: 0;
+  text-align: center;
+}
+
+.durationRow .durationUnit {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.durationRow .durationTotal {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .detailInput[type="datetime-local"] {
@@ -1152,14 +1330,19 @@ textarea {
   border-bottom: 2px solid transparent;
   padding: 2px 0;
   margin: 6px 0 0;
-  font-size: clamp(24px, 4vw, 38px);
+  font-size: clamp(22px, 3vw, 32px);
   font-weight: 700;
   font-family: inherit;
   color: inherit;
   width: 100%;
-  max-width: 520px;
+  max-width: 100%;
   line-height: 1.2;
+  text-overflow: ellipsis;
   transition: border-color 0.15s;
+}
+
+.detailTitleInput:hover {
+  border-bottom-color: rgba(211, 205, 197, 0.9);
 }
 
 .detailTitleInput:focus {
@@ -1172,23 +1355,29 @@ textarea {
   appearance: none;
   border: none;
   border-radius: 20px;
-  padding: 5px 14px;
+  padding: 5px 30px 5px 14px;
   font-size: 13px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: var(--surface);
+  background-color: var(--panel-soft);
   color: var(--text);
+  /* Chevron so it reads as a dropdown, not a static badge. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236f6860'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 
-.statusSelect[data-status="pending"]       { background: #fef3c7; color: #92400e; }
-.statusSelect[data-status="confirmed"]     { background: #d1fae5; color: #065f46; }
-.statusSelect[data-status="reminder_sent"] { background: #dbeafe; color: #1e40af; }
-.statusSelect[data-status="completed"]     { background: #e0e7ff; color: #3730a3; }
-.statusSelect[data-status="cancelled"]     { background: #fee2e2; color: #991b1b; }
-.statusSelect[data-status="no_show"]       { background: #f3f4f6; color: #374151; }
+/* House-palette status tints (the old Tailwind pastels clashed with the
+   warm platinum surfaces everywhere else). */
+.statusSelect[data-status="pending"]       { background-color: rgba(154, 106, 18, 0.14); color: #a36c00; }
+.statusSelect[data-status="confirmed"]     { background-color: rgba(30, 158, 82, 0.12); color: var(--success); }
+.statusSelect[data-status="reminder_sent"] { background-color: rgba(17, 17, 17, 0.08); color: var(--accent); }
+.statusSelect[data-status="completed"]     { background-color: rgba(50, 95, 115, 0.12); color: #2c5872; }
+.statusSelect[data-status="cancelled"]     { background-color: rgba(204, 75, 55, 0.12); color: var(--danger); }
+.statusSelect[data-status="no_show"]       { background-color: rgba(17, 17, 17, 0.08); color: var(--muted); }
 
 /* Header layout for right side */
 .detailHeaderLeft {
@@ -1201,7 +1390,9 @@ textarea {
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 560px;
 }
 
 .detailActions {
@@ -1210,6 +1401,15 @@ textarea {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/* Save/pickup/series feedback line - fixed height so messages appearing
+   and disappearing never shove the buttons around. */
+.detailStatusLine {
+  min-height: 18px;
+  font-size: 13px;
+  text-align: right;
+  transition: opacity 0.2s;
 }
 
 /* Notes textarea */
@@ -1260,7 +1460,7 @@ textarea {
 
 .editorSaved {
   font-size: 13px;
-  color: #22c55e;
+  color: var(--success);
   font-weight: 600;
 }
 
@@ -1301,37 +1501,66 @@ textarea {
 }
 
 .buttonPrimary,
-.buttonGhost {
-  border-radius: 14px;
-  padding: 11px 16px;
+.buttonGhost,
+.buttonPickup {
+  border-radius: var(--r-md);
+  padding: 10px 16px;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
 }
 
 .buttonPrimary {
   border: 1px solid #111111;
   background: #111111;
   color: white;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.buttonPrimary:hover:not(:disabled) {
+  background: #2b2b2b;
+  border-color: #2b2b2b;
+}
+
+/* Ghost buttons are NEUTRAL by default; destructive ones opt in with
+   .buttonGhostDanger. (Previously every ghost button was red, which
+   made half the UI look like a warning.) */
 .buttonGhost {
   border: 1px solid rgba(17, 17, 17, 0.15);
   background: transparent;
-  color: var(--danger);
+  color: var(--text);
 }
 
+.buttonGhost:hover:not(:disabled) {
+  background: rgba(17, 17, 17, 0.05);
+}
+
+.buttonGhostDanger {
+  color: var(--danger);
+  border-color: rgba(160, 67, 51, 0.35);
+}
+
+/* Back-compat alias from the red-ghost era - now a no-op. */
 .buttonNeutral {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .buttonPickup {
-  border-radius: 14px;
-  padding: 11px 16px;
-  font-weight: 700;
-  cursor: pointer;
   border: 1px solid #1a7a3f;
   background: #1a7a3f;
   color: white;
+}
+
+.buttonPickup:hover:not(:disabled) {
+  background: #166534;
+}
+
+.buttonPrimary:active:not(:disabled),
+.buttonPickup:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .buttonPickup:disabled {
@@ -1351,10 +1580,31 @@ textarea {
   font-weight: 600;
 }
 
+/* Tablets: KEEP 7 columns (a calendar that isn't week-aligned is
+   useless) - shrink the cells instead. Weekday labels switch to their
+   3-letter short form via .weekDayShort. */
 @media (max-width: 1100px) {
   .calendarGrid,
   .weekHeader {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .calendarCard {
+    min-height: 110px;
+    padding: 8px;
+  }
+
+  .weekHeader {
+    font-size: 13px;
+  }
+
+  .weekDayFull {
+    display: none;
+  }
+
+  .weekDayShort {
+    display: inline;
   }
 }
 
@@ -1362,9 +1612,7 @@ textarea {
   .summaryStrip,
   .profileGrid,
   .detailGrid,
-  .editorGrid,
-  .calendarGrid,
-  .weekHeader {
+  .editorGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1534,7 +1782,8 @@ textarea {
 /* Shop pill — visible at all times so staff know which shop their session
    is scoped to. Color-coded per shop so it's instantly recognisable. */
 .globalNavShopPill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 11px;
@@ -1571,7 +1820,8 @@ textarea {
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
-  padding: 3px 22px 3px 10px;
+  padding: 6px 24px 6px 12px;
+  min-height: 30px;
   cursor: pointer;
 }
 .globalNavShopSwitcher select:focus {
@@ -1592,6 +1842,14 @@ textarea {
   display: flex;
   gap: 4px;
   flex: 1;
+  /* Never crush labels into two lines - overflow scrolls sideways. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.globalNavLinks::-webkit-scrollbar {
+  display: none;
 }
 
 .globalNavLink {
@@ -1601,12 +1859,19 @@ textarea {
   font-weight: 500;
   color: var(--muted);
   text-decoration: none;
+  white-space: nowrap;
   transition: background 0.15s, color 0.15s;
 }
 
 .globalNavLink:hover {
   background: var(--panel-soft);
   color: var(--text);
+}
+
+.globalNavLink[aria-current="page"] {
+  background: var(--panel-soft);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .globalNavCta {
@@ -1752,7 +2017,7 @@ textarea {
 .modalPanel {
   background: var(--panel);
   border-radius: 24px;
-  box-shadow: 0 24px 64px rgba(17, 17, 17, 0.18);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 640px;
   max-height: calc(100vh - 48px);
@@ -1765,7 +2030,8 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 0;
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -1838,7 +2104,8 @@ textarea {
   min-width: 0;
 }
 
-.modalField label {
+.modalField label,
+.modalField > span {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
@@ -1846,14 +2113,14 @@ textarea {
 
 .modalRow2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
 
 .modalRow3 {
   display: grid;
-  grid-template-columns: 1fr 1fr 80px 100px 100px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.6fr) minmax(0, 0.8fr) minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -1872,8 +2139,16 @@ textarea {
   padding: 4px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.1);
+  /* Float over the form instead of shoving it down mid-typing. */
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .contactDropdownItem {
@@ -1965,14 +2240,19 @@ textarea {
   accent-color: var(--accent);
 }
 
-/* Modal footer */
+/* Modal footer - sticky so Create/Cancel stay reachable while the long
+   form scrolls underneath. */
 .modalFooter {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding-top: 20px;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: var(--panel);
+  margin: 8px -24px -24px;
+  padding: 14px 24px;
   border-top: 1px solid var(--line);
-  margin-top: 8px;
 }
 
 .modalError {
@@ -1981,13 +2261,14 @@ textarea {
 
 @media (max-width: 600px) {
   .modalOverlay {
-    padding: 12px;
+    padding: 12px 0 0;
     align-items: flex-end;
   }
 
   .modalPanel {
-    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 12px);
     border-radius: 24px 24px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .modalRow2,
@@ -1995,7 +2276,41 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  /* Keep nav links reachable on phones - scroll the strip instead of
+     hiding it (it used to display:none, stranding phone users). */
   .globalNavLinks {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .globalNavUser {
+    display: none;
+  }
+
+  .globalNav {
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .globalNavLink {
+    padding: 6px 10px;
+  }
+}
+
+/* Intermediate widths: tighten before anything needs to scroll. */
+@media (max-width: 1400px) {
+  .globalNav {
+    gap: 12px;
+  }
+
+  .globalNavLink {
+    padding: 6px 9px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .globalNavUser {
     display: none;
   }
 }
@@ -2016,8 +2331,11 @@ textarea {
     height: calc(56px + env(safe-area-inset-top));
   }
 
-  /* Push page content down so it starts below the fixed nav */
-  body {
+  /* Push page content down so it starts below the fixed nav - ONLY on
+     pages that actually render the nav. env() resolves everywhere, so
+     an unscoped body rule was adding 56px of dead space on login and
+     the customer self-service pages. */
+  body.hasGlobalNav {
     padding-top: calc(56px + env(safe-area-inset-top));
   }
 
@@ -2058,7 +2376,8 @@ textarea {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  border: none;
+  /* Same border width as the OFF state so toggling doesn't resize. */
+  border: 2px solid #1a7a3f;
   background: #1a7a3f;
   color: #ffffff;
   transition: background 0.15s;
@@ -2204,7 +2523,7 @@ textarea {
 
 .estimatePanel {
   margin-top: 16px;
-  border: 2px solid #f0b429;
+  border: 2px solid var(--warning-strong);
   border-radius: 16px;
   padding: 20px;
   background: #fffdf0;
@@ -2282,7 +2601,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 10px;
   font-size: 13px;
-  font-family: "SF Mono", "Fira Code", monospace;
+  font-family: var(--font-mono);
   line-height: 1.5;
   background: #ffffff;
   color: var(--text);
@@ -2555,7 +2874,7 @@ textarea {
   font-weight: 500;
   text-transform: none;
   letter-spacing: normal;
-  color: var(--ink);
+  color: var(--text);
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2902,7 +3221,7 @@ textarea {
   background: #fafaf8;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
   color: #5c5148;
@@ -2985,7 +3304,8 @@ textarea {
   align-items: center;
   justify-content: flex-end;
   padding: 0 12px;
-  min-width: 32px;
+  /* Bar can't be narrower than its own value label. */
+  min-width: max-content;
   transition: width 0.3s ease-out;
 }
 
@@ -3020,7 +3340,7 @@ textarea {
 }
 
 .sourceLabel {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -3030,7 +3350,7 @@ textarea {
 
 .quickFactsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
@@ -3043,9 +3363,11 @@ textarea {
 }
 
 .quickFactValue {
-  font-size: 26px;
+  font-size: clamp(18px, 2.2vw, 24px);
   font-weight: 700;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
 }
 
 .quickFactLabel {
@@ -3186,14 +3508,14 @@ textarea {
   font-size: 11px;
   letter-spacing: 0;
   text-transform: none;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .buttonSecondary {
   padding: 10px 16px;
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -3212,16 +3534,16 @@ textarea {
 .buttonDanger {
   padding: 10px 16px;
   background: #ffffff;
-  border: 1px solid #e9a9a9;
-  border-radius: 8px;
+  border: 1px solid rgba(160, 67, 51, 0.4);
+  border-radius: var(--r-md);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  color: #b23434;
+  color: var(--danger);
 }
 
 .buttonDanger:hover:not(:disabled) {
-  background: #fbf0f0;
+  background: rgba(160, 67, 51, 0.07);
 }
 
 .buttonDanger:disabled {
@@ -3443,7 +3765,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   line-height: 1.55;
   background: #fff;
   resize: vertical;
@@ -3742,7 +4064,7 @@ textarea {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 14px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
@@ -3773,11 +4095,22 @@ textarea {
 .templatePreviewBody {
   margin: 0;
   padding: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
   white-space: pre-wrap;
   word-wrap: break-word;
   max-height: 500px;
   overflow-y: auto;
+}
+
+/* ── Accessibility: respect reduced-motion preference ─────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

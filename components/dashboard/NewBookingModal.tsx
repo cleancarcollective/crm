@@ -911,7 +911,7 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                     setDurationMinutes(t > 0 ? String(t) : "");
                   };
                   return (
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div className="durationRow">
                       <input
                         className="detailInput"
                         type="number"
@@ -919,9 +919,8 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                         value={d || ""}
                         onChange={(e) => update(Number(e.target.value), h, m)}
                         placeholder="0"
-                        style={{ width: 56 }}
                       />
-                      <span style={{ fontSize: 12, color: "#666" }}>d</span>
+                      <span className="durationUnit">d</span>
                       <input
                         className="detailInput"
                         type="number"
@@ -930,9 +929,8 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                         value={h || ""}
                         onChange={(e) => update(d, Number(e.target.value), m)}
                         placeholder="0"
-                        style={{ width: 56 }}
                       />
-                      <span style={{ fontSize: 12, color: "#666" }}>h</span>
+                      <span className="durationUnit">h</span>
                       <input
                         className="detailInput"
                         type="number"
@@ -941,11 +939,10 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                         value={m || ""}
                         onChange={(e) => update(d, h, Number(e.target.value))}
                         placeholder="0"
-                        style={{ width: 56 }}
                       />
-                      <span style={{ fontSize: 12, color: "#666" }}>m</span>
+                      <span className="durationUnit">m</span>
                       {totalMin > 0 ? (
-                        <span style={{ fontSize: 11, color: "#888", whiteSpace: "nowrap" }}>= {totalMin} min</span>
+                        <span className="durationTotal">= {totalMin} min</span>
                       ) : null}
                     </div>
                   );

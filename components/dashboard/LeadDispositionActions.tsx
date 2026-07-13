@@ -56,16 +56,18 @@ type DispositionDef = {
 };
 
 const DISPOSITIONS: DispositionDef[] = [
-  { key: "neutral",     label: "Neutral",     short: "Neutral",  status: "contacted", note: "Neutral call",      bg: "#e5e7eb", bgActive: "#9ca3af" },
+  // bgActive values must pass WCAG against white text - the old
+  // #9ca3af (neutral) and #d97706 (malfunction) failed at ~2.5:1.
+  { key: "neutral",     label: "Neutral",     short: "Neutral",  status: "contacted", note: "Neutral call",      bg: "#e5e7eb", bgActive: "#4b5563" },
   { key: "positive",    label: "Positive",    short: "Positive", status: "contacted", note: "Positive call",      bg: "#dcfce7", bgActive: "#16a34a" },
   { key: "confirmed",   label: "Confirmed",   short: "Confirmed",status: "quoted",    note: "Confirmed interest", bg: "#dbeafe", bgActive: "#2563eb" },
-  { key: "malfunction", label: "Malfunction", short: "Issue",    status: "contacted", note: "Couldn't reach (bad number / no answer)", bg: "#fef3c7", bgActive: "#d97706" },
+  { key: "malfunction", label: "Malfunction", short: "Issue",    status: "contacted", note: "Couldn't reach (bad number / no answer)", bg: "#fef3c7", bgActive: "#b45309" },
   { key: "lost",        label: "Lost",        short: "Lost",     status: "lost",      note: "Marked lost",        bg: "#fee2e2", bgActive: "#dc2626" },
 ];
 
 function chipStyle(active: boolean, def: DispositionDef, compact: boolean): React.CSSProperties {
   return {
-    padding: compact ? "2px 6px" : "4px 10px",
+    padding: compact ? "3px 9px" : "5px 12px",
     fontSize: compact ? 11 : 12,
     fontWeight: active ? 700 : 500,
     border: 0,

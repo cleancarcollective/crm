@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { GlobalNavLinks } from "@/components/dashboard/GlobalNavLinks";
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
 import { ShopSwitcher } from "@/components/dashboard/ShopSwitcher";
@@ -94,9 +95,31 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     allShops = (data ?? []) as Array<{ slug: string; name: string }>;
   }
 
+  const navItems = [
+    { href: "/", label: "Calendar" },
+    { href: "/leads", label: "Leads" },
+    { href: "/clients", label: "Clients" },
+    ...(user.role === "sales" || user.role === "admin"
+      ? [
+          { href: "/sales", label: "Cold leads" },
+          { href: "/sales/services", label: "Services" },
+          { href: "/sales/selling-guide", label: "Selling guide" },
+          { href: "/sales/script", label: "Script" },
+          { href: "/sales/objections", label: "Objections" },
+        ]
+      : []),
+    ...(user.role === "admin"
+      ? [
+          { href: "/analytics", label: "Funnel" },
+          { href: "/journey", label: "Journey" },
+          { href: "/settings", label: "Settings" },
+        ]
+      : []),
+  ];
+
   return (
     <html lang="en">
-      <body>
+      <body className="hasGlobalNav">
         <nav className="globalNav">
           <Link href="/" className="globalNavBrand">CCC CRM</Link>
           {user.isSuperAdmin ? (
@@ -106,27 +129,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               {user.shop.name.replace("Clean Car Collective ", "") || user.shop.name}
             </span>
           )}
-          <div className="globalNavLinks">
-            <Link href="/" className="globalNavLink">Calendar</Link>
-            <Link href="/leads" className="globalNavLink">Leads</Link>
-            <Link href="/clients" className="globalNavLink">Clients</Link>
-            {user.role === "sales" || user.role === "admin" ? (
-              <>
-                <Link href="/sales" className="globalNavLink">Cold leads</Link>
-                <Link href={"/sales/services" as never} className="globalNavLink">Services</Link>
-                <Link href={"/sales/selling-guide" as never} className="globalNavLink">Selling guide</Link>
-                <Link href={"/sales/script" as never} className="globalNavLink">Script</Link>
-                <Link href={"/sales/objections" as never} className="globalNavLink">Objections</Link>
-              </>
-            ) : null}
-            {user.role === "admin" ? (
-              <>
-                <a href="/analytics" className="globalNavLink">Funnel</a>
-                <a href="/journey" className="globalNavLink">Journey</a>
-                <a href="/settings" className="globalNavLink">Settings</a>
-              </>
-            ) : null}
-          </div>
+          <GlobalNavLinks items={navItems} />
           <div className="globalNavRight">
             <NewBookingButton className="buttonPrimary globalNavCta" />
             <span className="globalNavUser">{user.name}</span>
