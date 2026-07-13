@@ -124,7 +124,9 @@ function buildRecurrenceRule(args: {
   endAfterN: string;
   endOnDate: string;
 }): BuiltRule | null {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  // Recurrence expands server-side in this timezone. Must be the SHOP's
+  // tz, not the staffer's browser tz (Max books from the US).
+  const tz = SHOP_TZ;
   let frequency: BuiltRule["frequency"];
   let intervalCount = 1;
   let nthWeekOfMonth: number | undefined;
@@ -516,7 +518,11 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
     try {
       if (isRecurring) {
         const firstDate = fromZonedTime(scheduledStart, SHOP_TZ);
-        const monthDesc = describeMonthlyNthWeekdayLocal(firstDate);
+        // Weekday/nth-week must come from the NZ WALL-CLOCK the staffer
+        // typed, not the UTC instant re-read through browser-local
+        // getters (wrong day when logged in from the US). Parsing the
+        // raw datetime-local string gives local getters = typed values.
+        const monthDesc = describeMonthlyNthWeekdayLocal(new Date(scheduledStart));
         const rule = buildRecurrenceRule({
           preset: recurPreset,
           customIntervalCount,
@@ -1003,7 +1009,8 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
             {isRecurring && (() => {
               const firstDate = scheduledStart ? fromZonedTime(scheduledStart, SHOP_TZ) : new Date();
-              const monthDesc = describeMonthlyNthWeekdayLocal(firstDate);
+              // NZ wall-clock for weekday math - see comment in handleSubmit.
+              const monthDesc = describeMonthlyNthWeekdayLocal(scheduledStart ? new Date(scheduledStart) : new Date());
               const rule = buildRecurrenceRule({
                 preset: recurPreset,
                 customIntervalCount,
