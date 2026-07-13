@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
 import { BookCustomerButton } from "@/components/dashboard/BookCustomerButton";
 import { ContactDetailsEditor } from "@/components/dashboard/ContactDetailsEditor";
+import { CreditLedgerPanel } from "@/components/dashboard/CreditLedgerPanel";
 import { ContactNotesEditor } from "@/components/dashboard/ContactNotesEditor";
 import { LeadEstimatePanel } from "@/components/dashboard/LeadEstimatePanel";
 import { LeadNotesEditor } from "@/components/dashboard/LeadNotesEditor";
@@ -211,6 +212,8 @@ export async function ContactProfile({ profile }: ContactProfileProps) {
           </div>
         )}
       </section>
+
+      <CreditLedgerPanel contactId={contact.id} />
 
       <section className="detailPanel">
         <h2>Appointment history</h2>

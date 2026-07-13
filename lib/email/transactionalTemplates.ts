@@ -261,6 +261,10 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                       <a href="${escapeHtml(context.manage_booking_url)}" style="display: inline-block; padding: 12px 24px; background: #ffffff; border: 1.5px solid #1a1713; color: #1a1713; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 10px;">
                         Reschedule or cancel →
                       </a>
+                      <p style="margin: 10px 0 0; font-size: 12px; color: #9e9189;">
+                        Or manage all your bookings, vehicles &amp; reminders in
+                        <a href="https://crm.cleancarcollective.co.nz/account" style="color: #5c5148;">your account</a> - no password needed.
+                      </p>
                     </td>
                   </tr>
                 </table>

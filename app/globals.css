@@ -4496,3 +4496,409 @@ textarea {
     display: none;
   }
 }
+
+/* ── Customer portal (/account) ─────────────────────────────── */
+
+.portalShell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.portalShell--center {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portalEyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.portalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.portalTitle {
+  margin: 0;
+  font-size: clamp(28px, 6vw, 38px);
+  line-height: 1.08;
+  font-weight: 700;
+}
+
+.portalSub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.portalHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portalCreditBanner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  background: linear-gradient(90deg, rgba(47, 122, 87, 0.12), rgba(47, 122, 87, 0.04));
+  border: 1px solid rgba(47, 122, 87, 0.3);
+  border-radius: var(--r-md);
+  font-size: 14px;
+  color: #23543e;
+}
+
+.portalCreditAmount {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--success);
+}
+
+.portalSection {
+  margin-top: 28px;
+}
+
+.portalSectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portalSectionTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.portalSectionSub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.portalCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.portalCard {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  box-shadow: 0 4px 16px rgba(17, 17, 17, 0.05);
+}
+
+.portalCard--row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.portalCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.portalCardTitle {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.portalCardMeta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.portalCardNote {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.portalCardActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.portalCard--row .portalCardActions {
+  margin-top: 0;
+}
+
+.portalBadge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--panel-soft);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.portalBadge--confirmed { background: rgba(30, 158, 82, 0.12); color: var(--success); }
+.portalBadge--pending { background: rgba(154, 106, 18, 0.14); color: #a36c00; }
+.portalBadge--reminder_sent { background: rgba(17, 17, 17, 0.08); color: var(--accent); }
+
+.portalPrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 22px;
+  background: #111111;
+  color: #ffffff;
+  border: 1px solid #111111;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.portalPrimaryBtn:hover:not(:disabled) { background: #2b2b2b; }
+.portalPrimaryBtn:disabled { opacity: 0.55; }
+
+.portalPrimaryBtn--compact { padding: 9px 16px; font-size: 13px; }
+
+.portalGhostBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid rgba(17, 17, 17, 0.15);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.portalGhostBtn:hover { background: rgba(17, 17, 17, 0.05); }
+
+.portalGhostBtn--danger {
+  color: var(--danger);
+  border-color: rgba(160, 67, 51, 0.35);
+}
+
+.portalDangerBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.portalDangerBtn:disabled { opacity: 0.55; }
+
+.portalLinkButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.portalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.portalField > span,
+.portalFieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.portalFieldLabel { margin: 0 0 8px; }
+
+.portalInput {
+  padding: 11px 13px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.portalInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+}
+
+.portalChipRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.portalChip {
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.portalChip--active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.portalChangeForm { margin-top: 6px; }
+.portalReminderForm { margin-top: 12px; }
+
+.portalFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.portalGarageGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.portalEmpty {
+  padding: 26px 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-lg);
+  text-align: center;
+  margin-top: 10px;
+}
+
+.portalEmpty p { margin: 0; font-size: 14px; font-weight: 600; }
+.portalEmptySub { margin-top: 4px !important; font-size: 13px !important; font-weight: 400 !important; color: var(--muted); }
+
+.portalHistoryList {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.portalHistoryRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(211, 205, 197, 0.5);
+  font-size: 13px;
+}
+
+.portalHistoryRow:last-child { border-bottom: 0; }
+
+.portalHistoryDate { color: var(--muted); min-width: 92px; }
+.portalHistoryService { flex: 1; font-weight: 600; }
+
+.portalError {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Auth card */
+.portalAuthCard {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 36px 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+.portalAuthTitle {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.portalAuthSub {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.portalAuthForm { margin-top: 6px; }
+
+.portalAuthForm .portalPrimaryBtn {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.portalAuthFoot {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.portalAuthSent { text-align: center; padding: 8px 0; }
+.portalAuthSentIcon { font-size: 34px; margin-bottom: 8px; }
+.portalAuthSent h2 { margin: 0 0 8px; font-size: 20px; }
+.portalAuthSent p { margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .portalFormGrid { grid-template-columns: 1fr; }
+  .portalHeaderActions { width: 100%; justify-content: space-between; }
+}

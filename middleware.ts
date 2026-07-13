@@ -28,6 +28,9 @@ const PUBLIC_PREFIXES = [
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page
   "/lock-in-recurring",              // customer-facing post-detail lock-in page
+  "/account",                        // customer portal (self-authed via portal session cookie)
+  "/api/portal/",                    // portal APIs (self-authed via portal session cookie)
+  "/api/cron/portal-reminders",      // Vercel cron 9pm UTC = 9am NZ daily
   "/r/",                             // short URL redirector (SMS touchpoints)
   "/api/public/",                    // token-authed customer-facing actions
   "/_next/",
@@ -47,6 +50,7 @@ const CUSTOMER_PAGE_PREFIXES = [
   "/lead-action/",
   "/manage-booking",
   "/lock-in-recurring",
+  "/account",
 ];
 
 function makeNext(request: NextRequest): NextResponse {
