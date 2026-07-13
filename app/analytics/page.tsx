@@ -256,9 +256,17 @@ export default async function AnalyticsPage() {
     0
   );
 
-  // Average ticket size
+  // Average ticket size (completed jobs only — most conservative)
   const avgTicket = completedBookings.length > 0
     ? completedRevenue / completedBookings.length
+    : 0;
+
+  // AOV across all booked jobs (confirmed + completed, ex-GST). Wider
+  // than avgTicket - captures current pipeline value including work not
+  // yet completed. Excludes cancelled/no_show automatically because
+  // bookingRevenueEligible already filters to confirmed+completed.
+  const aovBooked = bookingRevenueEligible.length > 0
+    ? totalRevenue / bookingRevenueEligible.length
     : 0;
 
   // Weekly trends — last 4 weeks
@@ -290,7 +298,8 @@ export default async function AnalyticsPage() {
         <div className="quickFactsGrid">
           <Fact label="Total revenue (window)" value={formatCurrency(totalRevenue)} />
           <Fact label="From completed jobs" value={formatCurrency(completedRevenue)} />
-          <Fact label="Avg ticket (completed)" value={completedBookings.length > 0 ? formatCurrency(avgTicket) : "—"} />
+          <Fact label="AOV (all booked)" value={bookingRevenueEligible.length > 0 ? formatCurrency(aovBooked) : "—"} />
+          <Fact label="AOV (completed only)" value={completedBookings.length > 0 ? formatCurrency(avgTicket) : "—"} />
           <Fact label="Bookings completed" value={completedBookings.length} />
         </div>
       </section>
