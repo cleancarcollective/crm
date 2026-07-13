@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
+import { DateTimeField } from "@/components/dashboard/DateTimeField";
 import { SeriesEditFormModal, SeriesScopeChoiceModal } from "@/components/dashboard/SeriesScopeModals";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
@@ -235,12 +236,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
           <h2>Booking</h2>
 
           <EditItem label="Start">
-            <input
-              className="detailInput"
-              type="datetime-local"
-              value={scheduledStart}
-              onChange={(e) => setScheduledStart(e.target.value)}
-            />
+            <DateTimeField value={scheduledStart} onChange={setScheduledStart} />
           </EditItem>
 
           <EditItem label="Duration">

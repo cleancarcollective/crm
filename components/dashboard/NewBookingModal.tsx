@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
+import { DateTimeField } from "@/components/dashboard/DateTimeField";
+
 // Both CCC shops are NZ - hardcode for now. Prevents datetime-local
 // input from drifting when the user's browser or SSR node is in a
 // non-NZ timezone (Vercel default = UTC).
@@ -891,13 +893,7 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
             <div className="modalRow2">
               <div className="modalField">
                 <label>Date & time <span className="modalRequired">*</span></label>
-                <input
-                  className="detailInput"
-                  type="datetime-local"
-                  value={scheduledStart}
-                  onChange={(e) => setScheduledStart(e.target.value)}
-                  required
-                />
+                <DateTimeField value={scheduledStart} onChange={setScheduledStart} required />
               </div>
               <div className="modalField">
                 <label>Duration</label>

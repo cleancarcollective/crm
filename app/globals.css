@@ -4114,3 +4114,249 @@ textarea {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── DateTimeField: modern split date + time picker ─────────── */
+
+.dtField {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(96px, 1fr);
+  gap: 8px;
+}
+
+.dtDateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dtDateButton:hover {
+  border-color: rgba(17, 17, 17, 0.35);
+}
+
+.dtDateButton:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+}
+
+.dtDateButton--empty {
+  color: var(--muted);
+}
+
+.dtIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.dtTimeSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 28px 10px 12px;
+  background-color: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236f6860'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dtTimeSelect:hover {
+  border-color: rgba(17, 17, 17, 0.35);
+}
+
+.dtTimeSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+}
+
+.dtPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 280px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  animation: dtPop 0.12s ease-out;
+}
+
+@keyframes dtPop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dtPopoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dtPopoverTitle {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dtNavBtn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dtNavBtn:hover {
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.dtDowRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.dtDowRow span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.dtGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dtDay {
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.dtDay:hover {
+  background: var(--panel-soft);
+}
+
+.dtDay--today {
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.35);
+}
+
+.dtDay--selected,
+.dtDay--selected:hover {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.dtPopoverFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(211, 205, 197, 0.5);
+}
+
+.dtTodayBtn {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+
+.dtTodayBtn:hover {
+  background: var(--panel-soft);
+}
+
+/* ── Modal input modernisation ──────────────────────────────── */
+
+/* Inside the modal, fields are proper bordered white inputs - the
+   soft-filled underline treatment stays on the booking-detail page
+   where fields sit on white panels. */
+.modalField .detailInput,
+.contactSearch .detailInput {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.modalField .detailInput:hover,
+.contactSearch .detailInput:hover {
+  border-color: rgba(17, 17, 17, 0.35);
+}
+
+.modalField .detailInput:focus,
+.contactSearch .detailInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+  background: #ffffff;
+}
+
+/* Native selects in the modal get the same treatment + a chevron. */
+.modalField select.detailInput {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236f6860'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+/* Duration mini-inputs keep their compact width but match the look. */
+.modalField .durationRow .detailInput {
+  padding: 10px 6px;
+}
