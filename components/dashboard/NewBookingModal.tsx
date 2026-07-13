@@ -288,6 +288,10 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
   // Tracks whether the price field was auto-filled from the pricing table
   // (so we know not to clobber a manual override on subsequent size changes).
   const [priceManuallyEdited, setPriceManuallyEdited] = useState(false);
+  // Multiple services on one booking (e.g. Paint Correction + Ceramic). The
+  // picker stages one line; "Add" banks it here. On submit the names are joined
+  // with " & " and prices summed, matching how combined bookings were entered.
+  const [addedServices, setAddedServices] = useState<{ name: string; price: number }[]>([]);
 
   // Pricing catalogue for the current shop. Loaded once on mount.
   // serviceMode: "catalogue" = picked from dropdown, "custom" = typed freehand.
@@ -399,6 +403,27 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
     applyCataloguePrice(selectedService, size);
   }
 
+  // Bank the staged service line so another can be added.
+  function addCurrentService() {
+    if (!serviceName.trim()) return;
+    setAddedServices((prev) => [...prev, { name: serviceName.trim(), price: Number(priceEstimate) || 0 }]);
+    setServiceName("");
+    setSelectedSize("");
+    setPriceEstimate("");
+    setPriceManuallyEdited(false);
+    setServiceMode("catalogue");
+  }
+  function removeAddedService(idx: number) {
+    setAddedServices((prev) => prev.filter((_, i) => i !== idx));
+  }
+  // Everything that will actually be booked: banked lines plus the staged one.
+  const allBookingServices = [
+    ...addedServices,
+    ...(serviceName.trim() ? [{ name: serviceName.trim(), price: Number(priceEstimate) || 0 }] : []),
+  ];
+  const combinedServiceName = allBookingServices.map((s) => s.name).join(" & ");
+  const combinedPrice = allBookingServices.reduce((a, s) => a + s.price, 0);
+
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -439,8 +464,8 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
       setError("Please enter at least a first name or email for the new contact.");
       return;
     }
-    if (!serviceName.trim()) {
-      setError("Service name is required.");
+    if (allBookingServices.length === 0) {
+      setError("Add at least one service.");
       return;
     }
     if (!scheduledStart) {
@@ -451,10 +476,10 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
     setSubmitting(true);
 
     const body: Record<string, unknown> = {
-      service_name: serviceName.trim(),
+      service_name: combinedServiceName,
       scheduled_start: fromZonedTime(scheduledStart, SHOP_TZ).toISOString(),
       duration_minutes: durationMinutes ? Number(durationMinutes) : undefined,
-      price_estimate: priceEstimate ? Number(priceEstimate) : undefined,
+      price_estimate: combinedPrice > 0 ? combinedPrice : undefined,
       location_type: locationType || undefined,
       service_address: locationType === "mobile" && serviceAddress.trim() ? serviceAddress.trim() : undefined,
       notes: notes || undefined,
@@ -510,9 +535,9 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
         // existing customers, or newContact (and optionally newVehicle) so
         // the series endpoint can dedupe + create on the fly.
         const seriesBody: Record<string, unknown> = {
-          serviceName: serviceName.trim(),
+          serviceName: combinedServiceName,
           size: nvSize || undefined,
-          priceEstimate: priceEstimate ? Number(priceEstimate) : undefined,
+          priceEstimate: combinedPrice > 0 ? combinedPrice : undefined,
           durationMinutes: durationMinutes ? Number(durationMinutes) : undefined,
           locationType: locationType || undefined,
           serviceAddress: locationType === "mobile" && serviceAddress.trim() ? serviceAddress.trim() : undefined,
@@ -749,6 +774,16 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
             <div className="modalField">
               <label>Service name <span className="modalRequired">*</span></label>
+              {addedServices.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
+                  {addedServices.map((s, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", background: "#f1f5f9", borderRadius: 8, fontSize: 13 }}>
+                      <span>{s.name}{s.price ? ` — $${s.price} ex GST` : ""}</span>
+                      <button type="button" onClick={() => removeAddedService(i)} style={{ border: "none", background: "transparent", color: "#dc2626", cursor: "pointer", fontSize: 16, lineHeight: 1 }} aria-label="Remove service">×</button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {serviceMode === "catalogue" && pricing.length > 0 ? (
                 <>
                   <select
@@ -794,6 +829,14 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                   ) : null}
                 </div>
               )}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                <button type="button" className="buttonGhost" style={{ fontSize: 12 }} disabled={!serviceName.trim()} onClick={addCurrentService}>
+                  + Add another service
+                </button>
+                {allBookingServices.length > 1 ? (
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Total: ${combinedPrice} ex GST</span>
+                ) : null}
+              </div>
             </div>
 
             {/* Size toggle — only for catalogue services priced by size. */}
@@ -851,15 +894,56 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
                 />
               </div>
               <div className="modalField">
-                <label>Duration (min)</label>
-                <input
-                  className="detailInput"
-                  type="number"
-                  min="0"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
-                  placeholder="e.g. 120"
-                />
+                <label>Duration</label>
+                {(() => {
+                  const totalMin = Number(durationMinutes) || 0;
+                  const d = Math.floor(totalMin / 1440);
+                  const h = Math.floor((totalMin % 1440) / 60);
+                  const m = totalMin % 60;
+                  const update = (nd: number, nh: number, nm: number) => {
+                    const t = Math.max(0, nd) * 1440 + Math.max(0, nh) * 60 + Math.max(0, nm);
+                    setDurationMinutes(t > 0 ? String(t) : "");
+                  };
+                  return (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        className="detailInput"
+                        type="number"
+                        min="0"
+                        value={d || ""}
+                        onChange={(e) => update(Number(e.target.value), h, m)}
+                        placeholder="0"
+                        style={{ width: 56 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#666" }}>d</span>
+                      <input
+                        className="detailInput"
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={h || ""}
+                        onChange={(e) => update(d, Number(e.target.value), m)}
+                        placeholder="0"
+                        style={{ width: 56 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#666" }}>h</span>
+                      <input
+                        className="detailInput"
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={m || ""}
+                        onChange={(e) => update(d, h, Number(e.target.value))}
+                        placeholder="0"
+                        style={{ width: 56 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#666" }}>m</span>
+                      {totalMin > 0 ? (
+                        <span style={{ fontSize: 11, color: "#888", whiteSpace: "nowrap" }}>= {totalMin} min</span>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
