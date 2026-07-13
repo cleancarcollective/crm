@@ -168,6 +168,9 @@ export async function sendDetailDueEmail(args: {
   cadenceMonths: number;
   lastVisitAt: string | null;
   timezone: string;
+  /** The reminder's due date - the email fires days earlier, opening a
+   *  priority window before the customer's usual slot fills. */
+  dueAt?: string | null;
 }) {
   const bookingUrl =
     args.shopSlug === "christchurch"
@@ -179,19 +182,23 @@ export async function sendDetailDueEmail(args: {
   const serviceBit = args.serviceName ? escapeHtml(args.serviceName) : "detail";
   const lastBit = args.lastVisitAt
     ? `It's been about ${args.cadenceMonths} month${args.cadenceMonths === 1 ? "" : "s"} since your last visit on ${formatInTimeZone(args.lastVisitAt, args.timezone, "d MMM")}.`
-    : `Your ${args.cadenceMonths}-month${args.cadenceMonths === 1 ? "" : ""} reminder has come around.`;
+    : `Your ${args.cadenceMonths}-month reminder has come around.`;
+  const dueBit = args.dueAt
+    ? `Your slot comes due around <strong>${formatInTimeZone(args.dueAt, args.timezone, "EEEE d MMMM")}</strong> - you're hearing early so you get first pick of the calendar.`
+    : `Spots book out 1-2 weeks ahead, so now's the perfect time to lock yours in.`;
 
   const subject = args.vehicleLabel
-    ? `Time for your ${args.vehicleLabel}'s next detail?`
-    : "Time for your next detail?";
+    ? `Priority booking open: your ${args.vehicleLabel}'s next detail`
+    : "Priority booking open: your next detail";
   const greeting = args.firstName ? `Hi ${escapeHtml(args.firstName)},` : "Hi,";
 
-  const html = shell("Your next detail is due", `
+  const html = shell("Your priority window is open", `
     <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#5c5148;">${greeting}<br/>
-    ${lastBit} Spots book out 1-2 weeks ahead, so now's the perfect time to lock in your next ${serviceBit}${vehicleBit}.</p>
+    ${lastBit} ${dueBit}</p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#5c5148;">Book your next ${serviceBit}${vehicleBit} now and take whichever slot suits - before the week fills up.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:18px;">
       <tr><td align="center">
-        <a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:15px 40px;background:#1a1713;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:12px;">Book now</a>
+        <a href="${escapeHtml(bookingUrl)}" style="display:inline-block;padding:15px 40px;background:#1a1713;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:12px;">Book my slot</a>
       </td></tr>
     </table>
     <p style="margin:0;font-size:13px;line-height:1.6;color:#9e9189;">Manage your reminders anytime in <a href="${escapeHtml(accountUrl)}" style="color:#5c5148;">your account</a>. Not ready yet? We'll leave it with you - this is your scheduled nudge, not a sales blast.</p>
@@ -199,7 +206,7 @@ export async function sendDetailDueEmail(args: {
 
   const text = `${args.firstName ? `Hi ${args.firstName},` : "Hi,"}
 
-${args.lastVisitAt ? `It's been about ${args.cadenceMonths} months since your last visit.` : "Your detail reminder has come around."} Time to book your next ${args.serviceName ?? "detail"}${args.vehicleLabel ? ` for your ${args.vehicleLabel}` : ""}.
+${args.lastVisitAt ? `It's been about ${args.cadenceMonths} months since your last visit.` : "Your detail reminder has come around."}${args.dueAt ? ` Your slot comes due around ${formatInTimeZone(args.dueAt, args.timezone, "EEEE d MMMM")} - you're hearing early so you get first pick of the calendar.` : ""} Book your next ${args.serviceName ?? "detail"}${args.vehicleLabel ? ` for your ${args.vehicleLabel}` : ""} now.
 
 Book: ${bookingUrl}
 Manage reminders: ${accountUrl}`;

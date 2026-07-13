@@ -328,12 +328,18 @@ function RemindersSection({
                     {vehicle ? ` · ${vehicleLabel(vehicle)}` : ""}
                   </h3>
                   <p className="portalCardMeta">
-                    Next nudge:{" "}
+                    Next due:{" "}
                     {new Date(r.next_due_at).toLocaleDateString("en-NZ", {
                       timeZone: shop?.timezone ?? "Pacific/Auckland",
                       day: "numeric",
                       month: "short",
                       year: "numeric",
+                    })}
+                    {" · priority booking opens "}
+                    {new Date(new Date(r.next_due_at).getTime() - 7 * 86400000).toLocaleDateString("en-NZ", {
+                      timeZone: shop?.timezone ?? "Pacific/Auckland",
+                      day: "numeric",
+                      month: "short",
                     })}
                     {r.status === "paused" ? " · paused" : ""}
                   </p>

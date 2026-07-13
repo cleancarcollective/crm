@@ -24,12 +24,21 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data: due } = await supabase
+  // Priority window: fire when now >= next_due_at - notify_days_before.
+  // Widest window is 30 days, so pre-filter in SQL to due-within-30d and
+  // apply the per-row offset in code.
+  const { data: candidates } = await supabase
     .from("portal_reminders")
-    .select("id, contact_id, shop_id, vehicle_id, cadence_months, next_due_at, service_name")
+    .select("id, contact_id, shop_id, vehicle_id, cadence_months, next_due_at, service_name, notify_days_before")
     .eq("status", "active")
-    .lte("next_due_at", new Date().toISOString())
-    .limit(50);
+    .lte("next_due_at", new Date(Date.now() + 30 * 86400000).toISOString())
+    .limit(200);
+
+  const now = Date.now();
+  const due = (candidates ?? []).filter((r) => {
+    const windowOpens = new Date(r.next_due_at).getTime() - (r.notify_days_before ?? 7) * 86400000;
+    return windowOpens <= now;
+  }).slice(0, 50);
 
   if (!due || due.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 });
@@ -84,6 +93,7 @@ export async function GET(req: NextRequest) {
         cadenceMonths: reminder.cadence_months,
         lastVisitAt: lastBooking?.scheduled_start ?? null,
         timezone: shop.timezone,
+        dueAt: reminder.next_due_at,
       });
 
       // Roll forward to the next cycle.
