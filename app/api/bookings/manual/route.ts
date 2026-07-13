@@ -190,6 +190,31 @@ export async function POST(request: Request) {
         "lead_followup_30day",
       ]);
     }
+
+    // Close any *other* still-open leads for this contact too (openLead above is
+    // only the newest). Prevents stale enquiries resurfacing in win-back sends
+    // after the customer has already been booked in.
+    const { data: siblingLeads } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("shop_id", shop.id)
+      .eq("contact_id", contactId)
+      .in("status", OPEN_LEAD_STATUSES);
+    if (siblingLeads && siblingLeads.length > 0) {
+      const siblingIds = siblingLeads.map((l) => l.id as string);
+      await supabase
+        .from("leads")
+        .update({ status: "won", won_source: "direct_booking", booked_at: booking.created_at })
+        .in("id", siblingIds);
+      for (const id of siblingIds) {
+        await cancelLeadJobs(id, [
+          "lead_auto_estimate",
+          "lead_followup_3day",
+          "lead_followup_7day",
+          "lead_followup_30day",
+        ]);
+      }
+    }
   } catch (err) {
     console.error("Manual booking lead attribution failed (non-fatal)", err);
   }

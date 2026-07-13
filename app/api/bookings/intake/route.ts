@@ -249,6 +249,37 @@ export async function POST(request: Request) {
       ]);
     }
 
+    // Close ANY *other* still-open leads for this contact. A contact can hold
+    // more than one stale enquiry (e.g. a needs_approval lead that never got an
+    // estimate), and getLatestOpenLeadForContact only returns the newest one.
+    // Left open, those resurface in nurture/win-back sends after the customer
+    // has already booked. existingLead is now 'won' so it's excluded here.
+    const { data: siblingLeads } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("shop_id", shop.id)
+      .eq("contact_id", contact.id)
+      .in("status", OPEN_LEAD_STATUSES);
+    if (siblingLeads && siblingLeads.length > 0) {
+      const siblingIds = siblingLeads.map((l) => l.id as string);
+      const { error: siblingErr } = await supabase
+        .from("leads")
+        .update({ status: "won", won_source: "direct_booking", booked_at: booking.created_at })
+        .in("id", siblingIds);
+      if (siblingErr) {
+        console.error("Failed to close sibling open leads on booking", siblingErr);
+      } else {
+        for (const id of siblingIds) {
+          await cancelLeadJobs(id, [
+            "lead_auto_estimate",
+            "lead_followup_3day",
+            "lead_followup_7day",
+            "lead_followup_30day",
+          ]);
+        }
+      }
+    }
+
     try {
       const reminderJobs = await createReminderJobsForBooking({
         shop: shop as ShopRow,
