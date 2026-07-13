@@ -257,7 +257,12 @@ async function notifyTeam(args: {
   subject: string;
   lines: string[];
 }) {
-  const { team_email, from_line: from } = getShopContacts(args.shop);
+  const { team_email, reply_email, from_line: from } = getShopContacts(args.shop);
+  // Send to the group inbox AND the shop's watched customer inbox. On
+  // Christchurch these differ (team_email=info@ group inbox vs reply_email=ben@
+  // which staff actually monitor), so a self-service cancel/reschedule to info@
+  // alone was going unseen. Dedupe in case they're the same (Wellington).
+  const recipients = Array.from(new Set([team_email, reply_email].filter(Boolean))).join(", ");
   const crmUrl = `${CRM_BASE_URL}/bookings/${args.bookingId}`;
   const ctaLabel = args.kind === "cancel" ? "View cancelled booking in CRM →" : "Open booking & confirm new time →";
 
@@ -315,7 +320,7 @@ async function notifyTeam(args: {
   const postmark = getPostmarkClient();
   await postmark.sendEmail({
     From: from,
-    To: team_email,
+    To: recipients,
     Subject: args.subject,
     TextBody: textBody,
     HtmlBody: htmlBody,
