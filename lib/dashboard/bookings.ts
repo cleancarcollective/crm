@@ -115,12 +115,34 @@ export async function getBookingsForDay(day: string, shopSlug: string) {
   const startIso = formatInTimeZone(zonedDay, shop.timezone, "yyyy-MM-dd'T'00:00:00XXX");
   const endIso = formatInTimeZone(addDays(zonedDay, 1), shop.timezone, "yyyy-MM-dd'T'00:00:00XXX");
 
-  const bookings = await getBookingsForRange(shop.id, startIso, endIso);
+  // getBookingsForRange now widens the lower bound by 14 days to pull
+  // multi-day bookings that started earlier. Split them: real "day-of"
+  // bookings vs continuations.
+  const all = await getBookingsForRange(shop.id, startIso, endIso);
+  const dayBookings: BookingWithRelations[] = [];
+  const continuationBookings: BookingWithRelations[] = [];
+
+  for (const booking of all) {
+    const startKey = formatInTimeZone(booking.scheduled_start, shop.timezone, "yyyy-MM-dd");
+    if (startKey === day) {
+      dayBookings.push(booking);
+      continue;
+    }
+    // Started before this day - is it still running?
+    let endIsoEff: string | null = booking.scheduled_end ?? null;
+    if (!endIsoEff && booking.duration_minutes && booking.duration_minutes > 0) {
+      endIsoEff = new Date(new Date(booking.scheduled_start).getTime() + booking.duration_minutes * 60000).toISOString();
+    }
+    if (!endIsoEff) continue;
+    const endKey = formatInTimeZone(endIsoEff, shop.timezone, "yyyy-MM-dd");
+    if (endKey >= day) continuationBookings.push(booking);
+  }
 
   return {
     shop,
     day,
-    bookings
+    bookings: dayBookings,
+    continuationBookings
   };
 }
 
@@ -140,11 +162,15 @@ export async function getBookingById(id: string, shopSlug: string) {
 
 async function getBookingsForRange(shopId: string, startIso: string, endIso: string) {
   const supabase = getSupabaseAdminClient();
+  // Widen lower bound by 14 days so multi-day bookings that started
+  // before the grid window still show on their continuation days
+  // inside the window. Real-world jobs cap at ~2-3 days; 14d is safe.
+  const widenedStartIso = new Date(new Date(startIso).getTime() - 14 * 86400000).toISOString();
   const { data, error } = await supabase
     .from("bookings")
     .select("*")
     .eq("shop_id", shopId)
-    .gte("scheduled_start", startIso)
+    .gte("scheduled_start", widenedStartIso)
     .lt("scheduled_start", endIso)
     // Hide cancelled bookings — they stay in the DB for history but
     // shouldn't clutter the calendar.
@@ -289,13 +315,41 @@ function buildCalendarDays(
   monthStart: Date,
   timezone: string
 ) {
+  // Two maps: start-day bookings vs continuation-day bookings.
+  // Start day gets full attribution (count, revenue, duration).
+  // Continuation days show the booking but don't inflate totals.
   const bookingsByDay = new Map<string, BookingWithRelations[]>();
+  const continuationByDay = new Map<string, BookingWithRelations[]>();
 
   for (const booking of bookings) {
-    const dayKey = formatInTimeZone(booking.scheduled_start, timezone, "yyyy-MM-dd");
-    const existing = bookingsByDay.get(dayKey) ?? [];
-    existing.push(booking);
-    bookingsByDay.set(dayKey, existing);
+    const startKey = formatInTimeZone(booking.scheduled_start, timezone, "yyyy-MM-dd");
+    const startArr = bookingsByDay.get(startKey) ?? [];
+    startArr.push(booking);
+    bookingsByDay.set(startKey, startArr);
+
+    // Compute effective end: prefer scheduled_end, fall back to
+    // scheduled_start + duration_minutes. Skip spanning if neither.
+    let effectiveEndIso: string | null = booking.scheduled_end ?? null;
+    if (!effectiveEndIso && booking.duration_minutes && booking.duration_minutes > 0) {
+      effectiveEndIso = new Date(new Date(booking.scheduled_start).getTime() + booking.duration_minutes * 60000).toISOString();
+    }
+    if (!effectiveEndIso) continue;
+
+    const endKey = formatInTimeZone(effectiveEndIso, timezone, "yyyy-MM-dd");
+    if (endKey === startKey) continue; // single-day - nothing to span
+
+    // Iterate day-by-day (in shop timezone) from start+1 to end.
+    // Use noon-in-zone dates to sidestep DST edge cases.
+    const startBoundary = parse(startKey, "yyyy-MM-dd", new Date());
+    const endBoundary = parse(endKey, "yyyy-MM-dd", new Date());
+    let cursor = addDays(startBoundary, 1);
+    while (cursor <= endBoundary) {
+      const key = format(cursor, "yyyy-MM-dd");
+      const contArr = continuationByDay.get(key) ?? [];
+      contArr.push(booking);
+      continuationByDay.set(key, contArr);
+      cursor = addDays(cursor, 1);
+    }
   }
 
   const todayKey = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
@@ -303,6 +357,7 @@ function buildCalendarDays(
   return eachDayOfInterval({ start: gridStart, end: gridEnd }).map((day) => {
     const isoDate = format(day, "yyyy-MM-dd");
     const dayBookings = bookingsByDay.get(isoDate) ?? [];
+    const contBookings = continuationByDay.get(isoDate) ?? [];
 
     return {
       isoDate,
@@ -311,7 +366,8 @@ function buildCalendarDays(
       bookingCount: dayBookings.length,
       totalRevenue: dayBookings.reduce((sum, booking) => sum + (booking.price_estimate ?? 0), 0),
       totalDurationMinutes: dayBookings.reduce((sum, booking) => sum + (booking.duration_minutes ?? 0), 0),
-      bookings: dayBookings
+      bookings: dayBookings,
+      continuationBookings: contBookings
     } satisfies CalendarDaySummary;
   });
 }

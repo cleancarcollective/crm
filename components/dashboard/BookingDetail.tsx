@@ -236,15 +236,51 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
             />
           </EditItem>
 
-          <EditItem label="Duration (min)">
-            <input
-              className="detailInput"
-              type="number"
-              min="0"
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(e.target.value)}
-              placeholder="—"
-            />
+          <EditItem label="Duration">
+            {(() => {
+              const totalMin = Number(durationMinutes) || 0;
+              const d = Math.floor(totalMin / (24 * 60));
+              const h = Math.floor((totalMin % (24 * 60)) / 60);
+              const m = totalMin % 60;
+              const update = (nd: number, nh: number, nm: number) => {
+                const t = Math.max(0, nd) * 1440 + Math.max(0, nh) * 60 + Math.max(0, nm);
+                setDurationMinutes(String(t));
+              };
+              return (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    className="detailInput"
+                    type="number"
+                    min="0"
+                    value={d}
+                    onChange={(e) => update(Number(e.target.value), h, m)}
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ fontSize: 12 }}>d</span>
+                  <input
+                    className="detailInput"
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={h}
+                    onChange={(e) => update(d, Number(e.target.value), m)}
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ fontSize: 12 }}>h</span>
+                  <input
+                    className="detailInput"
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={m}
+                    onChange={(e) => update(d, h, Number(e.target.value))}
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ fontSize: 12 }}>m</span>
+                  <span style={{ fontSize: 11, color: "#888", marginLeft: 6 }}>= {totalMin} min</span>
+                </div>
+              );
+            })()}
           </EditItem>
 
           <EditItem label="Price">

@@ -215,4 +215,8 @@ export type CalendarDaySummary = {
   totalRevenue: number;
   totalDurationMinutes: number;
   bookings: BookingWithRelations[];
+  // Bookings that started on a prior day but continue through this day.
+  // Rendered visually differently (marked "→ cont.") and NOT counted in
+  // bookingCount / totalRevenue - revenue attributes to start day only.
+  continuationBookings: BookingWithRelations[];
 };

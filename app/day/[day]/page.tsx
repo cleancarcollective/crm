@@ -15,7 +15,7 @@ export default async function DayPage({
 }) {
   const { day } = await params;
   const currentShop = await requireCurrentShop();
-  const { shop, bookings } = await getBookingsForDay(day, currentShop.slug);
+  const { shop, bookings, continuationBookings } = await getBookingsForDay(day, currentShop.slug);
   const parsedDay = parse(day, "yyyy-MM-dd", new Date());
 
   const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.price_estimate ?? 0), 0);
@@ -53,6 +53,15 @@ export default async function DayPage({
       </div>
 
       <BookingList bookings={bookings} timezone={shop.timezone} />
+
+      {continuationBookings.length > 0 ? (
+        <section style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", marginBottom: 8 }}>
+            → Continuing from earlier days ({continuationBookings.length})
+          </h2>
+          <BookingList bookings={continuationBookings} timezone={shop.timezone} />
+        </section>
+      ) : null}
     </main>
   );
 }
