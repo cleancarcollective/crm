@@ -157,6 +157,58 @@ async function loadBookingFunnel(shopId: string) {
   return (data ?? []) as AnyRow[];
 }
 
+// Booking-form drop-off. Reads the funnel_events beacons emitted by the main
+// booking form (started -> schedule -> addons -> review -> booked), keyed by
+// shop_slug + funnel='main'. We only pull the two columns we aggregate on.
+async function loadFormFunnel(shopSlug: string) {
+  const supabase = getSupabaseAdminClient();
+  const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("funnel_events")
+    .select("session_id, step")
+    .eq("shop_slug", shopSlug)
+    .eq("funnel", "main")
+    .gte("created_at", since);
+
+  if (error) {
+    console.error("loadFormFunnel failed", error);
+    return [] as { session_id: string; step: string }[];
+  }
+  return (data ?? []) as { session_id: string; step: string }[];
+}
+
+// Ordered steps of the main booking form. A session that reaches a later step
+// necessarily passed the earlier ones, so we count each session at the furthest
+// step it reached and treat the funnel as monotonic (reached step k = sessions
+// whose max step index >= k). Beacons can drop, so this is more robust than
+// counting raw events per step.
+const FORM_STEPS: { key: string; label: string; description: string }[] = [
+  { key: "started", label: "Started", description: "Opened the booking form" },
+  { key: "schedule", label: "Reached schedule", description: "Picked service, moved to date/time" },
+  { key: "addons", label: "Reached add-ons", description: "Selected a time slot" },
+  { key: "review", label: "Reached review", description: "Got to the final review screen" },
+  { key: "booked", label: "Booked", description: "Completed the booking" },
+];
+
+function computeFormFunnel(rows: { session_id: string; step: string }[]) {
+  const order = FORM_STEPS.map((s) => s.key);
+  const maxBySession = new Map<string, number>();
+  for (const r of rows) {
+    const idx = order.indexOf(r.step);
+    if (idx < 0) continue;
+    const cur = maxBySession.get(r.session_id) ?? -1;
+    if (idx > cur) maxBySession.set(r.session_id, idx);
+  }
+  const maxes = Array.from(maxBySession.values());
+  return FORM_STEPS.map((s, i) => ({
+    label: s.label,
+    description: s.description,
+    matches: () => true,
+    count: maxes.filter((m) => m >= i).length,
+  }));
+}
+
 /**
  * Bucket a list of items into 4 weekly groups (most recent week last). Each
  * bucket gets a {label, count, value} computed from the supplied accessors.
@@ -217,10 +269,13 @@ export default async function AnalyticsPage() {
   }
   const shop = user.shop;
 
-  const [leads, bookings] = await Promise.all([
+  const [leads, bookings, formEvents] = await Promise.all([
     loadLeadFunnel(shop.id),
     loadBookingFunnel(shop.id),
+    loadFormFunnel(shop.slug),
   ]);
+
+  const formStageCounts = computeFormFunnel(formEvents);
 
   const leadStageCounts = LEAD_STAGES.map((stage) => ({
     ...stage,
@@ -357,6 +412,16 @@ export default async function AnalyticsPage() {
           Bookings created in the last {WINDOW_DAYS} days and their lifecycle.
         </p>
         <FunnelVisual stages={bookingStageCounts} />
+      </section>
+
+      <section className="detailPanel analyticsSection">
+        <h2>Booking form drop-off</h2>
+        <p className="settingsDescription">
+          Where visitors bail inside the main booking form (last {WINDOW_DAYS} days,
+          deduped per browser session). Big gap between two rows = the step to fix.
+          The ceramic and interior ad funnels are tracked separately in Meta.
+        </p>
+        <FunnelVisual stages={formStageCounts} />
       </section>
 
       <section className="detailPanel analyticsSection">

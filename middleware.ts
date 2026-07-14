@@ -14,6 +14,7 @@ const PUBLIC_PREFIXES = [
   "/api/bookings/intake",
   "/api/booking-series/intake",
   "/api/quote-events",               // instant-quote funnel beacons (sendBeacon, no session)
+  "/api/funnel-events",              // booking-funnel drop-off beacons (sendBeacon, no session)
   "/api/vehicle-size",               // public vehicle sizing for the ceramic ad funnel
   "/api/email-events/",
   "/api/emails/process-reminders",   // Vercel cron 8am UTC daily
