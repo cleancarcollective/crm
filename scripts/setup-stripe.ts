@@ -30,10 +30,10 @@ const KEY = process.env.STRIPE_SECRET_KEY;
 if (!KEY) { console.error("STRIPE_SECRET_KEY missing"); process.exit(1); }
 
 const TIERS: Array<{ tier: string; feeCents: number; creditCents: number }> = [
-  { tier: "Coupe / Hatchback", feeCents: 10800, creditCents: 12500 },
-  { tier: "Sedan / Wagon", feeCents: 11200, creditCents: 13000 },
-  { tier: "Small / Medium SUV", feeCents: 11700, creditCents: 13500 },
-  { tier: "Large SUV / Ute", feeCents: 12600, creditCents: 14500 },
+  { tier: "Coupe / Hatchback", feeCents: 10000, creditCents: 12000 },
+  { tier: "Sedan / Wagon", feeCents: 11000, creditCents: 13000 },
+  { tier: "Small / Medium SUV", feeCents: 12000, creditCents: 14000 },
+  { tier: "Large SUV / Ute", feeCents: 13000, creditCents: 15000 },
 ];
 
 const WEBHOOK_URL = "https://crm.cleancarcollective.co.nz/api/stripe/webhook";

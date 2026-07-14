@@ -10,13 +10,13 @@
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
-/** Ex-GST, in cents. Fee anchored to ~quarterly-Deluxe x 0.9; credit set
- *  so every tier delivers AT LEAST a 15% bonus on the fee. */
+/** Ex-GST, in cents. Round-number fees ($100/110/120/130); credit set
+ *  so every tier delivers a 15-20% bonus on the fee. */
 export const MEMBERSHIP_PRICING: Record<string, { feeCents: number; creditCents: number }> = {
-  "Coupe / Hatchback": { feeCents: 10800, creditCents: 12500 },
-  "Sedan / Wagon": { feeCents: 11200, creditCents: 13000 },
-  "Small / Medium SUV": { feeCents: 11700, creditCents: 13500 },
-  "Large SUV / Ute": { feeCents: 12600, creditCents: 14500 },
+  "Coupe / Hatchback": { feeCents: 10000, creditCents: 12000 },
+  "Sedan / Wagon": { feeCents: 11000, creditCents: 13000 },
+  "Small / Medium SUV": { feeCents: 12000, creditCents: 14000 },
+  "Large SUV / Ute": { feeCents: 13000, creditCents: 15000 },
 };
 
 export const DEFAULT_TIER = "Sedan / Wagon";
@@ -26,7 +26,7 @@ export function pricingForSize(size: string | null | undefined) {
 }
 
 export const MEMBER_PERKS = [
-  "15%+ bonus credit every month - never expires, spend it on any service",
+  "Up to 20% bonus credit every month - never expires, spend it on any service",
   "Free mobile service + valet pickup & drop-off (members only)",
   "Priority booking - first pick of the calendar + extended hours",
   "Pro photos of every detail in your account",

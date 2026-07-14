@@ -133,7 +133,7 @@ Welcome to the Collective. One quick step and your credit starts - set up your m
 
 ${checkoutUrl}
 
-From then on, $${credit} of detailing credit lands in your account every month for $${fee}/mo +GST - that's $${bonusAmt} extra, every month (15%+ bonus).
+From then on, $${credit} of detailing credit lands in your account every month for $${fee}/mo +GST - that's $${bonusAmt} extra, every month.
 
 Get busy? No worries. Credit never expires - it stacks, so a couple of quiet months turns into a bigger detail when you're ready.
 
@@ -142,7 +142,7 @@ Cancel anytime. Banked credit stays yours.`,
 <p>${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}</p>
 <p>Welcome to the Collective. One quick step and your credit starts - set up your monthly payment (about 2 minutes, card or Apple/Google Pay).</p>
 <p style="margin:22px 0;"><a href="${checkoutUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Switch on my credit</a></p>
-<p>From then on, <strong>$${credit} of detailing credit</strong> lands in your account every month for $${fee}/mo +GST - that's <strong>$${bonusAmt} extra, every month</strong> (15%+ bonus).</p>
+<p>From then on, <strong>$${credit} of detailing credit</strong> lands in your account every month for $${fee}/mo +GST - that's <strong>$${bonusAmt} extra, every month</strong>.</p>
 <p>Get busy? No worries. Credit never expires - it stacks, so a couple of quiet months turns into a bigger detail when you're ready.</p>
 <p style="color:#6f6860;font-size:13px;">Cancel anytime. Banked credit stays yours.</p>
 </div>`,

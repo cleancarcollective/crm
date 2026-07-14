@@ -202,10 +202,10 @@ function ProfileSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onC
 // ── Join the Collective ────────────────────────────────────────────────
 
 const MEMBERSHIP_PRICING: Record<string, { fee: number; credit: number }> = {
-  "Coupe / Hatchback": { fee: 108, credit: 125 },
-  "Sedan / Wagon": { fee: 112, credit: 130 },
-  "Small / Medium SUV": { fee: 117, credit: 135 },
-  "Large SUV / Ute": { fee: 126, credit: 145 },
+  "Coupe / Hatchback": { fee: 100, credit: 120 },
+  "Sedan / Wagon": { fee: 110, credit: 130 },
+  "Small / Medium SUV": { fee: 120, credit: 140 },
+  "Large SUV / Ute": { fee: 130, credit: 150 },
 };
 
 function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onChanged: () => void }) {
@@ -313,7 +313,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
         <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Detailing credit that builds every month</h2>
         <p className="portalCardMeta" style={{ marginBottom: 10 }}>
           <strong>${pricing.credit}/mo of detailing credit</strong> for ${pricing.fee}/mo +GST -
-          ${pricing.credit - pricing.fee} of bonus value every month (15%+).
+          ${pricing.credit - pricing.fee} of bonus value every month ({Math.round(((pricing.credit - pricing.fee) / pricing.fee) * 100)}%).
         </p>
         <ul className="portalPerkList">
           <li>Get busy? Credit stacks - bank a quiet month and put it toward a bigger detail</li>

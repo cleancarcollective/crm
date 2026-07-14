@@ -71,7 +71,7 @@ function openerFor(key: TouchpointKey, _shopName: string): string {
 }
 
 // Collective membership ladder (ex-GST) - mirrors lib/portal/membership.ts.
-const COLLECTIVE_LADDER = "from $108/mo (+GST) - most cars are $112/mo for $130 of monthly credit";
+const COLLECTIVE_LADDER = "from $100/mo (+GST) - most cars are $110/mo for $130 of monthly credit";
 
 export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   const firstName = args.contact.firstName ?? "there";
@@ -86,7 +86,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   const howItWorks = [
     `Here's how the Collective works:`,
     ``,
-    `- Detailing credit lands in your account every month (15% more credit than you pay - ${COLLECTIVE_LADDER})`,
+    `- Detailing credit lands in your account every month (15-20% more credit than you pay - ${COLLECTIVE_LADDER})`,
     ``,
     `- Get busy? It stacks. Credit never expires - bank a quiet month and put it toward a bigger service next time`,
     ``,

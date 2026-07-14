@@ -28,10 +28,10 @@ async function stripePost(path: string, params: Record<string, string>) {
 
 /** Live price ids created by scripts/setup-stripe.ts (LIVE mode). */
 export const STRIPE_PRICE_IDS: Record<string, string> = {
-  "Coupe / Hatchback": "price_1TsyzDLHAxMRdXS4a71mxDIw",
-  "Sedan / Wagon": "price_1TsyzELHAxMRdXS44BO3RXUh",
-  "Small / Medium SUV": "price_1TsyzFLHAxMRdXS4gV5vHcu0",
-  "Large SUV / Ute": "price_1TsyzFLHAxMRdXS4iAImRBta",
+  "Coupe / Hatchback": "price_1TtD2aLHAxMRdXS4dvGUmIZ5",
+  "Sedan / Wagon": "price_1TtD2bLHAxMRdXS48jGDTJua",
+  "Small / Medium SUV": "price_1TtD2bLHAxMRdXS4EzTN4jkf",
+  "Large SUV / Ute": "price_1TtD2bLHAxMRdXS4bHK0O6NX",
 };
 
 /**
