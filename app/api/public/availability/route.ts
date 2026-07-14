@@ -114,7 +114,19 @@ export async function GET(request: Request) {
   settled.forEach((s, i) => {
     const date = dates[i]!;
     if (s.status === "fulfilled") {
-      busyByDate[date] = s.value.busy;
+      // Google all-day events use an EXCLUSIVE end (00:00 of the next day), and
+      // the upstream script reported each all-day block as busy on BOTH its own
+      // date and the following one — so blocking a day silently killed the next
+      // day too (and showed a doubled "Blocked via CRM" bar). Keep an all-day
+      // block only if it spans this date's local noon, a safe interior point
+      // well away from the midnight boundary (DST-tolerant).
+      const noon = new Date(`${date}T12:00:00+12:00`).getTime();
+      busyByDate[date] = s.value.busy.filter((b) => {
+        if (!b.allDay) return true;
+        const bs = b.start ? new Date(b.start).getTime() : -Infinity;
+        const be = b.end ? new Date(b.end).getTime() : Infinity;
+        return bs <= noon && noon < be;
+      });
     } else {
       busyByDate[date] = [];
       errors.push({ date, error: s.reason?.message ?? "unknown" });
