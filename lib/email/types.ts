@@ -67,6 +67,9 @@ export type BookingConfirmationEmailContext = {
   // Optional - deep link to the booking in the CRM (only on team-facing
   // emails, so staff can jump straight to the record)
   crm_booking_url?: string;
+  // Optional - humanised booking source (only on team-facing emails), so
+  // staff can tell a website booking from a hand-entered / ad-funnel one
+  booking_source?: string;
 };
 
 export type RenderedEmail = {

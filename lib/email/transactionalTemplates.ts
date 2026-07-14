@@ -245,6 +245,7 @@ export function renderTransactionalHtmlEmail(context: BookingConfirmationEmailCo
                   ${context.customer_name ? infoRow("Name", context.customer_name) : ""}
                   ${context.customer_email ? infoRow("Email", context.customer_email) : ""}
                   ${context.customer_phone ? infoRow("Phone", context.customer_phone) : ""}
+                  ${context.booking_source ? infoRow("Booking source", context.booking_source) : ""}
                 </table>
                 ` : ""}
 

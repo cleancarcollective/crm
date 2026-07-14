@@ -5,6 +5,23 @@ function capitalise(s: string) {
 }
 
 /**
+ * Turn the raw booking_source tag into a phrase the team can read at a glance.
+ * "manual" = staff hand-entered it in the CRM (bypasses the website pricing
+ * engine), which is the case worth flagging. Ad-funnel tags keep their tier.
+ */
+function humaniseBookingSource(raw: string | null | undefined): string | undefined {
+  const v = (raw ?? "").trim();
+  if (!v) return undefined;
+  const lower = v.toLowerCase();
+  if (lower === "manual") return "Manual — staff-entered in CRM (not the website form)";
+  if (lower === "website booking flow") return "Website booking form";
+  if (lower.startsWith("ceramic-ad")) return `Ceramic ad funnel (${v})`;
+  if (lower.startsWith("interior-ad")) return `Interior ad funnel (${v})`;
+  if (lower === "orbis-x-migration") return "Migrated from Orbis";
+  return v;
+}
+
+/**
  * The website booking form copies a structured dump of every booking field
  * into `notes` ("SERVICES: ...\nADD-ONS: ...\nVEHICLE: ...\nDATE: ...\nNOTES: ...").
  *
@@ -331,6 +348,7 @@ function buildTemplateContext({
       customer_name: getBookingDisplayName(booking),
       customer_email: booking.contact?.email ?? undefined,
       customer_phone: booking.contact?.phone ?? undefined,
+      booking_source: humaniseBookingSource(booking.booking_source),
     })
   };
 }
