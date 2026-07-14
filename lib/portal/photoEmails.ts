@@ -86,7 +86,7 @@ export async function sendDetailPhotosEmail(args: { bookingId: string }): Promis
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:18px;"><tr>${photoCells}</tr></table>
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:14px;">
                 <tr><td align="center">
-                  <a href="${escapeHtml(`${CRM_BASE_URL}/account`)}" style="display:inline-block;padding:14px 36px;background:#1a1713;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:12px;">See all my photos</a>
+                  <a href="${escapeHtml(`${CRM_BASE_URL}/account?view=photos`)}" style="display:inline-block;padding:14px 36px;background:#1a1713;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:12px;">See all my photos</a>
                 </td></tr>
               </table>
               <p style="margin:0;font-size:13px;line-height:1.6;color:#9e9189;">No password needed - enter your email on the sign-in page and we'll send you a one-tap link. Your bookings, vehicles and photos all live there.</p>
@@ -107,7 +107,7 @@ export async function sendDetailPhotosEmail(args: { bookingId: string }): Promis
 
 The team put together before & after shots of your car (${booking.service_name}, ${dateLabel}). The full set is in your account:
 
-${CRM_BASE_URL}/account
+${CRM_BASE_URL}/account?view=photos
 
 No password needed - enter your email on the sign-in page and we'll send a one-tap link.`;
 

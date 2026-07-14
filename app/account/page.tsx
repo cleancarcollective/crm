@@ -6,7 +6,11 @@ import { getPortalSession } from "@/lib/portal/session";
 
 export const metadata = { title: "My account - Clean Car Collective" };
 
-export default async function PortalHome() {
+export default async function PortalHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await getPortalSession();
   if (!session) redirect("/account/login" as never);
 
@@ -17,5 +21,6 @@ export default async function PortalHome() {
     redirect("/account/login" as never);
   }
 
-  return <PortalDashboard snapshot={snapshot} />;
+  const { view } = await searchParams;
+  return <PortalDashboard snapshot={snapshot} initialView={view} />;
 }

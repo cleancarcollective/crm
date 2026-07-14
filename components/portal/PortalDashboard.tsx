@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PortalBooking, PortalReminder, PortalSnapshot, PortalVehicle } from "@/lib/portal/data";
@@ -40,8 +40,20 @@ function fmtNzd(cents: number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(cents / 100);
 }
 
-export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
+export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSnapshot; initialView?: string }) {
   const router = useRouter();
+  // Arriving from the "see my photos" email: land on the photos, not the
+  // Collective upsell. Hide that CTA for this entry and scroll to photos.
+  const photosFirst = initialView === "photos" && snapshot.photos.length > 0;
+
+  useEffect(() => {
+    if (!photosFirst) return;
+    // Defer past Next's post-navigation scroll restoration so ours wins.
+    const raf = requestAnimationFrame(() => {
+      document.getElementById("portal-photos")?.scrollIntoView({ block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [photosFirst]);
   const shopById = useMemo(
     () => new Map(snapshot.shops.map((s) => [s.id, s])),
     [snapshot.shops]
@@ -104,13 +116,16 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
         </section>
       ) : null}
 
-      <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />
+      {/* From the "see my photos" email: photos lead, no Collective CTA. */}
+      {photosFirst ? <PhotosSection snapshot={snapshot} shopById={shopById} /> : null}
+
+      {photosFirst ? null : <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />}
 
       <WarrantySection snapshot={snapshot} vehicleById={vehicleById} />
 
       <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
       <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
-      <PhotosSection snapshot={snapshot} shopById={shopById} />
+      {photosFirst ? null : <PhotosSection snapshot={snapshot} shopById={shopById} />}
       <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} />
       <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
       <ProfileSection snapshot={snapshot} onChanged={() => router.refresh()} />
@@ -811,7 +826,7 @@ function PhotosSection({
   }
 
   return (
-    <section className="portalSection">
+    <section className="portalSection" id="portal-photos" style={{ scrollMarginTop: 16 }}>
       <h2 className="portalSectionTitle">Your detail photos</h2>
       <p className="portalSectionSub">Before and after shots from the team while working on your car.</p>
       <div className="portalCardList">
