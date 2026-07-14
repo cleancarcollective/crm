@@ -5054,3 +5054,38 @@ textarea {
   color: var(--muted);
   margin-top: 3px;
 }
+
+/* ── Upsell approval (customer) ─────────────────────────────────────── */
+.upsellShell { max-width: 560px; }
+.upsellHead { margin-bottom: 20px; }
+.upsellList { display: flex; flex-direction: column; gap: 16px; }
+.upsellCard {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, rgba(17, 17, 17, 0.1));
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+}
+.upsellCard--declined { opacity: 0.6; }
+.upsellPhotoWrap { position: relative; width: 100%; background: #0d0d0d; }
+.upsellPhoto { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+.upsellPhotoCount {
+  position: absolute; bottom: 10px; right: 10px;
+  background: rgba(0, 0, 0, 0.66); color: #fff;
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+}
+.upsellBody { padding: 16px; }
+.upsellTitleRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.upsellTitle { font-size: 17px; font-weight: 650; margin: 0; }
+.upsellPrice { font-size: 17px; font-weight: 700; white-space: nowrap; }
+.upsellDesc { color: var(--muted); font-size: 14px; margin: 6px 0 0; line-height: 1.5; }
+.upsellActions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.upsellActions .portalPrimaryBtn { width: 100%; justify-content: center; }
+.upsellActions .portalGhostBtn { width: 100%; justify-content: center; }
+.upsellStatus { font-size: 14px; font-weight: 600; margin: 14px 0 0; }
+.upsellStatus--added { color: var(--success, #1e9e52); }
+.upsellStatus--declined { color: var(--muted); font-weight: 500; }
+.upsellFoot { margin-top: 22px; text-align: center; }
+.upsellTotal { font-size: 15px; margin-bottom: 10px; }
+.upsellDone { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
+.upsellFootHint { color: var(--muted); font-size: 13px; }

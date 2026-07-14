@@ -8,6 +8,7 @@ import { getBookingAddOnsLabel } from "@/lib/bookings/addOns";
 import { ContactNameLink } from "@/components/dashboard/ContactNameLink";
 import { DateTimeField } from "@/components/dashboard/DateTimeField";
 import { DetailPhotoPanel } from "@/components/dashboard/DetailPhotoPanel";
+import { UpsellPanel } from "@/components/dashboard/UpsellPanel";
 import { SeriesEditFormModal, SeriesScopeChoiceModal } from "@/components/dashboard/SeriesScopeModals";
 import { getBookingDisplayName, getVehicleLabel, getZonedDateKey } from "@/lib/dashboard/bookings";
 import type { BookingWithRelations, ShopRecord } from "@/lib/dashboard/types";
@@ -364,6 +365,8 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
       </div>
 
       <DetailPhotoPanel bookingId={booking.id} serviceName={booking.service_name} />
+
+      <UpsellPanel bookingId={booking.id} />
 
       {/* Raw payload */}
       <div className="detailPanel">
