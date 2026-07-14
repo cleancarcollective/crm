@@ -194,12 +194,12 @@ Your ceramic coating on ${vehicleLabel} is due for its 6-monthly maintenance was
 
 Book it here: ${bookingUrl}
 
-You can see your warranty, included washes and history anytime in your account: ${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account`,
+You can see your warranty details and history anytime in your account: ${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account`,
         HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
 <p>${contact.first_name ? `Hi ${contact.first_name},` : "Hi,"}</p>
 <p>Your ceramic coating on <strong>${vehicleLabel}</strong> is due for its 6-monthly maintenance wash (around ${dueLabel}). A proper decontamination wash keeps the coating performing and keeps your warranty valid.</p>
 <p style="margin:22px 0;"><a href="${bookingUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Book my maintenance wash</a></p>
-<p style="color:#6f6860;font-size:13px;">See your warranty, included washes and history anytime in <a href="${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account" style="color:#5c5148;">your account</a>.</p>
+<p style="color:#6f6860;font-size:13px;">See your warranty details and history anytime in <a href="${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account" style="color:#5c5148;">your account</a>.</p>
 </div>`,
         Metadata: { template_key: "warranty-wash-reminder", warranty_id: w.id },
       });

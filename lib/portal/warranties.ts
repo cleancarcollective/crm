@@ -77,7 +77,7 @@ export async function createWarrantiesForNewCoatings(): Promise<number> {
   const since = new Date(Date.now() - 14 * 86400000).toISOString();
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, shop_id, contact_id, vehicle_id, service_name, status, scheduled_start")
+    .select("id, shop_id, contact_id, vehicle_id, service_name, status, scheduled_start, notes")
     .ilike("service_name", "%ceramic%")
     .neq("status", "cancelled")
     .gte("scheduled_start", since)
@@ -89,6 +89,10 @@ export async function createWarrantiesForNewCoatings(): Promise<number> {
     const tier = detectTier(b.service_name ?? "");
     const applied = new Date(b.scheduled_start);
     const term = TIER_TERM_MONTHS[tier];
+    // Free maintenance washes were an ad-funnel offer, not standard.
+    // Only bookings from that funnel (marker in notes) carry them;
+    // staff adjust washes_included per row for anything manual.
+    const adFunnel = /ceramic winter ad funnel|free maintenance wash/i.test((b as { notes?: string | null }).notes ?? "");
     const { error } = await supabase.from("coating_warranties").insert({
       booking_id: b.id,
       contact_id: b.contact_id,
@@ -98,7 +102,7 @@ export async function createWarrantiesForNewCoatings(): Promise<number> {
       tier,
       applied_at: applied.toISOString(),
       expires_at: term ? addMonths(applied, term).toISOString() : null,
-      washes_included: 3,
+      washes_included: adFunnel ? 3 : 0,
       washes_used: 0,
       next_wash_due_at: nextFutureAnniversary(applied, 6).toISOString(),
       status: "active",

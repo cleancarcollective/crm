@@ -68,7 +68,7 @@ function nextFutureAnniversary(appliedAt: Date, stepMonths: number): Date {
   const supabase = getSupabaseAdminClient();
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, shop_id, contact_id, vehicle_id, service_name, status, scheduled_start")
+    .select("id, shop_id, contact_id, vehicle_id, service_name, status, scheduled_start, notes")
     .ilike("service_name", "%ceramic%")
     .neq("status", "cancelled")
     .order("scheduled_start", { ascending: true });
@@ -104,7 +104,7 @@ function nextFutureAnniversary(appliedAt: Date, stepMonths: number): Date {
       tier,
       applied_at: applied.toISOString(),
       expires_at: expiresAt?.toISOString() ?? null,
-      washes_included: 3,
+      washes_included: /ceramic winter ad funnel|free maintenance wash/i.test(b.notes ?? "") ? 3 : 0,
       washes_used: 0,
       next_wash_due_at: expired ? null : nextFutureAnniversary(applied, 6).toISOString(),
       status: expired ? "expired" : "active",

@@ -415,9 +415,11 @@ function WarrantySection({
 
               {active ? (
                 <div className="portalWarrantyMeta">
-                  <span>
-                    <strong>{washesLeft}</strong> of {w.washes_included} free maintenance washes left
-                  </span>
+                  {w.washes_included > 0 ? (
+                    <span>
+                      <strong>{washesLeft}</strong> of {w.washes_included} free maintenance washes left
+                    </span>
+                  ) : null}
                   {nextWash ? (
                     upcomingWash ? (
                       <span className="portalWarrantyOk">
