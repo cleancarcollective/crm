@@ -99,10 +99,10 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
 // ── Join the Collective ────────────────────────────────────────────────
 
 const MEMBERSHIP_PRICING: Record<string, { fee: number; credit: number }> = {
-  "Coupe / Hatchback": { fee: 108, credit: 120 },
-  "Sedan / Wagon": { fee: 112, credit: 125 },
-  "Small / Medium SUV": { fee: 117, credit: 130 },
-  "Large SUV / Ute": { fee: 126, credit: 140 },
+  "Coupe / Hatchback": { fee: 108, credit: 125 },
+  "Sedan / Wagon": { fee: 112, credit: 130 },
+  "Small / Medium SUV": { fee: 117, credit: 135 },
+  "Large SUV / Ute": { fee: 126, credit: 145 },
 };
 
 function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onChanged: () => void }) {
@@ -172,13 +172,14 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
         <p className="portalEyebrow" style={{ marginBottom: 2 }}>New</p>
         <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Join the Collective</h2>
         <p className="portalCardMeta" style={{ marginBottom: 10 }}>
-          ${pricing.fee}/mo +GST → <strong>${pricing.credit}/mo of detailing credit</strong> that never expires.
+          ${pricing.fee}/mo +GST → <strong>${pricing.credit}/mo of detailing credit</strong> —
+          that&rsquo;s ${pricing.credit - pricing.fee} of bonus value every month (15%+).
         </p>
         <ul className="portalPerkList">
-          <li>Credit banks automatically — skip, save up, or spend it on any service</li>
-          <li>Free mobile service + valet pickup &amp; drop-off</li>
-          <li>Priority booking windows + extended pickup hours</li>
-          <li>Photo updates of every detail, right here in your account</li>
+          <li>Credit never expires — skip a month, bank it, spend it on any service</li>
+          <li>Free mobile service + valet pickup &amp; drop-off (members only)</li>
+          <li>Priority booking — first pick of the calendar + extended hours</li>
+          <li>Pro photos of every detail, right here in your account</li>
         </ul>
         {error ? <p className="portalError">{error}</p> : null}
         <div className="portalCardActions">
