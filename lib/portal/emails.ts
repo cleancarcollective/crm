@@ -155,6 +155,58 @@ The link works once and expires in 20 minutes. Didn't request this? Ignore this 
   }
 }
 
+// ── Checkout code (6-digit OTP) ────────────────────────────────────────
+
+export async function sendCheckoutCodeEmail(args: {
+  email: string;
+  code: string;
+  shopId: string | null;
+  contactId: string | null;
+  firstName: string | null;
+}) {
+  const subject = `${args.code} is your Clean Car Collective code`;
+  const greeting = args.firstName ? `Hi ${escapeHtml(args.firstName)},` : "Hi,";
+
+  const html = shell("Your booking code", `
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#5c5148;">${greeting}<br/>
+    Enter this code on the booking page to load your saved details:</p>
+    <p style="margin:0 0 18px;text-align:center;">
+      <span style="display:inline-block;padding:14px 28px;background:#f7f3ee;border:1px solid #e8e0d6;border-radius:12px;font-size:32px;font-weight:800;letter-spacing:0.35em;color:#1a1713;">${escapeHtml(args.code)}</span>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#9e9189;">The code expires in 10 minutes and works once. Didn't request it? You can safely ignore this email.</p>
+  `);
+
+  const text = `${args.firstName ? `Hi ${args.firstName},` : "Hi,"}
+
+Your Clean Car Collective booking code: ${args.code}
+
+Enter it on the booking page to load your saved details. Expires in 10 minutes, works once. Didn't request it? Ignore this email.`;
+
+  const messageId = await recordEmail({
+    shopId: args.shopId,
+    contactId: args.contactId,
+    subject,
+    html,
+    to: args.email,
+    templateKey: "portal-checkout-code",
+  });
+
+  try {
+    const res = await sendViaGmailSmtp({
+      From: PORTAL_FROM,
+      To: args.email,
+      Subject: subject,
+      TextBody: text,
+      HtmlBody: html,
+      Metadata: { template_key: "portal-checkout-code", email_message_id: messageId ?? "none" },
+    });
+    await markEmail(messageId, "sent", res.MessageID);
+  } catch (err) {
+    await markEmail(messageId, "failed");
+    throw err;
+  }
+}
+
 // ── Detail-due reminder ────────────────────────────────────────────────
 
 export async function sendDetailDueEmail(args: {
