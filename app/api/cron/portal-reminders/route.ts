@@ -178,10 +178,12 @@ async function sendWarrantyWashReminders(): Promise<number> {
       const vehicleLabel = vehicle
         ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ")
         : "your car";
+      // Maintenance wash = a Deluxe Exterior detail; preselect it, and
+      // route to the customer's own shop's booking form.
       const bookingUrl =
-        shop.slug === "christchurch"
+        (shop.slug === "christchurch"
           ? "https://cleancarcollective.co.nz/christchurch-make-a-booking"
-          : "https://cleancarcollective.co.nz/make-a-booking";
+          : "https://cleancarcollective.co.nz/make-a-booking") + "/?service=deluxe-exterior";
       const dueLabel = new Date(w.next_wash_due_at!).toLocaleDateString("en-NZ", { day: "numeric", month: "long" });
 
       await sendViaGmailSmtp({

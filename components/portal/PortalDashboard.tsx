@@ -350,7 +350,10 @@ function WarrantySection({
   vehicleById: Map<string, PortalVehicle>;
 }) {
   if (snapshot.warranties.length === 0) return null;
-  const bookUrl = BOOKING_URLS[snapshot.primaryShopSlug] ?? BOOKING_URLS.wellington;
+  const fallbackBookUrl = BOOKING_URLS[snapshot.primaryShopSlug] ?? BOOKING_URLS.wellington;
+  // A warranty wash belongs at the shop that applied the coating, so
+  // route each warranty's book links to its own shop (not just home shop).
+  const shopSlugById = new Map(snapshot.shops.map((s) => [s.id, s.slug]));
 
   // Is a maintenance-wash-ish booking already on the calendar?
   const upcomingWash = snapshot.upcomingBookings.find((b) =>
@@ -371,6 +374,11 @@ function WarrantySection({
           const active = w.status === "active";
           const washesLeft = Math.max(0, w.washes_included - w.washes_used);
           const nextWash = w.next_wash_due_at ? new Date(w.next_wash_due_at) : null;
+          const washesExpire = w.washes_expire_at ? new Date(w.washes_expire_at) : null;
+          // Maintenance wash = a Deluxe Exterior detail, booked at the shop
+          // that applied this coating (falls back to the home shop).
+          const bookUrl = BOOKING_URLS[shopSlugById.get(w.shop_id) ?? ""] ?? fallbackBookUrl;
+          const washBookUrl = `${bookUrl}?service=deluxe-exterior`;
 
           // Warranty progress: elapsed vs term.
           let pct: number | null = null;
@@ -419,9 +427,15 @@ function WarrantySection({
 
               {active ? (
                 <div className="portalWarrantyMeta">
-                  {w.washes_included > 0 ? (
+                  {w.washes_included > 0 && washesLeft > 0 ? (
                     <span>
                       <strong>{washesLeft}</strong> of {w.washes_included} free maintenance washes left
+                      {washesExpire ? (
+                        <>
+                          {" "}· use by {washesExpire.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })} ·{" "}
+                          <a href={washBookUrl} className="portalLinkButton">book a free wash →</a>
+                        </>
+                      ) : null}
                     </span>
                   ) : null}
                   {nextWash ? (
@@ -432,7 +446,7 @@ function WarrantySection({
                     ) : (
                       <span>
                         Next wash due {nextWash.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })} ·{" "}
-                        <a href={bookUrl} className="portalLinkButton">book it →</a>
+                        <a href={washBookUrl} className="portalLinkButton">book it →</a>
                       </span>
                     )
                   ) : null}

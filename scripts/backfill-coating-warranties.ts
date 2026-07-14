@@ -64,6 +64,15 @@ function nextFutureAnniversary(appliedAt: Date, stepMonths: number): Date {
   return next;
 }
 
+// End of NZ spring (30 Nov) on/after the coating date - free ad-promo
+// wash deadline ("through to spring").
+function endOfSpringAfter(appliedAt: Date): Date {
+  const year = appliedAt.getFullYear();
+  let end = new Date(`${year}-11-30T23:59:59+13:00`);
+  if (end.getTime() < appliedAt.getTime()) end = new Date(`${year + 1}-11-30T23:59:59+13:00`);
+  return end;
+}
+
 (async () => {
   const supabase = getSupabaseAdminClient();
   const { data: bookings } = await supabase
@@ -106,6 +115,7 @@ function nextFutureAnniversary(appliedAt: Date, stepMonths: number): Date {
       expires_at: expiresAt?.toISOString() ?? null,
       washes_included: /ceramic winter ad funnel|free maintenance wash/i.test(b.notes ?? "") ? 3 : 0,
       washes_used: 0,
+      washes_expire_at: /ceramic winter ad funnel|free maintenance wash/i.test(b.notes ?? "") ? endOfSpringAfter(applied).toISOString() : null,
       next_wash_due_at: expired ? null : nextFutureAnniversary(applied, 6).toISOString(),
       status: expired ? "expired" : "active",
       notes: tier === "unknown" ? "Backfilled - tier/term to be confirmed" : "Backfilled from booking history",

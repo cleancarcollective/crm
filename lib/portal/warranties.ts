@@ -18,6 +18,7 @@ export type CoatingWarranty = {
   expires_at: string | null;
   washes_included: number;
   washes_used: number;
+  washes_expire_at: string | null;
   next_wash_due_at: string | null;
   status: "active" | "expired" | "void";
 };
@@ -57,12 +58,24 @@ export function nextFutureAnniversary(appliedAt: Date, stepMonths: number): Date
   return next;
 }
 
+/**
+ * End of NZ spring (30 Nov) on/after the coating date - the deadline for
+ * the winter ad promo's free maintenance washes ("through to spring").
+ */
+export function endOfSpringAfter(appliedAt: Date): Date {
+  let year = appliedAt.getFullYear();
+  // 30 Nov 23:59:59 NZDT (UTC+13 in November).
+  let end = new Date(`${year}-11-30T23:59:59+13:00`);
+  if (end.getTime() < appliedAt.getTime()) end = new Date(`${year + 1}-11-30T23:59:59+13:00`);
+  return end;
+}
+
 export async function getWarranties(contactIds: string[]): Promise<CoatingWarranty[]> {
   if (contactIds.length === 0) return [];
   const supabase = getSupabaseAdminClient();
   const { data } = await supabase
     .from("coating_warranties")
-    .select("id, booking_id, contact_id, shop_id, vehicle_id, coating_name, tier, applied_at, expires_at, washes_included, washes_used, next_wash_due_at, status")
+    .select("id, booking_id, contact_id, shop_id, vehicle_id, coating_name, tier, applied_at, expires_at, washes_included, washes_used, washes_expire_at, next_wash_due_at, status")
     .in("contact_id", contactIds)
     .neq("status", "void")
     .order("applied_at", { ascending: false });
@@ -106,6 +119,7 @@ export async function createWarrantiesForNewCoatings(): Promise<number> {
       expires_at: term ? addMonths(applied, term).toISOString() : null,
       washes_included: adFunnel ? 3 : 0,
       washes_used: 0,
+      washes_expire_at: adFunnel ? endOfSpringAfter(applied).toISOString() : null,
       next_wash_due_at: nextFutureAnniversary(applied, 6).toISOString(),
       status: "active",
       notes: "Auto-created on job completion",
