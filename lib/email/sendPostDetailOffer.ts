@@ -1,7 +1,7 @@
 /**
  * Post-detail recurring-discount touchpoint emails (Phase B).
  *
- * One renderer covers all 4 touchpoints — copy varies by featured cadence
+ * One renderer covers all 4 touchpoints - copy varies by featured cadence
  * + featured discount %. Inline HTML, same shell pattern as
  * sendSeriesConfirmation.ts.
  *
@@ -142,7 +142,7 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
     });
     return { skipped: false as const, providerMessageId: response.MessageID };
   } catch (err) {
-    // Fall back to Postmark if Gmail SMTP fails — same belt+braces pattern
+    // Fall back to Postmark if Gmail SMTP fails - same belt+braces pattern
     // as elsewhere in the codebase. (Not strictly required, but lets a
     // touchpoint still go out if SMTP creds rotate without redeploy.)
     console.warn("Post-detail offer email via SMTP failed, trying Postmark fallback", {

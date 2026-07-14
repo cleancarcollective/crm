@@ -6,6 +6,7 @@
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getMemberships, type MembershipRecord } from "@/lib/portal/membership";
+import { getWarranties, type CoatingWarranty } from "@/lib/portal/warranties";
 import { getPortalContacts, type PortalContact } from "@/lib/portal/session";
 
 export type PortalShop = { id: string; slug: string; name: string; timezone: string };
@@ -73,6 +74,7 @@ export type PortalSnapshot = {
   upcomingBookings: PortalBooking[];
   pastBookings: PortalBooking[];
   photos: PortalPhoto[];
+  warranties: CoatingWarranty[];
   stats: PortalStats;
   reminders: PortalReminder[];
   /** cents, per shop_id */
@@ -117,6 +119,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     supabase.from("credit_ledger").select("shop_id, delta_cents").in("contact_id", contactIds),
   ]);
   const memberships = await getMemberships(contactIds);
+  const warranties = await getWarranties(contactIds);
   const { data: photoRows } = await supabase
     .from("detail_photos")
     .select("id, booking_id, public_url, created_at")
@@ -176,6 +179,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     upcomingBookings: upcoming,
     pastBookings: past,
     photos: (photoRows ?? []) as PortalPhoto[],
+    warranties,
     stats: { lifetimeDetails, lifetimeSpendCents, memberBonusCents },
     reminders: (remindersRes.data ?? []) as PortalReminder[],
     creditByShop,

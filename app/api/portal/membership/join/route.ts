@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       await sendViaGmailSmtp({
         From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
         To: email,
-        Subject: `Switch on your $${credit}/mo detailing credit — 2 minutes`,
+        Subject: `Switch on your $${credit}/mo detailing credit - 2 minutes`,
         TextBody: `${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}
 
 Welcome to the Collective. One quick step and your credit starts - set up your monthly payment (about 2 minutes, card or Apple/Google Pay):
@@ -152,7 +152,7 @@ Cancel anytime. Banked credit stays yours.`,
       await sendViaGmailSmtp({
         From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
         To: email,
-        Subject: "You're in the Collective — we'll set you up",
+        Subject: "You're in the Collective - we'll set you up",
         TextBody: `${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}
 
 Your Collective signup is locked in - nothing to pay today. We'll be in touch within one business day to set up your monthly payment.

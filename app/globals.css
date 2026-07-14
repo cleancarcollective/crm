@@ -5016,3 +5016,20 @@ textarea {
 .portalProtectionFill--low {
   background: var(--warning);
 }
+
+/* ── Warranty cards ─────────────────────────────────────────── */
+
+.portalWarrantyMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px 18px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.portalWarrantyOk {
+  color: var(--success);
+  font-weight: 600;
+}

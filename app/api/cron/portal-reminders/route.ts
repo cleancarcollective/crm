@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { sendDetailDueEmail } from "@/lib/portal/emails";
 import { createMembershipCheckout, stripeConfigured } from "@/lib/portal/stripe";
+import { createWarrantiesForNewCoatings } from "@/lib/portal/warranties";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 function addMonths(date: Date, months: number): Date {
@@ -118,8 +119,109 @@ export async function GET(req: NextRequest) {
   }
 
   const nudged = await nudgeStalledPendingMemberships();
+  const newWarranties = await createWarrantiesForNewCoatings().catch((err) => {
+    console.error("warranty auto-create failed", err);
+    return 0;
+  });
+  const washReminders = await sendWarrantyWashReminders().catch((err) => {
+    console.error("warranty wash reminders failed", err);
+    return 0;
+  });
 
-  return NextResponse.json({ ok: true, sent, failed: errors.length, membership_nudges: nudged });
+  return NextResponse.json({
+    ok: true,
+    sent,
+    failed: errors.length,
+    membership_nudges: nudged,
+    new_warranties: newWarranties,
+    wash_reminders: washReminders,
+  });
+}
+
+/**
+ * 6-monthly maintenance-wash reminders for active coating warranties.
+ * Fires when next_wash_due_at is within 14 days (or past), at most one
+ * reminder per 5 months per warranty, then rolls the due date forward.
+ */
+async function sendWarrantyWashReminders(): Promise<number> {
+  const supabase = getSupabaseAdminClient();
+  const soon = new Date(Date.now() + 14 * 86400000).toISOString();
+  const { data: due } = await supabase
+    .from("coating_warranties")
+    .select("id, contact_id, shop_id, vehicle_id, coating_name, tier, applied_at, expires_at, next_wash_due_at, last_wash_reminder_at")
+    .eq("status", "active")
+    .not("next_wash_due_at", "is", null)
+    .lte("next_wash_due_at", soon)
+    .limit(30);
+
+  const fiveMonthsAgo = Date.now() - 150 * 86400000;
+  let sentCount = 0;
+
+  for (const w of due ?? []) {
+    try {
+      if (w.last_wash_reminder_at && new Date(w.last_wash_reminder_at).getTime() > fiveMonthsAgo) continue;
+      // Expired since scheduling? Mark and move on.
+      if (w.expires_at && new Date(w.expires_at).getTime() < Date.now()) {
+        await supabase.from("coating_warranties").update({ status: "expired", updated_at: new Date().toISOString() }).eq("id", w.id);
+        continue;
+      }
+
+      const [{ data: contact }, { data: shop }, { data: vehicle }] = await Promise.all([
+        supabase.from("contacts").select("first_name, email").eq("id", w.contact_id).single(),
+        supabase.from("shops").select("slug, name").eq("id", w.shop_id).single(),
+        w.vehicle_id
+          ? supabase.from("vehicles").select("make, model, year").eq("id", w.vehicle_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      if (!contact?.email || !shop) continue;
+
+      const vehicleLabel = vehicle
+        ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ")
+        : "your car";
+      const bookingUrl =
+        shop.slug === "christchurch"
+          ? "https://cleancarcollective.co.nz/christchurch-make-a-booking"
+          : "https://cleancarcollective.co.nz/make-a-booking";
+      const dueLabel = new Date(w.next_wash_due_at!).toLocaleDateString("en-NZ", { day: "numeric", month: "long" });
+
+      await sendViaGmailSmtp({
+        From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
+        To: contact.email,
+        Subject: `Maintenance wash due - keep your ceramic warranty valid`,
+        TextBody: `${contact.first_name ? `Hi ${contact.first_name},` : "Hi,"}
+
+Your ceramic coating on ${vehicleLabel} is due for its 6-monthly maintenance wash (around ${dueLabel}). A proper decontamination wash keeps the coating performing and keeps your warranty valid.
+
+Book it here: ${bookingUrl}
+
+You can see your warranty, included washes and history anytime in your account: ${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account`,
+        HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
+<p>${contact.first_name ? `Hi ${contact.first_name},` : "Hi,"}</p>
+<p>Your ceramic coating on <strong>${vehicleLabel}</strong> is due for its 6-monthly maintenance wash (around ${dueLabel}). A proper decontamination wash keeps the coating performing and keeps your warranty valid.</p>
+<p style="margin:22px 0;"><a href="${bookingUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Book my maintenance wash</a></p>
+<p style="color:#6f6860;font-size:13px;">See your warranty, included washes and history anytime in <a href="${process.env.CRM_BASE_URL ?? "https://crm.cleancarcollective.co.nz"}/account" style="color:#5c5148;">your account</a>.</p>
+</div>`,
+        Metadata: { template_key: "warranty-wash-reminder", warranty_id: w.id },
+      });
+
+      // Roll the due date to the next 6-month anniversary.
+      let next = new Date(w.next_wash_due_at!);
+      while (next.getTime() < Date.now()) next.setMonth(next.getMonth() + 6);
+      if (next.getTime() === new Date(w.next_wash_due_at!).getTime()) next.setMonth(next.getMonth() + 6);
+      await supabase
+        .from("coating_warranties")
+        .update({
+          last_wash_reminder_at: new Date().toISOString(),
+          next_wash_due_at: next.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", w.id);
+      sentCount += 1;
+    } catch (err) {
+      console.error("wash reminder failed", w.id, err);
+    }
+  }
+  return sentCount;
 }
 
 /**

@@ -79,7 +79,7 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
         <section className="portalCreditBanner">
           <span className="portalCreditAmount">{fmtNzd(totalCreditCents)}</span>
           <span>
-            credit on your account — mention it when booking and we&rsquo;ll apply it to
+            credit on your account - mention it when booking and we&rsquo;ll apply it to
             your next detail.
           </span>
         </section>
@@ -105,6 +105,8 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
       ) : null}
 
       <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />
+
+      <WarrantySection snapshot={snapshot} vehicleById={vehicleById} />
 
       <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
       <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
@@ -187,7 +189,7 @@ function ProfileSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onC
         ) : (
           <>
             <h3 className="portalCardTitle">
-              {[contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || contact?.full_name || "—"}
+              {[contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || contact?.full_name || "-"}
             </h3>
             <p className="portalCardMeta">{[snapshot.email, contact?.phone].filter(Boolean).join(" · ")}</p>
           </>
@@ -263,23 +265,23 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
               <p className="portalEyebrow" style={{ marginBottom: 2 }}>The Collective</p>
               <h2 className="portalCardTitle" style={{ fontSize: 17 }}>
                 {membership.status === "active"
-                  ? `Member — $${(membership.monthly_credit_cents / 100).toFixed(0)} credit lands monthly`
+                  ? `Member - $${(membership.monthly_credit_cents / 100).toFixed(0)} credit lands monthly`
                   : membership.status === "past_due"
-                    ? "Payment issue — credit paused"
-                    : "One step left — set up your monthly payment"}
+                    ? "Payment issue - credit paused"
+                    : "One step left - set up your monthly payment"}
               </h2>
               <p className="portalCardMeta">
                 ${(membership.monthly_fee_cents / 100).toFixed(0)}/mo +GST · {membership.size_tier} ·
-                credit stacks month to month — spend it on anything
+                credit stacks month to month - spend it on anything
               </p>
               {membership.status === "active" && totalBanked > 0 ? (
                 <p className="portalCardMeta" style={{ marginTop: 4, fontWeight: 600, color: "var(--success)" }}>
-                  You&rsquo;ve banked ${(totalBanked / 100).toFixed(0)} — it&rsquo;s yours whenever you&rsquo;re ready.
+                  You&rsquo;ve banked ${(totalBanked / 100).toFixed(0)} - it&rsquo;s yours whenever you&rsquo;re ready.
                 </p>
               ) : null}
               {membership.status === "past_due" ? (
                 <p className="portalCardMeta" style={{ marginTop: 4 }}>
-                  Your banked credit is safe — fix the payment and it keeps building.
+                  Your banked credit is safe - fix the payment and it keeps building.
                 </p>
               ) : null}
             </div>
@@ -291,7 +293,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
           <div className="portalCardActions">
             {membership.status === "pending" ? (
               <button type="button" className="portalPrimaryBtn portalPrimaryBtn--compact" onClick={join} disabled={pending}>
-                {pending ? "Opening…" : "Complete setup — 2 min"}
+                {pending ? "Opening…" : "Complete setup - 2 min"}
               </button>
             ) : (
               <button type="button" className="portalGhostBtn" onClick={openBilling} disabled={pending}>
@@ -310,13 +312,13 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
         <p className="portalEyebrow" style={{ marginBottom: 2 }}>The Collective</p>
         <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Detailing credit that builds every month</h2>
         <p className="portalCardMeta" style={{ marginBottom: 10 }}>
-          <strong>${pricing.credit}/mo of detailing credit</strong> for ${pricing.fee}/mo +GST —
+          <strong>${pricing.credit}/mo of detailing credit</strong> for ${pricing.fee}/mo +GST -
           ${pricing.credit - pricing.fee} of bonus value every month (15%+).
         </p>
         <ul className="portalPerkList">
-          <li>Get busy? Credit stacks — bank a quiet month and put it toward a bigger detail</li>
+          <li>Get busy? Credit stacks - bank a quiet month and put it toward a bigger detail</li>
           <li>Free mobile service + valet pickup &amp; drop-off (members only)</li>
-          <li>Priority booking — first pick of the calendar + extended hours</li>
+          <li>Priority booking - first pick of the calendar + extended hours</li>
           <li>Pro photos of every detail, right here in your account</li>
         </ul>
         {error ? <p className="portalError">{error}</p> : null}
@@ -326,6 +328,118 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
           </button>
           <span className="portalCardMeta">No lock-in · cancel anytime · banked credit stays yours</span>
         </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Ceramic warranties ─────────────────────────────────────────────────
+
+const TIER_LABEL: Record<string, string> = {
+  bronze: "Bronze · 1 year",
+  silver: "Silver · 3 years",
+  gold: "Gold · 5 years",
+  unknown: "Term to be confirmed",
+};
+
+function WarrantySection({
+  snapshot,
+  vehicleById,
+}: {
+  snapshot: PortalSnapshot;
+  vehicleById: Map<string, PortalVehicle>;
+}) {
+  if (snapshot.warranties.length === 0) return null;
+  const bookUrl = BOOKING_URLS[snapshot.primaryShopSlug] ?? BOOKING_URLS.wellington;
+
+  // Is a maintenance-wash-ish booking already on the calendar?
+  const upcomingWash = snapshot.upcomingBookings.find((b) =>
+    /wash|exterior|deluxe|maintenance/i.test(b.service_name)
+  );
+
+  return (
+    <section className="portalSection">
+      <h2 className="portalSectionTitle">Ceramic coating warranty</h2>
+      <p className="portalSectionSub">
+        A maintenance wash every 6 months keeps the coating performing and your warranty valid.
+      </p>
+      <div className="portalCardList">
+        {snapshot.warranties.map((w) => {
+          const vehicle = w.vehicle_id ? vehicleById.get(w.vehicle_id) : undefined;
+          const applied = new Date(w.applied_at);
+          const expires = w.expires_at ? new Date(w.expires_at) : null;
+          const active = w.status === "active";
+          const washesLeft = Math.max(0, w.washes_included - w.washes_used);
+          const nextWash = w.next_wash_due_at ? new Date(w.next_wash_due_at) : null;
+
+          // Warranty progress: elapsed vs term.
+          let pct: number | null = null;
+          if (expires) {
+            const total = expires.getTime() - applied.getTime();
+            pct = Math.round(Math.max(0, Math.min(1, (expires.getTime() - Date.now()) / total)) * 1000) / 1000;
+          }
+
+          return (
+            <div key={w.id} className="portalCard">
+              <div className="portalCardTop">
+                <div>
+                  <h3 className="portalCardTitle">
+                    {TIER_LABEL[w.tier]} {vehicle ? `· ${vehicleLabel(vehicle)}` : ""}
+                  </h3>
+                  <p className="portalCardMeta">
+                    Applied {applied.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}
+                    {expires
+                      ? ` · valid until ${expires.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}`
+                      : " · term being confirmed by the team"}
+                  </p>
+                </div>
+                <span className={`portalBadge ${active ? "portalBadge--confirmed" : ""}`}>
+                  {active ? "active" : w.status}
+                </span>
+              </div>
+
+              {pct !== null && active ? (
+                <div className="portalProtection">
+                  <div className="portalProtectionTop">
+                    <span>Warranty</span>
+                    <span>{Math.round(pct * 100)}% remaining</span>
+                  </div>
+                  <div className="portalProtectionTrack">
+                    <div
+                      className={`portalProtectionFill${pct <= 0.2 ? " portalProtectionFill--low" : ""}`}
+                      style={{ width: `${Math.max(3, pct * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {active ? (
+                <div className="portalWarrantyMeta">
+                  <span>
+                    <strong>{washesLeft}</strong> of {w.washes_included} free maintenance washes left
+                  </span>
+                  {nextWash ? (
+                    upcomingWash ? (
+                      <span className="portalWarrantyOk">
+                        ✓ Wash booked for {new Date(upcomingWash.scheduled_start).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}
+                      </span>
+                    ) : (
+                      <span>
+                        Next wash due {nextWash.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })} ·{" "}
+                        <a href={bookUrl} className="portalLinkButton">book it →</a>
+                      </span>
+                    )
+                  ) : null}
+                </div>
+              ) : (
+                <p className="portalCardMeta" style={{ marginTop: 8 }}>
+                  This warranty has ended. A fresh coating restarts full protection ·{" "}
+                  <a href={bookUrl} className="portalLinkButton">talk to us →</a>
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -350,7 +464,7 @@ function BookingsSection({
       {snapshot.upcomingBookings.length === 0 ? (
         <div className="portalEmpty">
           <p>No upcoming bookings.</p>
-          <p className="portalEmptySub">Your car misses you — set a reminder below or book now.</p>
+          <p className="portalEmptySub">Your car misses you - set a reminder below or book now.</p>
         </div>
       ) : (
         <div className="portalCardList">
@@ -429,7 +543,7 @@ function BookingCard({
       </div>
 
       {mode === "done" ? (
-        <p className="portalCardNote">✓ Change request sent — the team will confirm by email.</p>
+        <p className="portalCardNote">✓ Change request sent - the team will confirm by email.</p>
       ) : mode === "idle" ? (
         <div className="portalCardActions">
           <button type="button" className="portalGhostBtn" onClick={() => setMode("reschedule")}>
@@ -551,7 +665,7 @@ function RemindersSection({
         ) : null}
       </div>
       <p className="portalSectionSub">
-        Not ready to lock in a slot? We&rsquo;ll email you when the car&rsquo;s due — a week early,
+        Not ready to lock in a slot? We&rsquo;ll email you when the car&rsquo;s due - a week early,
         so you get first pick of the calendar.
       </p>
 
@@ -754,7 +868,7 @@ function ProtectionBar({ vehicleId, snapshot, bookUrl }: { vehicleId: string; sn
         <span>{prot.label}</span>
         <span className={pct <= 0 ? "portalProtectionExpired" : undefined}>
           {pct <= 0 ? (
-            <a href={bookUrl} style={{ color: "inherit" }}>expired — book a top-up →</a>
+            <a href={bookUrl} style={{ color: "inherit" }}>expired - book a top-up →</a>
           ) : weeksLeft > 8 ? (
             `${Math.round(weeksLeft / 4.345)} months left`
           ) : (
@@ -838,7 +952,7 @@ function GarageSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onCh
                 <div>
                   <h3 className="portalCardTitle">{vehicleLabel(v)}</h3>
                   <p className="portalCardMeta">
-                    {[v.rego, v.size].filter(Boolean).join(" · ") || "—"}
+                    {[v.rego, v.size].filter(Boolean).join(" · ") || "-"}
                   </p>
                 </div>
                 <button
