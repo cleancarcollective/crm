@@ -14,7 +14,24 @@ import type { UpsellOfferRecord } from "@/lib/upsells/data";
 
 const MAX_PHOTOS = 4;
 
-async function compressImage(file: File, maxW = 1600): Promise<string> {
+function stampText(ms: number): string {
+  return new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(ms));
+}
+
+/**
+ * Resize + burn a capture timestamp onto the photo (bottom-left) so the
+ * damage record is self-evidencing. `takenAt` is the device capture time
+ * (File.lastModified), falling back to now.
+ */
+async function compressImage(file: File, takenAt: number, maxW = 1600): Promise<string> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, maxW / bmp.width);
   const w = Math.round(bmp.width * scale);
@@ -22,7 +39,24 @@ async function compressImage(file: File, maxW = 1600): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bmp, 0, 0, w, h);
+
+  const label = stampText(takenAt);
+  const fontPx = Math.max(16, Math.round(w * 0.028));
+  ctx.font = `600 ${fontPx}px 'Helvetica Neue', Arial, sans-serif`;
+  const padX = Math.round(fontPx * 0.6);
+  const padY = Math.round(fontPx * 0.4);
+  const tw = ctx.measureText(label).width;
+  const boxH = fontPx + padY * 2;
+  const bx = Math.round(fontPx * 0.5);
+  const by = h - boxH - Math.round(fontPx * 0.5);
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(bx, by, tw + padX * 2, boxH);
+  ctx.fillStyle = "#ffffff";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, bx + padX, by + boxH / 2 + 1);
+
   return canvas.toDataURL("image/jpeg", 0.82);
 }
 
@@ -33,6 +67,7 @@ type Draft = {
   durationMin: number;
   description: string;
   photos: string[];
+  capturedAtMs: number | null;
 };
 
 function fmt(cents: number) {
@@ -49,6 +84,7 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
   const [duration, setDuration] = useState<string>("");
   const [desc, setDesc] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoTimes, setPhotoTimes] = useState<number[]>([]);
   const [items, setItems] = useState<Draft[]>([]);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
@@ -89,8 +125,15 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
     setBusy(true);
     try {
       const added: string[] = [];
-      for (const f of Array.from(files).slice(0, MAX_PHOTOS)) added.push(await compressImage(f));
+      const times: number[] = [];
+      for (const f of Array.from(files).slice(0, MAX_PHOTOS)) {
+        // File.lastModified = device capture time for a camera shot.
+        const takenAt = f.lastModified || Date.now();
+        added.push(await compressImage(f, takenAt));
+        times.push(takenAt);
+      }
       setPhotos((prev) => [...prev, ...added].slice(0, MAX_PHOTOS));
+      setPhotoTimes((prev) => [...prev, ...times].slice(0, MAX_PHOTOS));
     } catch {
       setError("Could not read that photo");
     } finally {
@@ -105,6 +148,7 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
     setDuration("");
     setDesc("");
     setPhotos([]);
+    setPhotoTimes([]);
   }
 
   function addItem() {
@@ -122,6 +166,7 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
         durationMin: Number(duration) || 0,
         description: desc.trim(),
         photos,
+        capturedAtMs: photoTimes.length ? Math.min(...photoTimes) : null,
       },
     ]);
     resetDraft();
@@ -146,6 +191,7 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
             price_cents: Math.round(it.priceDollars * 100),
             duration_min: it.durationMin,
             photos: it.photos,
+            captured_at_ms: it.capturedAtMs ?? undefined,
           })),
         }),
       });
@@ -184,8 +230,9 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
         {busy ? <span style={{ fontSize: 12, color: "var(--muted)" }}>Processing photo…</span> : null}
       </div>
       <p className="settingsDescription" style={{ marginTop: 2 }}>
-        Spotted something? Snap a photo, pick the fix, and text it over. The customer taps once and it&rsquo;s added
-        to this booking - no payment now.
+        Spotted something? Snap a photo, pick the fix, and <strong>+ Add</strong> it. Add as many as you find, then
+        text them all at once - the customer taps to add each to this booking (no payment now). Photos are date-stamped
+        for the record.
       </p>
 
       {/* Draft builder */}
@@ -244,7 +291,10 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
               <img src={p} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }} />
               <button
                 type="button"
-                onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                onClick={() => {
+                  setPhotos((prev) => prev.filter((_, j) => j !== i));
+                  setPhotoTimes((prev) => prev.filter((_, j) => j !== i));
+                }}
                 style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: "#111", color: "#fff", fontSize: 11, cursor: "pointer", lineHeight: 1 }}
               >
                 ×
@@ -260,13 +310,16 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
         </div>
 
         <button type="button" className="buttonGhost" onClick={addItem} style={{ alignSelf: "flex-start" }}>
-          + Add to list
+          + Add upsell
         </button>
       </div>
 
       {/* Staged items */}
       {items.length > 0 ? (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+            Sending together ({items.length})
+          </div>
           {items.map((it, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 10 }}>
               {it.photos[0] ? (

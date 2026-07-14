@@ -27,6 +27,8 @@ type IncomingItem = {
   price_cents?: number;
   duration_min?: number;
   photos?: string[];
+  /** Earliest device capture time of the item's photos, epoch ms. */
+  captured_at_ms?: number;
 };
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -93,6 +95,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       photoUrls.push(pub.publicUrl);
     }
 
+    // Capture time: use the device timestamp if it's sane (not future,
+    // not absurdly old), else fall back to now.
+    const capMs = Number(raw.captured_at_ms);
+    const capValid = Number.isFinite(capMs) && capMs > 0 && capMs <= Date.now() + 60_000;
+
     items.push({
       addon_id: raw.addon_id ? String(raw.addon_id).slice(0, 60) : null,
       title,
@@ -100,6 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       price_cents: priceCents,
       duration_min: Math.max(0, Math.round(Number(raw.duration_min) || 0)),
       photo_paths: photoUrls,
+      captured_at: new Date(capValid ? capMs : Date.now()).toISOString(),
     });
   }
 

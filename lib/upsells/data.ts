@@ -17,6 +17,7 @@ export type UpsellItemRecord = {
   price_cents: number;
   duration_min: number;
   photo_paths: string[];
+  captured_at: string | null;
   status: "pending" | "accepted" | "declined";
   responded_at: string | null;
   added_to_booking_at: string | null;
@@ -42,10 +43,11 @@ export type NewUpsellItem = {
   price_cents: number;
   duration_min: number;
   photo_paths: string[];
+  captured_at: string | null;
 };
 
 const ITEM_COLS =
-  "id, offer_id, addon_id, title, description, price_cents, duration_min, photo_paths, status, responded_at, added_to_booking_at";
+  "id, offer_id, addon_id, title, description, price_cents, duration_min, photo_paths, captured_at, status, responded_at, added_to_booking_at";
 const OFFER_COLS =
   "id, booking_id, contact_id, shop_id, created_by, status, sent_via, sent_at, viewed_at";
 
