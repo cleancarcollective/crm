@@ -9,6 +9,7 @@
 import { NextRequest } from "next/server";
 
 import { corsJson, corsPreflight } from "@/lib/portal/cors";
+import { getMemberships } from "@/lib/portal/membership";
 import { verifyCheckoutCode } from "@/lib/portal/otp";
 import { getPortalContacts } from "@/lib/portal/session";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -85,6 +86,9 @@ export async function POST(req: NextRequest) {
   // Most recent mobile address for prefilling mobile jobs.
   const lastMobile = (bookingsRes.data ?? []).find((b) => b.location_type === "mobile" && b.service_address);
 
+  const memberships = await getMemberships(contactIds);
+  const isMember = memberships.some((m) => m.status === "active");
+
   return corsJson({
     ok: true,
     profile: {
@@ -96,6 +100,8 @@ export async function POST(req: NextRequest) {
       vehicles: vehiclesRes.data ?? [],
       last_bookings: lastBookings,
       last_mobile_address: lastMobile?.service_address ?? null,
+      is_member: isMember,
+      membership_status: memberships[0]?.status ?? null,
     },
   });
 }

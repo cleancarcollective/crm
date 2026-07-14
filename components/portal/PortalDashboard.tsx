@@ -79,11 +79,13 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
         <section className="portalCreditBanner">
           <span className="portalCreditAmount">{fmtNzd(totalCreditCents)}</span>
           <span>
-            prepaid credit on your account — mention it when booking and we&rsquo;ll apply it to
+            credit on your account — mention it when booking and we&rsquo;ll apply it to
             your next detail.
           </span>
         </section>
       ) : null}
+
+      <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />
 
       <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
       <RecurringUpsellSection bookUrl={bookUrl} />
@@ -91,6 +93,102 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
       <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} />
       <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
     </main>
+  );
+}
+
+// ── Join the Collective ────────────────────────────────────────────────
+
+const MEMBERSHIP_PRICING: Record<string, { fee: number; credit: number }> = {
+  "Coupe / Hatchback": { fee: 108, credit: 120 },
+  "Sedan / Wagon": { fee: 112, credit: 125 },
+  "Small / Medium SUV": { fee: 117, credit: 130 },
+  "Large SUV / Ute": { fee: 126, credit: 140 },
+};
+
+function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onChanged: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const membership = snapshot.memberships[0] ?? null;
+
+  // Their size tier: single vehicle's size, else the default mid tier.
+  const sized = snapshot.vehicles.find((v) => v.size && MEMBERSHIP_PRICING[v.size]);
+  const tier = sized?.size && snapshot.vehicles.length >= 1 ? sized.size : "Sedan / Wagon";
+  const pricing = MEMBERSHIP_PRICING[tier] ?? MEMBERSHIP_PRICING["Sedan / Wagon"];
+
+  async function join() {
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/portal/membership/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: snapshot.email, size_tier: tier, source: "portal" }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; checkout_url?: string | null; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not sign you up");
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign you up");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (membership) {
+    return (
+      <section className="portalSection">
+        <div className="portalCard portalCollectiveCard">
+          <div className="portalCardTop">
+            <div>
+              <p className="portalEyebrow" style={{ marginBottom: 2 }}>The Collective</p>
+              <h2 className="portalCardTitle" style={{ fontSize: 17 }}>
+                {membership.status === "active"
+                  ? `Member — $${(membership.monthly_credit_cents / 100).toFixed(0)} credit lands monthly`
+                  : membership.status === "past_due"
+                    ? "Payment issue — credit paused"
+                    : "Signup received — we'll email you to finish setup"}
+              </h2>
+              <p className="portalCardMeta">
+                ${(membership.monthly_fee_cents / 100).toFixed(0)}/mo +GST · {membership.size_tier} ·
+                credit never expires, spend it on anything
+              </p>
+            </div>
+            <span className={`portalBadge ${membership.status === "active" ? "portalBadge--confirmed" : "portalBadge--pending"}`}>
+              {membership.status.replace("_", " ")}
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="portalSection">
+      <div className="portalCard portalCollectiveCard">
+        <p className="portalEyebrow" style={{ marginBottom: 2 }}>New</p>
+        <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Join the Collective</h2>
+        <p className="portalCardMeta" style={{ marginBottom: 10 }}>
+          ${pricing.fee}/mo +GST → <strong>${pricing.credit}/mo of detailing credit</strong> that never expires.
+        </p>
+        <ul className="portalPerkList">
+          <li>Credit banks automatically — skip, save up, or spend it on any service</li>
+          <li>Free mobile service + valet pickup &amp; drop-off</li>
+          <li>Priority booking windows + extended pickup hours</li>
+          <li>Photo updates of every detail, right here in your account</li>
+        </ul>
+        {error ? <p className="portalError">{error}</p> : null}
+        <div className="portalCardActions">
+          <button type="button" className="portalPrimaryBtn portalPrimaryBtn--compact" onClick={join} disabled={pending}>
+            {pending ? "Signing you up…" : "Join the Collective"}
+          </button>
+          <span className="portalCardMeta">Cancel anytime · unspent credit stays yours</span>
+        </div>
+      </div>
+    </section>
   );
 }
 

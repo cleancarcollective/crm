@@ -4973,3 +4973,24 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Collective membership card ─────────────────────────────── */
+
+.portalCollectiveCard {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+
+.portalPerkList {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.portalPerkList li::marker {
+  content: "✓  ";
+  color: var(--success);
+  font-weight: 700;
+}

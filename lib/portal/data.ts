@@ -5,6 +5,7 @@
  */
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getMemberships, type MembershipRecord } from "@/lib/portal/membership";
 import { getPortalContacts, type PortalContact } from "@/lib/portal/session";
 
 export type PortalShop = { id: string; slug: string; name: string; timezone: string };
@@ -58,6 +59,7 @@ export type PortalSnapshot = {
   reminders: PortalReminder[];
   /** cents, per shop_id */
   creditByShop: Record<string, number>;
+  memberships: MembershipRecord[];
   firstName: string | null;
   /** Slug of the customer's "home" shop - the shop of their most recent
    *  booking, falling back to the first contact row. Drives which
@@ -96,6 +98,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
       .order("next_due_at", { ascending: true }),
     supabase.from("credit_ledger").select("shop_id, delta_cents").in("contact_id", contactIds),
   ]);
+  const memberships = await getMemberships(contactIds);
 
   const nowIso = new Date().toISOString();
   const bookings = (bookingsRes.data ?? []) as PortalBooking[];
@@ -127,6 +130,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     pastBookings: past,
     reminders: (remindersRes.data ?? []) as PortalReminder[],
     creditByShop,
+    memberships,
     firstName: contacts.find((c) => c.first_name)?.first_name ?? null,
     primaryShopSlug,
   };
