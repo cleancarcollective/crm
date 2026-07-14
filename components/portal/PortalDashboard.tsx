@@ -138,6 +138,20 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
     }
   }
 
+  async function openBilling() {
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/portal/membership/billing", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Couldn't open billing settings");
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't open billing settings");
+      setPending(false);
+    }
+  }
+
   if (membership) {
     return (
       <section className="portalSection">
@@ -150,7 +164,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
                   ? `Member — $${(membership.monthly_credit_cents / 100).toFixed(0)} credit lands monthly`
                   : membership.status === "past_due"
                     ? "Payment issue — credit paused"
-                    : "Signup received — we'll email you to finish setup"}
+                    : "One step left — set up your monthly payment"}
               </h2>
               <p className="portalCardMeta">
                 ${(membership.monthly_fee_cents / 100).toFixed(0)}/mo +GST · {membership.size_tier} ·
@@ -160,6 +174,18 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
             <span className={`portalBadge ${membership.status === "active" ? "portalBadge--confirmed" : "portalBadge--pending"}`}>
               {membership.status.replace("_", " ")}
             </span>
+          </div>
+          {error ? <p className="portalError">{error}</p> : null}
+          <div className="portalCardActions">
+            {membership.status === "pending" ? (
+              <button type="button" className="portalPrimaryBtn portalPrimaryBtn--compact" onClick={join} disabled={pending}>
+                {pending ? "Opening…" : "Complete setup — 2 min"}
+              </button>
+            ) : (
+              <button type="button" className="portalGhostBtn" onClick={openBilling} disabled={pending}>
+                {pending ? "Opening…" : "Manage billing"}
+              </button>
+            )}
           </div>
         </div>
       </section>

@@ -19,6 +19,7 @@ import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { corsJson, corsPreflight } from "@/lib/portal/cors";
 import { getMemberships, pricingForSize, DEFAULT_TIER, MEMBERSHIP_PRICING } from "@/lib/portal/membership";
 import { getPortalContacts } from "@/lib/portal/session";
+import { createMembershipCheckout, stripeConfigured } from "@/lib/portal/stripe";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function OPTIONS() {
@@ -44,10 +45,20 @@ export async function POST(req: NextRequest) {
     return corsJson({ ok: true, status: "pending", checkout_url: null });
   }
 
-  // Already a member (pending or active): idempotent success.
+  // Already a member: active is idempotent success; pending gets a
+  // FRESH checkout link so "complete setup" always works.
   const existing = await getMemberships(contacts.map((c) => c.id));
   if (existing.length > 0) {
-    return corsJson({ ok: true, status: existing[0].status, checkout_url: null });
+    const m = existing[0];
+    if (m.status === "pending" && stripeConfigured()) {
+      try {
+        const url = await createMembershipCheckout({ membershipId: m.id, sizeTier: m.size_tier, email });
+        return corsJson({ ok: true, status: m.status, checkout_url: url });
+      } catch (err) {
+        console.error("checkout session for existing pending membership failed", err);
+      }
+    }
+    return corsJson({ ok: true, status: m.status, checkout_url: null });
   }
 
   const supabase = getSupabaseAdminClient();
@@ -90,7 +101,49 @@ export async function POST(req: NextRequest) {
     return corsJson({ error: "Could not save signup" }, { status: 500 });
   }
 
-  // Team notification - until Stripe lands, staff complete the signup.
+  // Hosted Stripe Checkout for the subscription. If session creation
+  // fails (or Stripe is unconfigured), the signup still stands and the
+  // team completes it manually.
+  let checkoutUrl: string | null = null;
+  if (stripeConfigured()) {
+    try {
+      checkoutUrl = await createMembershipCheckout({ membershipId: membership.id, sizeTier: tier, email });
+    } catch (err) {
+      console.error("membership checkout session failed", err);
+    }
+  }
+
+  const name = primary.full_name || [primary.first_name, primary.last_name].filter(Boolean).join(" ") || email;
+
+  // Email the customer their payment link - the thank-you screen may
+  // redirect before they click, so the link must reach their inbox too.
+  if (checkoutUrl) {
+    try {
+      await sendViaGmailSmtp({
+        From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
+        To: email,
+        Subject: "Finish joining the Collective — 2 minutes",
+        TextBody: `${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}
+
+Welcome to the Collective! One step left: set up your monthly payment (takes ~2 minutes, card or Apple/Google Pay):
+
+${checkoutUrl}
+
+Once that's done, $${(pricing.creditCents / 100).toFixed(0)} of detailing credit lands in your account every month - it never expires and you can spend it on any service. Cancel anytime; unspent credit stays yours.`,
+        HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
+<p>${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}</p>
+<p>Welcome to the Collective! One step left: set up your monthly payment (takes ~2 minutes, card or Apple/Google Pay).</p>
+<p style="margin:22px 0;"><a href="${checkoutUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Set up my membership</a></p>
+<p>Once that's done, <strong>$${(pricing.creditCents / 100).toFixed(0)} of detailing credit</strong> lands in your account every month - it never expires and you can spend it on any service. Cancel anytime; unspent credit stays yours.</p>
+</div>`,
+        Metadata: { template_key: "collective-checkout-link", membership_id: membership.id },
+      });
+    } catch (err) {
+      console.error("Collective checkout-link email failed", err);
+    }
+  }
+
+  // Team notification.
   try {
     const { data: shop } = await supabase
       .from("shops")
@@ -99,7 +152,6 @@ export async function POST(req: NextRequest) {
       .single();
     if (shop) {
       const { team_email, from_line } = getShopContacts(shop);
-      const name = primary.full_name || [primary.first_name, primary.last_name].filter(Boolean).join(" ") || email;
       const lines = [
         `${name} wants to Join the Collective 🎉`,
         ``,
@@ -108,8 +160,9 @@ export async function POST(req: NextRequest) {
         primary.phone ? `Phone: ${primary.phone}` : null,
         `Source: ${body.source ?? "portal"}`,
         ``,
-        `Stripe billing isn't wired yet - contact them to set up payment,`,
-        `then mark the membership active and the monthly credit will accrue.`,
+        checkoutUrl
+          ? `They've been sent a Stripe payment link - the membership activates automatically once they pay. No action needed unless they stall (nudge them or call).`
+          : `Stripe link couldn't be created - contact them to set up payment, then mark the membership active in the CRM.`,
         `Membership id: ${membership.id}`,
       ].filter(Boolean) as string[];
       await sendViaGmailSmtp({
@@ -125,6 +178,5 @@ export async function POST(req: NextRequest) {
     console.error("Collective signup team notification failed", err);
   }
 
-  // TODO(stripe): create a Checkout Session here and return its URL.
-  return corsJson({ ok: true, status: "pending", checkout_url: null });
+  return corsJson({ ok: true, status: "pending", checkout_url: checkoutUrl });
 }
