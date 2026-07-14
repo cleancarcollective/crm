@@ -88,7 +88,6 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
       <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />
 
       <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
-      <RecurringUpsellSection bookUrl={bookUrl} />
       <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
       <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} />
       <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
@@ -375,43 +374,6 @@ function BookingCard({
   );
 }
 
-// ── Recurring upsell ───────────────────────────────────────────────────
-// The paid product. Reminders below are the free fallback; this locks a
-// standing slot at a discount - deep-links into the booking form with
-// the tier preselected (?recurring=2|3|4).
-
-const RECURRING_TIERS = [
-  { cadence: 2, discount: 15, label: "Every 2 months", popular: true },
-  { cadence: 3, discount: 10, label: "Every 3 months", popular: false },
-  { cadence: 4, discount: 5, label: "Every 4 months", popular: false },
-];
-
-function RecurringUpsellSection({ bookUrl }: { bookUrl: string }) {
-  return (
-    <section className="portalSection">
-      <h2 className="portalSectionTitle">Lock in a regular detail — save up to 15%</h2>
-      <p className="portalSectionSub">
-        Same slot, every time, discount on every visit. Cancel or pause whenever. Pick a rhythm
-        and it&rsquo;s applied automatically at checkout.
-      </p>
-      <div className="portalTierGrid">
-        {RECURRING_TIERS.map((t) => (
-          <a
-            key={t.cadence}
-            href={`${bookUrl}?recurring=${t.cadence}`}
-            className={`portalTierCard${t.popular ? " portalTierCard--popular" : ""}`}
-          >
-            {t.popular ? <span className="portalTierBadge">Most popular</span> : null}
-            <span className="portalTierLabel">{t.label}</span>
-            <span className="portalTierDiscount">Save {t.discount}%</span>
-            <span className="portalTierCta">Book with discount →</span>
-          </a>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 // ── Reminders ──────────────────────────────────────────────────────────
 
 function RemindersSection({
@@ -423,7 +385,7 @@ function RemindersSection({
   shopById: Map<string, PortalSnapshot["shops"][number]>;
   onChanged: () => void;
 }) {
-  // Collapsed by default - the recurring tiers above are the primary
+  // Collapsed by default - the Collective membership is the primary
   // path; free reminders are the soft fallback.
   const [adding, setAdding] = useState(false);
   const [cadence, setCadence] = useState(3);
