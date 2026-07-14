@@ -123,46 +123,6 @@ export async function getOfferForEmail(offerId: string, email: string): Promise<
   return offer;
 }
 
-/** Append an accepted item's add-on to its booking and bump the price. */
-async function applyItemToBooking(offer: UpsellOfferRecord, item: UpsellItemRecord): Promise<void> {
-  if (!offer.booking_id) return;
-  const supabase = getSupabaseAdminClient();
-  const { data: b } = await supabase
-    .from("bookings")
-    .select("id, raw_payload, price_estimate, notes")
-    .eq("id", offer.booking_id)
-    .maybeSingle();
-  if (!b) return;
-
-  const priceDollars = item.price_cents / 100;
-  const payload: Record<string, unknown> =
-    b.raw_payload && typeof b.raw_payload === "object" ? { ...(b.raw_payload as Record<string, unknown>) } : {};
-  const existing = Array.isArray(payload.selectedAddOns) ? [...(payload.selectedAddOns as unknown[])] : [];
-  // Same shape the booking form uses, so labels/emails/edits stay consistent.
-  existing.push({
-    id: item.addon_id ?? `upsell-${item.id}`,
-    name: item.title,
-    price: priceDollars,
-    durationMinutes: item.duration_min,
-    description: item.description ?? "",
-  });
-  payload.selectedAddOns = existing;
-
-  const newPrice = (Number(b.price_estimate) || 0) + priceDollars;
-  const stamp = new Date().toISOString().slice(0, 10);
-  const line = `[Upsell accepted by customer ${stamp}] ${item.title} +$${priceDollars.toFixed(0)}${
-    item.duration_min ? ` (~${item.duration_min} min extra)` : ""
-  }`;
-  const newNotes = b.notes ? `${b.notes}\n${line}` : line;
-
-  // Note: we deliberately do NOT touch duration_minutes / scheduled_end -
-  // accepted upsells flag added time for staff rather than moving slots.
-  await supabase
-    .from("bookings")
-    .update({ raw_payload: payload, price_estimate: newPrice, notes: newNotes })
-    .eq("id", b.id);
-}
-
 export type RespondResult =
   | { ok: true; changed: boolean; item: UpsellItemRecord; offer: UpsellOfferRecord }
   | { ok: false; error: string; status?: number };
@@ -188,29 +148,44 @@ export async function respondToItem(args: {
 
   const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
+  let changed = false;
 
   if (args.action === "accept") {
-    await applyItemToBooking(offer, item);
-    await supabase
-      .from("upsell_items")
-      .update({ status: "accepted", responded_at: now, added_to_booking_at: now })
-      .eq("id", item.id);
-    item.status = "accepted";
-    item.responded_at = now;
-    item.added_to_booking_at = now;
+    // Atomic claim + apply inside the DB (row-locks the item + booking)
+    // so concurrent accepts can't double-add or lose an add-on.
+    const { data, error } = await supabase.rpc("apply_upsell_item", { p_item_id: item.id });
+    if (error) {
+      console.error("apply_upsell_item failed", error);
+      return { ok: false, error: "Could not add that to your booking", status: 500 };
+    }
+    changed = data === true;
+    if (changed) {
+      item.status = "accepted";
+      item.responded_at = now;
+      item.added_to_booking_at = now;
+    }
   } else {
-    await supabase.from("upsell_items").update({ status: "declined", responded_at: now }).eq("id", item.id);
-    item.status = "declined";
-    item.responded_at = now;
+    // Conditional update: only the call that flips pending -> declined "wins".
+    const { data } = await supabase
+      .from("upsell_items")
+      .update({ status: "declined", responded_at: now })
+      .eq("id", item.id)
+      .eq("status", "pending")
+      .select("id");
+    changed = !!data && data.length > 0;
+    if (changed) {
+      item.status = "declined";
+      item.responded_at = now;
+    }
   }
 
   // Close the offer once every item has been resolved.
-  if (offer.items.every((i) => i.status !== "pending")) {
+  if (changed && offer.items.every((i) => i.status !== "pending")) {
     await supabase.from("upsell_offers").update({ status: "closed", updated_at: now }).eq("id", offer.id);
     offer.status = "closed";
   }
 
-  return { ok: true, changed: true, item, offer };
+  return { ok: true, changed, item, offer };
 }
 
 /** All offers for a booking (staff view of what was sent + outcomes). */
