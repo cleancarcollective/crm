@@ -52,9 +52,9 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
   );
 
   const totalCreditCents = Object.values(snapshot.creditByShop).reduce((a, b) => a + b, 0);
-  const primaryShop = snapshot.shops[0];
-  const bookUrl =
-    BOOKING_URLS[primaryShop?.slug ?? "wellington"] ?? BOOKING_URLS.wellington;
+  // Home shop (most recent booking's shop) decides which city's booking
+  // form every CTA points at.
+  const bookUrl = BOOKING_URLS[snapshot.primaryShopSlug] ?? BOOKING_URLS.wellington;
 
   return (
     <main className="portalShell">
@@ -86,6 +86,7 @@ export function PortalDashboard({ snapshot }: { snapshot: PortalSnapshot }) {
       ) : null}
 
       <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
+      <RecurringUpsellSection bookUrl={bookUrl} />
       <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
       <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} />
       <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
@@ -249,6 +250,43 @@ function BookingCard({
   );
 }
 
+// ── Recurring upsell ───────────────────────────────────────────────────
+// The paid product. Reminders below are the free fallback; this locks a
+// standing slot at a discount - deep-links into the booking form with
+// the tier preselected (?recurring=2|3|4).
+
+const RECURRING_TIERS = [
+  { cadence: 2, discount: 15, label: "Every 2 months", popular: true },
+  { cadence: 3, discount: 10, label: "Every 3 months", popular: false },
+  { cadence: 4, discount: 5, label: "Every 4 months", popular: false },
+];
+
+function RecurringUpsellSection({ bookUrl }: { bookUrl: string }) {
+  return (
+    <section className="portalSection">
+      <h2 className="portalSectionTitle">Lock in a regular detail — save up to 15%</h2>
+      <p className="portalSectionSub">
+        Same slot, every time, discount on every visit. Cancel or pause whenever. Pick a rhythm
+        and it&rsquo;s applied automatically at checkout.
+      </p>
+      <div className="portalTierGrid">
+        {RECURRING_TIERS.map((t) => (
+          <a
+            key={t.cadence}
+            href={`${bookUrl}?recurring=${t.cadence}`}
+            className={`portalTierCard${t.popular ? " portalTierCard--popular" : ""}`}
+          >
+            {t.popular ? <span className="portalTierBadge">Most popular</span> : null}
+            <span className="portalTierLabel">{t.label}</span>
+            <span className="portalTierDiscount">Save {t.discount}%</span>
+            <span className="portalTierCta">Book with discount →</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ── Reminders ──────────────────────────────────────────────────────────
 
 function RemindersSection({
@@ -260,7 +298,9 @@ function RemindersSection({
   shopById: Map<string, PortalSnapshot["shops"][number]>;
   onChanged: () => void;
 }) {
-  const [adding, setAdding] = useState(snapshot.reminders.length === 0);
+  // Collapsed by default - the recurring tiers above are the primary
+  // path; free reminders are the soft fallback.
+  const [adding, setAdding] = useState(false);
   const [cadence, setCadence] = useState(3);
   const [vehicleId, setVehicleId] = useState<string>("");
   const [pending, setPending] = useState(false);
@@ -303,7 +343,7 @@ function RemindersSection({
   return (
     <section className="portalSection">
       <div className="portalSectionHead">
-        <h2 className="portalSectionTitle">Detail reminders</h2>
+        <h2 className="portalSectionTitle">Free reminders</h2>
         {!adding ? (
           <button type="button" className="portalLinkButton" onClick={() => setAdding(true)}>
             + Add reminder
@@ -311,8 +351,8 @@ function RemindersSection({
         ) : null}
       </div>
       <p className="portalSectionSub">
-        Never think about when the car&rsquo;s due again — pick a rhythm and we&rsquo;ll nudge you
-        with priority booking when it&rsquo;s time.
+        Not ready to lock in a slot? We&rsquo;ll email you when the car&rsquo;s due — a week early,
+        so you get first pick of the calendar.
       </p>
 
       {snapshot.reminders.length > 0 ? (

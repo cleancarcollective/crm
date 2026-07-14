@@ -59,6 +59,10 @@ export type PortalSnapshot = {
   /** cents, per shop_id */
   creditByShop: Record<string, number>;
   firstName: string | null;
+  /** Slug of the customer's "home" shop - the shop of their most recent
+   *  booking, falling back to the first contact row. Drives which
+   *  city's booking form the portal links to. */
+  primaryShopSlug: string;
 };
 
 export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot | null> {
@@ -105,16 +109,26 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     creditByShop[row.shop_id] = (creditByShop[row.shop_id] ?? 0) + (row.delta_cents ?? 0);
   }
 
+  const shops = (shopsRes.data ?? []) as PortalShop[];
+
+  // Home shop = shop of the most recent booking (bookings are sorted
+  // scheduled_start DESC, so bookings[0] is the latest overall);
+  // customers with no bookings fall back to their first contact's shop.
+  const latestBookingShopId = bookings[0]?.shop_id ?? null;
+  const primaryShopId = latestBookingShopId ?? contacts[0].shop_id;
+  const primaryShopSlug = shops.find((s) => s.id === primaryShopId)?.slug ?? shops[0]?.slug ?? "wellington";
+
   return {
     email,
     contacts,
-    shops: (shopsRes.data ?? []) as PortalShop[],
+    shops,
     vehicles: (vehiclesRes.data ?? []) as PortalVehicle[],
     upcomingBookings: upcoming,
     pastBookings: past,
     reminders: (remindersRes.data ?? []) as PortalReminder[],
     creditByShop,
     firstName: contacts.find((c) => c.first_name)?.first_name ?? null,
+    primaryShopSlug,
   };
 }
 
