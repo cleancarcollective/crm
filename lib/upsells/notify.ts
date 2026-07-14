@@ -42,8 +42,9 @@ export async function sendOfferToCustomer(args: {
   const link = await createShortUrl({ fullUrl, shopId: args.shopId, purpose: "upsell" });
 
   const hi = args.firstName ? `Hi ${args.firstName}, ` : "Hi, ";
-  const what = args.itemCount === 1 ? "something worth sorting" : `${args.itemCount} things worth sorting`;
-  const smsBody = `${hi}the Clean Car Collective team spotted ${what} on your car during your detail. Photos + one-tap add to your booking here: ${link}`;
+  const noticed = args.itemCount === 1 ? "something we think is" : "a few things we think are";
+  const pkg = args.itemCount === 1 ? "a recommended package" : "some recommended packages";
+  const smsBody = `${hi}we were inspecting your vehicle and noticed ${noticed} worth checking out during your detail. Tap to see the photos we uploaded and ${pkg}: ${link}`;
 
   if (args.phone) {
     const res = await sendTnzSms(args.phone, smsBody);
@@ -58,17 +59,17 @@ export async function sendOfferToCustomer(args: {
     await sendViaGmailSmtp({
       From: from_line,
       To: args.email,
-      Subject: "We spotted something on your car",
+      Subject: "A few things we noticed on your car",
       TextBody: `${hi.trim()}
 
-While detailing your car, the team spotted ${what}. We've taken photos - have a look and add it to your booking with one tap:
+We were inspecting your vehicle and noticed ${noticed} worth checking out during your detail. Tap below to see the photos we uploaded and ${pkg} - add anything to your booking with one tap:
 
 ${link}
 
 No pressure, and nothing changes unless you tap add.`,
       HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
 <p>${hi.trim()}</p>
-<p>While detailing your car, the team spotted ${what}. We've taken photos - have a look and add it to your booking with one tap.</p>
+<p>We were inspecting your vehicle and noticed ${noticed} worth checking out during your detail. Tap below to see the photos we uploaded and ${pkg}.</p>
 <p style="margin:22px 0;"><a href="${link}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">See what we found</a></p>
 <p style="color:#6f6860;font-size:13px;">No pressure - nothing changes unless you tap add.</p>
 </div>`,

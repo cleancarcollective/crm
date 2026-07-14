@@ -10,6 +10,11 @@ function fmtNzd(cents: number) {
   );
 }
 
+// Prices are stored ex-GST; the customer always sees them as "+ GST".
+function priceLabel(cents: number) {
+  return `${fmtNzd(cents)} + GST`;
+}
+
 export function UpsellApproval({ offer }: { offer: UpsellOfferRecord }) {
   const [items, setItems] = useState<UpsellItemRecord[]>(offer.items);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -74,7 +79,7 @@ export function UpsellApproval({ offer }: { offer: UpsellOfferRecord }) {
               <div className="upsellBody">
                 <div className="upsellTitleRow">
                   <h2 className="upsellTitle">{item.title}</h2>
-                  <span className="upsellPrice">{fmtNzd(item.price_cents)}</span>
+                  <span className="upsellPrice">{priceLabel(item.price_cents)}</span>
                 </div>
                 {item.description ? <p className="upsellDesc">{item.description}</p> : null}
 
@@ -86,7 +91,7 @@ export function UpsellApproval({ offer }: { offer: UpsellOfferRecord }) {
                       onClick={() => respond(item, "accept")}
                       disabled={busy}
                     >
-                      {busy ? "Adding…" : `Add to my detail · ${fmtNzd(item.price_cents)}`}
+                      {busy ? "Adding…" : `Add to my detail · ${priceLabel(item.price_cents)}`}
                     </button>
                     <button
                       type="button"
@@ -113,7 +118,7 @@ export function UpsellApproval({ offer }: { offer: UpsellOfferRecord }) {
       <footer className="upsellFoot">
         {anyAccepted ? (
           <p className="upsellTotal">
-            Added this visit: <strong>{fmtNzd(acceptedTotal)}</strong>
+            Added this visit: <strong>{priceLabel(acceptedTotal)}</strong>
           </p>
         ) : null}
         {allResolved ? (
