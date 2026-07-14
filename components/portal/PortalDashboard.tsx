@@ -793,7 +793,7 @@ function PhotosSection({
   return (
     <section className="portalSection">
       <h2 className="portalSectionTitle">Your detail photos</h2>
-      <p className="portalSectionSub">Snapped by the team while working on your car.</p>
+      <p className="portalSectionSub">Before and after shots from the team while working on your car.</p>
       <div className="portalCardList">
         {[...groups.entries()].map(([bookingId, photos]) => {
           const booking = allBookings.find((b) => b.id === bookingId);
@@ -804,11 +804,12 @@ function PhotosSection({
           return (
             <div key={bookingId} className="portalCard">
               <h3 className="portalCardTitle" style={{ marginBottom: 10 }}>{label}</h3>
-              <div className="portalPhotoGrid">
+              <div className={photos.some((p) => p.kind === "pair") ? "portalPhotoGrid portalPhotoGrid--pairs" : "portalPhotoGrid"}>
                 {photos.map((p) => (
-                  <a key={p.id} href={p.public_url} target="_blank" rel="noopener noreferrer">
+                  <a key={p.id} href={p.public_url} target="_blank" rel="noopener noreferrer" className="portalPhotoItem">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.public_url} alt="Detail photo" loading="lazy" />
+                    <img src={p.public_url} alt={p.label ?? "Detail photo"} loading="lazy" className={p.kind === "pair" ? "portalPhotoWide" : undefined} />
+                    {p.label ? <span className="portalPhotoLabel">{p.label}</span> : null}
                   </a>
                 ))}
               </div>

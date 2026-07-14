@@ -1,8 +1,8 @@
 /**
- * "Your photos are ready" email - fires automatically on the first
- * photo batch for a booking. Doubles as the portal-acquisition nudge:
- * the photos live in the customer's account, so every detail becomes
- * a signup prompt.
+ * "Your photos are ready" email - sent when STAFF explicitly hit
+ * "Send to customer" on the booking's photo panel (never automatic).
+ * Doubles as the portal-acquisition nudge: the photos live in the
+ * customer's account, so every detail becomes a signup prompt.
  */
 
 import { formatInTimeZone } from "date-fns-tz";
@@ -49,7 +49,7 @@ export async function sendDetailPhotosEmail(args: { bookingId: string }): Promis
 
   const greeting = contact.first_name ? `Hi ${escapeHtml(contact.first_name)},` : "Hi,";
   const dateLabel = formatInTimeZone(booking.scheduled_start, shop.timezone, "EEEE d MMMM");
-  const subject = `📸 Your ${booking.service_name} photos are in`;
+  const subject = `📸 Your ${booking.service_name} before & afters are in`;
 
   const photoCells = photos
     .map(
@@ -82,7 +82,7 @@ export async function sendDetailPhotosEmail(args: { bookingId: string }): Promis
           <tr>
             <td style="background:#ffffff;padding:26px 30px;border-left:1px solid #e8e0d6;border-right:1px solid #e8e0d6;">
               <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#5c5148;">${greeting}<br/>
-              The team snapped these while working on your car - the full set is waiting in your account.</p>
+              The team put together before &amp; after shots while working on your car - the full set is waiting in your account.</p>
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:18px;"><tr>${photoCells}</tr></table>
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:14px;">
                 <tr><td align="center">
@@ -105,7 +105,7 @@ export async function sendDetailPhotosEmail(args: { bookingId: string }): Promis
 
   const text = `${contact.first_name ? `Hi ${contact.first_name},` : "Hi,"}
 
-The team snapped photos while working on your car (${booking.service_name}, ${dateLabel}). The full set is in your account:
+The team put together before & after shots of your car (${booking.service_name}, ${dateLabel}). The full set is in your account:
 
 ${CRM_BASE_URL}/account
 

@@ -54,6 +54,8 @@ export type PortalPhoto = {
   id: string;
   booking_id: string;
   public_url: string;
+  kind: string;
+  label: string | null;
   created_at: string;
 };
 
@@ -122,7 +124,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
   const warranties = await getWarranties(contactIds);
   const { data: photoRows } = await supabase
     .from("detail_photos")
-    .select("id, booking_id, public_url, created_at")
+    .select("id, booking_id, public_url, kind, label, created_at")
     .in("contact_id", contactIds)
     .order("created_at", { ascending: false })
     .limit(60);

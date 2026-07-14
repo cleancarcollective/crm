@@ -363,7 +363,7 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
         />
       </div>
 
-      <DetailPhotoPanel bookingId={booking.id} />
+      <DetailPhotoPanel bookingId={booking.id} serviceName={booking.service_name} />
 
       {/* Raw payload */}
       <div className="detailPanel">

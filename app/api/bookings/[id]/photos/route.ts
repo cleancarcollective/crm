@@ -1,11 +1,11 @@
 /**
  * Staff detail-photo uploads for a booking.
  *
- *   POST   { photos: [{ data: base64-jpeg, kind }] } → stores in the
- *          detail-photos bucket + rows in detail_photos. Photos arrive
- *          already watermarked (client-side canvas on the staff device).
- *          The FIRST batch for a booking auto-emails the customer -
- *          zero extra taps for staff.
+ *   POST   { photos: [{ data: base64-jpeg, kind, label }] } → stores in
+ *          the detail-photos bucket + rows in detail_photos. Pairs
+ *          arrive pre-composited (side-by-side before/after, branded,
+ *          client-side canvas). NO auto-email: staff send explicitly
+ *          via the sibling /notify route once the set looks right.
  *   GET    → photo list for the booking (staff view)
  *   DELETE ?photo_id= → remove a shot (mistakes happen)
  */
@@ -15,7 +15,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getCurrentUser } from "@/lib/auth/currentShop";
-import { sendDetailPhotosEmail } from "@/lib/portal/photoEmails";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const MAX_BATCH = 12;
@@ -27,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = getSupabaseAdminClient();
   const { data } = await supabase
     .from("detail_photos")
-    .select("id, public_url, kind, notified, created_at")
+    .select("id, public_url, kind, label, notified, created_at")
     .eq("booking_id", id)
     .eq("shop_id", shop.id)
     .order("created_at", { ascending: true });
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const user = await getCurrentUser();
   const { id } = await params;
 
-  let body: { photos?: Array<{ data?: string; kind?: string }> };
+  let body: { photos?: Array<{ data?: string; kind?: string; label?: string }> };
   try {
     body = await req.json();
   } catch {
@@ -57,12 +56,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle();
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-  // Was this the first batch? (drives the auto-email)
-  const { count: existingCount } = await supabase
-    .from("detail_photos")
-    .select("id", { count: "exact", head: true })
-    .eq("booking_id", id);
-
   const uploaded: Array<{ id: string; public_url: string }> = [];
   for (const p of photos) {
     if (!p.data) continue;
@@ -79,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       continue;
     }
     const { data: pub } = supabase.storage.from("detail-photos").getPublicUrl(path);
-    const kind = p.kind === "before" || p.kind === "after" ? p.kind : "during";
+    const kind = p.kind === "pair" || p.kind === "before" || p.kind === "after" ? p.kind : "during";
     const { data: row, error: insErr } = await supabase
       .from("detail_photos")
       .insert({
@@ -89,6 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         storage_path: path,
         public_url: pub.publicUrl,
         kind,
+        label: (p.label ?? "").trim().slice(0, 60) || null,
         created_by: user?.name ?? "staff",
       })
       .select("id, public_url")
@@ -100,21 +94,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Nothing uploaded" }, { status: 500 });
   }
 
-  // Auto-email on the first batch only - staff never has to think
-  // about it. Later batches show in the portal without re-emailing.
-  let emailed = false;
-  if ((existingCount ?? 0) === 0 && booking.contact_id) {
-    try {
-      emailed = await sendDetailPhotosEmail({ bookingId: id });
-      if (emailed) {
-        await supabase.from("detail_photos").update({ notified: true }).eq("booking_id", id);
-      }
-    } catch (err) {
-      console.error("photo email failed", err);
-    }
-  }
-
-  return NextResponse.json({ ok: true, uploaded: uploaded.length, emailed });
+  // No auto-send: pairs collect in the panel and staff explicitly send
+  // via /photos/notify when they're happy with the set. The portal
+  // shows everything as soon as it's uploaded either way.
+  return NextResponse.json({ ok: true, uploaded: uploaded.length });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
