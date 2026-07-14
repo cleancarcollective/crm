@@ -339,7 +339,7 @@ const TIER_LABEL: Record<string, string> = {
   bronze: "Bronze · 1 year",
   silver: "Silver · 3 years",
   gold: "Gold · 5 years",
-  unknown: "Term to be confirmed",
+  unknown: "Ceramic coating",
 };
 
 function WarrantySection({
@@ -384,7 +384,11 @@ function WarrantySection({
               <div className="portalCardTop">
                 <div>
                   <h3 className="portalCardTitle">
-                    {TIER_LABEL[w.tier]} {vehicle ? `· ${vehicleLabel(vehicle)}` : ""}
+                    {TIER_LABEL[w.tier]}
+                    {w.tier === "unknown" && expires
+                      ? ` · ${Math.round((expires.getTime() - applied.getTime()) / 31557600000)} years`
+                      : ""}
+                    {vehicle ? ` · ${vehicleLabel(vehicle)}` : ""}
                   </h3>
                   <p className="portalCardMeta">
                     Applied {applied.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}

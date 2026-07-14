@@ -22,11 +22,13 @@ export type CoatingWarranty = {
   status: "active" | "expired" | "void";
 };
 
+// Untiered "Ceramic Coating" bookings default to the 5-year term
+// (Gold is what sells most; staff adjust expires_at per row if wrong).
 export const TIER_TERM_MONTHS: Record<string, number | null> = {
   bronze: 12,
   silver: 36,
   gold: 60,
-  unknown: null,
+  unknown: 60,
 };
 
 export function detectTier(name: string): CoatingWarranty["tier"] {
