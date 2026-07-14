@@ -10,7 +10,6 @@
  * Payload carries the featured cadence so the page can pre-select it.
  */
 
-import { formatCurrency } from "@/lib/dashboard/format";
 import { signActionToken } from "@/lib/auth/signedTokens";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { getShopContacts } from "@/lib/email/shopContacts";
@@ -52,71 +51,56 @@ function subjectFor(key: TouchpointKey, firstName: string): string {
     case "post_detail_recurring_offer_6w":
       return `${firstName} - how's the car holding up?`;
     case "post_detail_recurring_offer_10w":
-      return `Heads up ${firstName} - the 20% rate is about to disappear`;
+      return `${firstName} - detailing credit that builds while you're busy`;
     case "post_detail_recurring_offer_16w":
-      return `${firstName} - last call before the car needs a proper deep clean`;
+      return `${firstName} - last nudge before the car needs a proper deep clean`;
   }
 }
 
 function openerFor(key: TouchpointKey, _shopName: string): string {
   switch (key) {
     case "post_detail_recurring_offer_next_day":
-      return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we offer a regular detail rate that saves you up to 35% on every visit. No contracts - cancel or pause whenever.`;
+      return `Hope you're loving how the car came out yesterday. If you'd like to keep that just-detailed feel going, we run a membership called the Collective - detailing credit that lands in your account every month and builds until you're ready to use it.`;
     case "post_detail_recurring_offer_6w":
-      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. If you'd like to stay on top of it, lock in a regular rate and we'll knock 35% off every visit. No commitment, cancel or pause whenever you like.`;
+      return `It's been about 6 weeks since we sorted your car - usually the point where most cars start looking a bit tired again. The easiest fix is our Collective membership: detailing credit lands in your account every month, and you book whenever suits.`;
     case "post_detail_recurring_offer_10w":
-      return `Quick one - you're heading into the 3-month window since we last sorted your car. If you want to keep things tidy, lock in a 3-monthly rate now and save 20% every visit. Heads up though: after this the 20% rate is gone and you'll be looking at the 10% tier from here on.`;
+      return `Quick one - you're coming up on 3 months since we last sorted your car. A lot of our regulars have switched to the Collective: credit lands monthly, and if life gets busy it just stacks - a couple of quiet months turns into a bigger detail when you're ready.`;
     case "post_detail_recurring_offer_16w":
-      return `It's been about 4 months since we detailed your car - past this point most cars need a proper deep clean rather than a quick refresh. This is the last nudge from us. If you'd like to keep things on a schedule and avoid the big resets, lock in a 6-monthly rate and save 10% every visit.`;
+      return `It's been about 4 months since we detailed your car - past this point most cars need a proper deep clean rather than a quick refresh. This is the last nudge from us. If you'd like to stay ahead of it without thinking about dates, the Collective handles it.`;
   }
 }
 
-const ALL_CADENCES: Array<{ months: Cadence; label: string; discount: number }> = [
-  { months: 1, label: "Every month", discount: 35 },
-  { months: 3, label: "Every 3 months", discount: 20 },
-  { months: 6, label: "Every 6 months", discount: 10 },
-];
-
-function priceLine(basePrice: number | null, discount: number): string | null {
-  if (basePrice == null) return null;
-  const discounted = basePrice * (1 - discount / 100);
-  return `${formatCurrency(discounted)} per visit (${discount}% off ${formatCurrency(basePrice)})`;
-}
+// Collective membership ladder (ex-GST) - mirrors lib/portal/membership.ts.
+const COLLECTIVE_LADDER = "from $108/mo (+GST) - most cars are $112/mo for $130 of monthly credit";
 
 export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
   const firstName = args.contact.firstName ?? "there";
   const subject = subjectFor(args.touchpointKey, firstName);
   const opener = openerFor(args.touchpointKey, args.shop.name);
 
-  const cadenceRows = ALL_CADENCES.map((c) => {
-    const line = priceLine(args.basePrice, c.discount);
-    const isFeatured = c.months === args.featuredCadenceMonths;
-    return { ...c, priceText: line, isFeatured };
-  });
-
-  // Deliberately plain, personal-note style: default font, no button, no
-  // link, no branded shell. The original HTML template pattern-matched
-  // straight into Gmail's Promotions tab (audited 2 Jul 2026) and
-  // Promotions placement is as good as unseen. Conversion is reply-based:
-  // the customer answers this email and staff set the series up in the CRM.
-  const rateLines = cadenceRows.map((c) => {
-    const rate = c.priceText ?? `${c.discount}% off every visit`;
-    return `${c.label}: ${rate}${c.isFeatured ? " (most popular)" : ""}`;
-  });
-
-  const perksLine = `Every option includes free mobile service (worth $80 +GST) and priority booking slots.`;
-  const replyCta = `Keen? Just reply to this email and we'll set it up for you.`;
-  const closingLine = `No contracts, pause or cancel whenever you like.`;
+  // Deliberately plain, personal-note style: default font, minimal links.
+  // The original HTML template pattern-matched straight into Gmail's
+  // Promotions tab (audited 2 Jul 2026) and Promotions placement is as
+  // good as unseen. Reply remains the primary CTA; the single account
+  // link is the self-serve path.
+  const howItWorks = [
+    `Here's how the Collective works:`,
+    ``,
+    `- Detailing credit lands in your account every month (15% more credit than you pay - ${COLLECTIVE_LADDER})`,
+    ``,
+    `- Get busy? It stacks. Credit never expires - bank a quiet month and put it toward a bigger service next time`,
+    ``,
+    `- Free mobile service + valet pickup, priority booking, and photos of every detail in your account`,
+  ];
+  const replyCta = `Keen? Just reply to this email and we'll set it up, or join in two minutes at ${CRM_BASE_URL}/account`;
+  const closingLine = `No lock-in - cancel anytime and banked credit stays yours.`;
 
   const textBody = [
     `Hi ${firstName},`,
     ``,
     opener,
     ``,
-    `Here's what the regular rates look like:`,
-    ``,
-    ...rateLines.flatMap((l) => [`- ${l}`, ``]),
-    perksLine,
+    ...howItWorks,
     ``,
     replyCta,
     ``,
@@ -130,10 +114,8 @@ export async function sendPostDetailOfferEmail(args: TouchpointEmailArgs) {
 <div dir="ltr">
   <p>Hi ${escapeHtml(firstName)},</p>
   <p>${escapeHtml(opener)}</p>
-  <p>Here's what the regular rates look like:</p>
-  ${rateLines.map((l) => `<p>- ${escapeHtml(l)}</p>`).join("\n  ")}
-  <p>${escapeHtml(perksLine)}</p>
-  <p>${escapeHtml(replyCta)}</p>
+  ${howItWorks.filter((l) => l !== "").map((l) => `<p>${escapeHtml(l)}</p>`).join("\n  ")}
+  <p>Keen? Just reply to this email and we'll set it up, or <a href="${CRM_BASE_URL}/account">join in two minutes here</a>.</p>
   <p>${escapeHtml(closingLine)}</p>
   <p>Cheers,<br/>${escapeHtml(args.shop.name)}</p>
 </div>
@@ -203,13 +185,13 @@ export function renderPostDetailOfferSms(args: {
   const url = args.url;
   switch (args.touchpointKey) {
     case "post_detail_recurring_offer_next_day":
-      return `Hey ${fn}, hope you're loving how the car came out! Want to keep it looking sharp? Lock in a regular detail and save 35% every visit: ${url} - Clean Car Collective`;
+      return `Hey ${fn}, hope you're loving how the car came out! Keep it that way with the Collective - detailing credit that builds every month (15% bonus, never expires): ${url} - Clean Car Collective`;
     case "post_detail_recurring_offer_6w":
-      return `Hey ${fn}, been about 6 weeks since we sorted your car. Keen to lock in a regular detail and save 35% every visit? Have a look: ${url}`;
+      return `Hey ${fn}, been about 6 weeks since we sorted your car. Join the Collective and monthly credit does the remembering - it stacks if you get busy: ${url}`;
     case "post_detail_recurring_offer_10w":
-      return `Hey ${fn}, heading into the 3-month mark since your last detail. Sort a 3-monthly rate now and save 20% every visit - after this the discount drops: ${url}`;
+      return `Hey ${fn}, coming up on 3 months since your last detail. Collective members bank credit monthly + get priority booking - join in 2 min: ${url}`;
     case "post_detail_recurring_offer_16w":
-      return `Hey ${fn}, been 4 months since your detail - past this and the car usually needs a proper deep clean. Last chance to lock in a 6-monthly rate at 10% off: ${url}`;
+      return `Hey ${fn}, been 4 months since your detail - past this the car usually needs a proper deep clean. Stay ahead of it with monthly credit that never expires: ${url}`;
   }
 }
 
@@ -226,8 +208,9 @@ export function buildPostDetailOfferLockInUrl(opts: {
     },
     30 * 24 * 60 * 60
   );
-  const url = new URL(`${CRM_BASE_URL}/lock-in-recurring`);
-  url.searchParams.set("token", token);
-  url.searchParams.set("cadence", String(opts.featuredCadenceMonths));
+  // Legacy: the tokened lock-in page still works, but the Collective
+  // lives in the account portal - point new sends there.
+  void token;
+  const url = new URL(`${CRM_BASE_URL}/account`);
   return url.toString();
 }

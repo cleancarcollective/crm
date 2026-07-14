@@ -49,6 +49,22 @@ export type PortalReminder = {
   status: string;
 };
 
+export type PortalPhoto = {
+  id: string;
+  booking_id: string;
+  public_url: string;
+  created_at: string;
+};
+
+export type PortalStats = {
+  /** All-time non-cancelled bookings. */
+  lifetimeDetails: number;
+  /** ex-GST cents across those bookings. */
+  lifetimeSpendCents: number;
+  /** Bonus portion of accrued membership credit (the 15%). */
+  memberBonusCents: number;
+};
+
 export type PortalSnapshot = {
   email: string;
   contacts: PortalContact[];
@@ -56,6 +72,8 @@ export type PortalSnapshot = {
   vehicles: PortalVehicle[];
   upcomingBookings: PortalBooking[];
   pastBookings: PortalBooking[];
+  photos: PortalPhoto[];
+  stats: PortalStats;
   reminders: PortalReminder[];
   /** cents, per shop_id */
   creditByShop: Record<string, number>;
@@ -99,6 +117,35 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     supabase.from("credit_ledger").select("shop_id, delta_cents").in("contact_id", contactIds),
   ]);
   const memberships = await getMemberships(contactIds);
+  const { data: photoRows } = await supabase
+    .from("detail_photos")
+    .select("id, booking_id, public_url, created_at")
+    .in("contact_id", contactIds)
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  // Lifetime stats (the "you've invested / saved" tiles). Aggregated
+  // over ALL bookings, not just the capped lists below.
+  const { data: statRows } = await supabase
+    .from("bookings")
+    .select("price_estimate, status")
+    .in("contact_id", contactIds)
+    .neq("status", "cancelled")
+    .lte("scheduled_start", nowIsoForStats());
+  const lifetimeDetails = statRows?.length ?? 0;
+  const lifetimeSpendCents = Math.round(
+    (statRows ?? []).reduce((sum, b) => sum + (Number(b.price_estimate) || 0), 0) * 100
+  );
+  const { data: bonusRows } = await supabase
+    .from("credit_ledger")
+    .select("delta_cents")
+    .in("contact_id", contactIds)
+    .eq("created_by", "collective-membership")
+    .gt("delta_cents", 0);
+  const accrued = (bonusRows ?? []).reduce((s, r) => s + (r.delta_cents ?? 0), 0);
+  // Bonus portion of accrued credit: credit = fee x 1.15ish, so the
+  // free slice is accrued x (0.15 / 1.15).
+  const memberBonusCents = Math.round(accrued * (0.15 / 1.15));
 
   const nowIso = new Date().toISOString();
   const bookings = (bookingsRes.data ?? []) as PortalBooking[];
@@ -128,12 +175,18 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     vehicles: (vehiclesRes.data ?? []) as PortalVehicle[],
     upcomingBookings: upcoming,
     pastBookings: past,
+    photos: (photoRows ?? []) as PortalPhoto[],
+    stats: { lifetimeDetails, lifetimeSpendCents, memberBonusCents },
     reminders: (remindersRes.data ?? []) as PortalReminder[],
     creditByShop,
     memberships,
     firstName: contacts.find((c) => c.first_name)?.first_name ?? null,
     primaryShopSlug,
   };
+}
+
+function nowIsoForStats() {
+  return new Date().toISOString();
 }
 
 /** True when the given contact id belongs to the session email. */

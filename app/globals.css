@@ -4924,3 +4924,95 @@ textarea {
   color: var(--success);
   font-weight: 700;
 }
+
+/* ── Portal photo gallery ───────────────────────────────────── */
+
+.portalPhotoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.portalPhotoGrid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
+/* ── Portal stats strip + protection bars ───────────────────── */
+
+.portalStatsStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.portalStat {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.portalStat--good {
+  background: var(--good-soft, rgba(47, 122, 87, 0.08));
+  border-color: rgba(47, 122, 87, 0.3);
+}
+
+.portalStatValue {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.portalStat--good .portalStatValue {
+  color: var(--success);
+}
+
+.portalStatLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.portalProtection {
+  margin-top: 12px;
+}
+
+.portalProtectionTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.portalProtectionExpired {
+  color: var(--danger);
+}
+
+.portalProtectionTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-soft);
+  overflow: hidden;
+}
+
+.portalProtectionFill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--success);
+  transition: width 0.3s ease;
+}
+
+.portalProtectionFill--low {
+  background: var(--warning);
+}

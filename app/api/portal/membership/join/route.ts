@@ -115,32 +115,62 @@ export async function POST(req: NextRequest) {
 
   const name = primary.full_name || [primary.first_name, primary.last_name].filter(Boolean).join(" ") || email;
 
-  // Email the customer their payment link - the thank-you screen may
-  // redirect before they click, so the link must reach their inbox too.
-  if (checkoutUrl) {
-    try {
+  // Email the customer - either their payment link, or (if Stripe is
+  // down/unconfigured) a holding email so the "we'll email you" promise
+  // on the thank-you screen is always kept.
+  const credit = (pricing.creditCents / 100).toFixed(0);
+  const fee = (pricing.feeCents / 100).toFixed(0);
+  const bonusAmt = ((pricing.creditCents - pricing.feeCents) / 100).toFixed(0);
+  try {
+    if (checkoutUrl) {
       await sendViaGmailSmtp({
         From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
         To: email,
-        Subject: "Finish joining the Collective — 2 minutes",
+        Subject: `Switch on your $${credit}/mo detailing credit — 2 minutes`,
         TextBody: `${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}
 
-Welcome to the Collective! One step left: set up your monthly payment (takes ~2 minutes, card or Apple/Google Pay):
+Welcome to the Collective. One quick step and your credit starts - set up your monthly payment (about 2 minutes, card or Apple/Google Pay):
 
 ${checkoutUrl}
 
-Once that's done, $${(pricing.creditCents / 100).toFixed(0)} of detailing credit lands in your account every month - it never expires and you can spend it on any service. Cancel anytime; unspent credit stays yours.`,
+From then on, $${credit} of detailing credit lands in your account every month for $${fee}/mo +GST - that's $${bonusAmt} extra, every month (15%+ bonus).
+
+Get busy? No worries. Credit never expires - it stacks, so a couple of quiet months turns into a bigger detail when you're ready.
+
+Cancel anytime. Banked credit stays yours.`,
         HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
 <p>${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}</p>
-<p>Welcome to the Collective! One step left: set up your monthly payment (takes ~2 minutes, card or Apple/Google Pay).</p>
-<p style="margin:22px 0;"><a href="${checkoutUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Set up my membership</a></p>
-<p>Once that's done, <strong>$${(pricing.creditCents / 100).toFixed(0)} of detailing credit</strong> lands in your account every month - it never expires and you can spend it on any service. Cancel anytime; unspent credit stays yours.</p>
+<p>Welcome to the Collective. One quick step and your credit starts - set up your monthly payment (about 2 minutes, card or Apple/Google Pay).</p>
+<p style="margin:22px 0;"><a href="${checkoutUrl}" style="display:inline-block;padding:14px 34px;background:#1a1713;color:#ffffff;font-weight:600;text-decoration:none;border-radius:12px;">Switch on my credit</a></p>
+<p>From then on, <strong>$${credit} of detailing credit</strong> lands in your account every month for $${fee}/mo +GST - that's <strong>$${bonusAmt} extra, every month</strong> (15%+ bonus).</p>
+<p>Get busy? No worries. Credit never expires - it stacks, so a couple of quiet months turns into a bigger detail when you're ready.</p>
+<p style="color:#6f6860;font-size:13px;">Cancel anytime. Banked credit stays yours.</p>
 </div>`,
         Metadata: { template_key: "collective-checkout-link", membership_id: membership.id },
       });
-    } catch (err) {
-      console.error("Collective checkout-link email failed", err);
+    } else {
+      await sendViaGmailSmtp({
+        From: "Clean Car Collective <hello@cleancarcollective.co.nz>",
+        To: email,
+        Subject: "You're in the Collective — we'll set you up",
+        TextBody: `${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}
+
+Your Collective signup is locked in - nothing to pay today. We'll be in touch within one business day to set up your monthly payment.
+
+From then on, $${credit} of detailing credit lands in your account every month for $${fee}/mo +GST. It never expires and it stacks - skip a busy month and put it toward a bigger detail next time.
+
+Cancel anytime. Banked credit stays yours.`,
+        HtmlBody: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
+<p>${primary.first_name ? `Hi ${primary.first_name},` : "Hi,"}</p>
+<p>Your Collective signup is locked in - nothing to pay today. We'll be in touch within one business day to set up your monthly payment.</p>
+<p>From then on, <strong>$${credit} of detailing credit</strong> lands in your account every month for $${fee}/mo +GST. It never expires and it stacks - skip a busy month and put it toward a bigger detail next time.</p>
+<p style="color:#6f6860;font-size:13px;">Cancel anytime. Banked credit stays yours.</p>
+</div>`,
+        Metadata: { template_key: "collective-holding", membership_id: membership.id },
+      });
     }
+  } catch (err) {
+    console.error("Collective customer email failed", err);
   }
 
   // Team notification.
