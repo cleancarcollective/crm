@@ -218,6 +218,21 @@ textarea {
   outline-offset: 1px;
 }
 
+/* Directory search typeahead: dropdown anchored under the input. */
+.directorySearchWrap {
+  position: relative;
+  display: block;
+}
+.directorySearchWrap .filterInput {
+  width: 100%;
+}
+.directorySearchResults {
+  top: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  width: min(380px, calc(100vw - 32px));
+}
+
 .filterActions {
   display: flex;
   align-items: center;

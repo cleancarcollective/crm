@@ -1,3 +1,5 @@
+import { DirectorySearchField } from "@/components/dashboard/DirectorySearchField";
+
 type FilterOption = {
   label: string;
   value: string;
@@ -25,16 +27,7 @@ export function DirectoryFilterBar({
 }: DirectoryFilterBarProps) {
   return (
     <form action={action} className={showDateRange ? "filterBar filterBar--dates" : "filterBar"}>
-      <label className="filterField">
-        <span>Search</span>
-        <input
-          type="search"
-          name="q"
-          defaultValue={query}
-          placeholder="Name, email, phone, service, vehicle"
-          className="filterInput"
-        />
-      </label>
+      <DirectorySearchField defaultValue={query} />
 
       <label className="filterField">
         <span>Status</span>
