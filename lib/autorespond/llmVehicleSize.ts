@@ -112,6 +112,7 @@ export async function classifyVehicleViaLlm(
         confidence,
         source: "llm",
         rationale,
+        yearResolved: yearRaw,
       });
     }
 

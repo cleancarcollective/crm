@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 import { DateTimeField } from "@/components/dashboard/DateTimeField";
+import { getPricing } from "@/lib/pricingClient";
 
 // Both CCC shops are NZ - hardcode for now. Prevents datetime-local
 // input from drifting when the user's browser or SSR node is in a
@@ -348,19 +349,13 @@ export function NewBookingModal({ defaultDate, onClose, initialContact, initialV
 
   useEffect(() => { search(query); }, [query, search]);
 
-  // Load the shop's pricing catalogue once on mount.
+  // Load the shop's pricing catalogue - from the shared client cache, so
+  // it's instant if the page prefetched it (usually the case).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/pricing");
-        if (!res.ok) return;
-        const data = (await res.json()) as { services: PricingService[] };
-        if (!cancelled) setPricing(data.services ?? []);
-      } catch {
-        // Non-fatal — modal falls back to free-text service entry.
-      }
-    })();
+    getPricing()
+      .then((services) => { if (!cancelled) setPricing(services); })
+      .catch(() => { /* Non-fatal — modal falls back to free-text service entry. */ });
     return () => { cancelled = true; };
   }, []);
 

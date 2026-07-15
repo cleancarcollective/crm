@@ -36,5 +36,10 @@ export async function GET() {
   }
 
   const services = Array.from(byService.entries()).map(([name, sizes]) => ({ name, sizes }));
-  return NextResponse.json({ services });
+  // Pricing rarely changes; let the browser reuse it for a few minutes so
+  // repeat modal opens in a session skip the round-trip entirely.
+  return NextResponse.json(
+    { services },
+    { headers: { "Cache-Control": "private, max-age=300" } }
+  );
 }

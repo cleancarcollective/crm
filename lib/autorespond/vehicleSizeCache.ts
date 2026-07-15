@@ -27,9 +27,16 @@ export type CachedVehicleSize = {
  * Also bumps hit_count + last_hit_at on every hit so we can see which
  * vehicles are most frequently asked about.
  */
+/** Same model classed the same size across close years - a 2022 and a
+ *  2025 Corolla share a cache row. But cars can jump size class across a
+ *  generation, so a request whose year is more than this many years from
+ *  the cached year is treated as a miss and re-resolved via the LLM. */
+const YEAR_STALE_THRESHOLD = 4;
+
 export async function lookupVehicleSizeFromCache(
   makeRaw: string,
   modelRaw: string,
+  yearRaw?: string | number | null,
 ): Promise<CachedVehicleSize | null> {
   const make = normalizeMake(makeRaw);
   const model = normalizeModel(modelRaw);
@@ -39,12 +46,26 @@ export async function lookupVehicleSizeFromCache(
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase
       .from("vehicle_size_lookups")
-      .select("size, confidence, source, rationale, hit_count")
+      .select("size, confidence, source, rationale, hit_count, year_resolved")
       .eq("make_normalized", make)
       .eq("model_normalized", model)
       .maybeSingle();
 
     if (error || !data) return null;
+
+    // Staff overrides are trusted regardless of year. For LLM-cached rows,
+    // if the requested year is far from the year we resolved for, treat it
+    // as a miss so the caller re-checks (the car may have changed size).
+    const reqYear = Number(yearRaw);
+    if (
+      data.source !== "staff_override" &&
+      Number.isFinite(reqYear) &&
+      reqYear > 1980 &&
+      typeof data.year_resolved === "number" &&
+      Math.abs(reqYear - data.year_resolved) > YEAR_STALE_THRESHOLD
+    ) {
+      return null;
+    }
 
     // Bump hit count. Non-blocking — the trigger handles updated_at /
     // last_hit_at on every update.
@@ -82,6 +103,7 @@ export async function recordVehicleSizeToCache(args: {
   confidence: number;
   source: "llm" | "staff_override";
   rationale?: string | null;
+  yearResolved?: string | number | null;
 }): Promise<void> {
   const make = normalizeMake(args.makeRaw);
   const model = normalizeModel(args.modelRaw);
@@ -102,6 +124,9 @@ export async function recordVehicleSizeToCache(args: {
       if (existing?.source === "staff_override") return;
     }
 
+    const yr = Number(args.yearResolved);
+    const yearResolved = Number.isFinite(yr) && yr > 1980 ? Math.round(yr) : null;
+
     const { error } = await supabase
       .from("vehicle_size_lookups")
       .upsert(
@@ -112,6 +137,7 @@ export async function recordVehicleSizeToCache(args: {
           confidence: Math.max(0, Math.min(1, args.confidence)),
           source: args.source,
           rationale: args.rationale ?? null,
+          year_resolved: yearResolved,
         },
         { onConflict: "make_normalized,model_normalized" },
       );

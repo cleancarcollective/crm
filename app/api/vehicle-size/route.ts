@@ -43,8 +43,9 @@ async function resolve(make: string, model: string, year: string | null) {
   if (det && det.confidence !== "low") {
     return { size: det.size, confidence: det.confNumeric, source: det.reasonCode };
   }
-  // 2. Cache (previously LLM-resolved or staff-overridden)
-  const cached = await lookupVehicleSizeFromCache(make, model);
+  // 2. Cache (previously LLM-resolved or staff-overridden). Year-aware:
+  //    a request far from the cached year re-checks via the LLM.
+  const cached = await lookupVehicleSizeFromCache(make, model, year);
   if (cached && cached.confidence >= 0.6) {
     return { size: cached.size, confidence: cached.confidence, source: `cache_${cached.source}` };
   }
