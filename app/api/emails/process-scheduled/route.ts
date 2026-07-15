@@ -30,6 +30,7 @@ import type { TemplateKey } from "@/lib/autorespond/templates";
 import { processScheduledReminderJobs } from "@/lib/email/scheduledReminderJobs";
 import { scheduleLeadFollowups } from "@/lib/scheduling/leadJobs";
 import { processScheduledSmsJobs } from "@/lib/sms/scheduledSmsJobs";
+import { sendTeamNotificationNow } from "@/lib/email/teamNotify";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 function isAuthorized(request: Request) {
@@ -192,9 +193,40 @@ async function dispatch(job: ScheduledJob) {
     case "ad_nurture_day3":
     case "ad_nurture_day6":
       return handleAdNurture(job);
+    case "team_notification":
+      return handleTeamNotification(job);
     default:
       throw new Error(`Unknown job_type: ${job.job_type}`);
   }
+}
+
+/**
+ * Team notification fallback (self-service cancel/reschedule). Enqueued by
+ * lib/email/teamNotify when the direct Postmark send fails — this handler
+ * re-attempts via the same renderer, with the cron's retry/backoff and a
+ * visible last_error on repeated failure.
+ */
+async function handleTeamNotification(job: ScheduledJob) {
+  const payload = job.payload_json as { kind?: "cancel" | "reschedule"; subject?: string; lines?: string[] } | null;
+  if (!payload?.subject || !Array.isArray(payload.lines)) {
+    throw new Error("team_notification: missing subject/lines in payload");
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data: shop } = await supabase
+    .from("shops")
+    .select("id, slug, name, timezone")
+    .eq("id", job.shop_id)
+    .maybeSingle();
+  if (!shop) throw new Error(`team_notification: shop ${job.shop_id} not found`);
+
+  await sendTeamNotificationNow({
+    shop,
+    bookingId: job.booking_id ?? "",
+    kind: payload.kind === "reschedule" ? "reschedule" : "cancel",
+    subject: payload.subject,
+    lines: payload.lines,
+  });
 }
 
 /**

@@ -18,12 +18,11 @@ import { NextResponse } from "next/server";
 
 import { verifyActionToken } from "@/lib/auth/signedTokens";
 import { cancelSeriesCore } from "@/lib/bookings/cancelSeries";
-import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import {
   sendSeriesCancelCustomerEmail,
   sendSeriesCancelTeamNotification,
 } from "@/lib/email/sendSeriesEditCancelEmails";
-import { getShopContacts } from "@/lib/email/shopContacts";
+import { enqueueTeamNotification, notifyTeamReliable } from "@/lib/email/teamNotify";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type Body = {
@@ -130,7 +129,24 @@ export async function POST(request: Request) {
           customerEmail: result.contact?.email ?? null,
         });
       } catch (err) {
-        console.error("Self-service series cancel team notification failed", err);
+        console.error("Self-service series cancel team notification failed — enqueueing fallback", err);
+        try {
+          await enqueueTeamNotification(supabase, {
+            shopId: booking.shop_id,
+            bookingId: booking.id,
+            payload: {
+              kind: "cancel",
+              subject: `❌ Recurring series cancelled by customer: ${customerName}`,
+              lines: [
+                `${customerName} cancelled their recurring ${result.series.service_name} series via the self-service link.`,
+                `Bookings cancelled: ${result.bookingsCancelled}`,
+                body.reason ? `Reason: ${body.reason}` : "(no reason given)",
+              ],
+            },
+          });
+        } catch (queueErr) {
+          console.error("Series-cancel notification TOTAL failure", queueErr);
+        }
       }
 
       return NextResponse.json({ ok: true, bookingsCancelled: result.bookingsCancelled });
@@ -157,25 +173,21 @@ export async function POST(request: Request) {
       .eq("booking_id", booking.id)
       .eq("status", "pending");
 
-    try {
-      await notifyTeam({
-        shop: { id: shop.id, slug: shop.slug, name: shop.name, timezone: shop.timezone },
-        bookingId: booking.id,
-        kind: "cancel",
-        subject: `❌ Booking cancelled by customer: ${customerName}`,
-        lines: [
-          `${customerName} cancelled their ${booking.service_name} booking via the self-service link.`,
-          `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
-          body.reason ? `Reason: ${body.reason}` : "(no reason given)",
-          `Email: ${contact?.email ?? "-"}`,
-          `Phone: ${contact?.phone ?? "-"}`,
-          ``,
-          `The slot has been cancelled in the CRM and removed from the calendar. Pending reminders have been cancelled.`,
-        ],
-      });
-    } catch (err) {
-      console.error("Cancel team-notification failed", err);
-    }
+    await notifyTeamReliable(supabase, {
+      shop: { id: shop.id, slug: shop.slug, name: shop.name, timezone: shop.timezone },
+      bookingId: booking.id,
+      kind: "cancel",
+      subject: `❌ Booking cancelled by customer: ${customerName}`,
+      lines: [
+        `${customerName} cancelled their ${booking.service_name} booking via the self-service link.`,
+        `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
+        body.reason ? `Reason: ${body.reason}` : "(no reason given)",
+        `Email: ${contact?.email ?? "-"}`,
+        `Phone: ${contact?.phone ?? "-"}`,
+        ``,
+        `The slot has been cancelled in the CRM and removed from the calendar. Pending reminders have been cancelled.`,
+      ],
+    });
 
     return NextResponse.json({ ok: true });
   }
@@ -208,26 +220,22 @@ export async function POST(request: Request) {
     .eq("id", booking.id)
     .eq("shop_id", booking.shop_id);
 
-  try {
-    await notifyTeam({
-      shop: { id: shop.id, slug: shop.slug, name: shop.name, timezone: shop.timezone },
-      bookingId: booking.id,
-      kind: "reschedule",
-      subject: `🔄 Reschedule requested: ${customerName}`,
-      lines: [
-        `${customerName} requested a reschedule via the self-service link.`,
-        `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
-        `Requested time: ${requestedIsoLabel}`,
-        body.reason ? `Note: ${body.reason}` : "",
-        `Email: ${contact?.email ?? "-"}`,
-        `Phone: ${contact?.phone ?? "-"}`,
-        ``,
-        `Open the booking in the CRM to confirm the new time. Once you save the updated slot, the standard booking-update email will fire automatically.`,
-      ].filter(Boolean),
-    });
-  } catch (err) {
-    console.error("Reschedule team-notification failed", err);
-  }
+  await notifyTeamReliable(supabase, {
+    shop: { id: shop.id, slug: shop.slug, name: shop.name, timezone: shop.timezone },
+    bookingId: booking.id,
+    kind: "reschedule",
+    subject: `🔄 Reschedule requested: ${customerName}`,
+    lines: [
+      `${customerName} requested a reschedule via the self-service link.`,
+      `Original time: ${formatBookingTime(booking.scheduled_start, shop.timezone)}`,
+      `Requested time: ${requestedIsoLabel}`,
+      body.reason ? `Note: ${body.reason}` : "",
+      `Email: ${contact?.email ?? "-"}`,
+      `Phone: ${contact?.phone ?? "-"}`,
+      ``,
+      `Open the booking in the CRM to confirm the new time. Once you save the updated slot, the standard booking-update email will fire automatically.`,
+    ].filter(Boolean),
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -241,96 +249,4 @@ function formatBookingTime(iso: string, tz: string): string {
   return formatInTimeZone(iso, tz, "EEE d MMM yyyy 'at' h:mm a");
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 
-async function notifyTeam(args: {
-  shop: { id: string; slug: string; name: string; timezone: string };
-  bookingId: string;
-  kind: "cancel" | "reschedule";
-  subject: string;
-  lines: string[];
-}) {
-  const { team_email, reply_email, from_line: from } = getShopContacts(args.shop);
-  // Send to the group inbox AND the shop's watched customer inbox. On
-  // Christchurch these differ (team_email=info@ group inbox vs reply_email=ben@
-  // which staff actually monitor), so a self-service cancel/reschedule to info@
-  // alone was going unseen. Dedupe in case they're the same (Wellington).
-  const recipients = Array.from(new Set([team_email, reply_email].filter(Boolean))).join(", ");
-  const crmUrl = `${CRM_BASE_URL}/bookings/${args.bookingId}`;
-  const ctaLabel = args.kind === "cancel" ? "View cancelled booking in CRM →" : "Open booking & confirm new time →";
-
-  // Plain text body - Postmark requires this even when HtmlBody is set,
-  // and some inboxes still prefer the text version.
-  const textBody = [...args.lines, "", `Open in CRM: ${crmUrl}`].join("\n");
-
-  // HTML body - same lines as plain text plus a styled CTA button so staff
-  // can jump straight to the booking. Layout mirrors the other internal
-  // notification emails (daily-digest, approval-pending, etc.).
-  const accent = args.kind === "cancel" ? "#c0392b" : "#1a4d2e";
-  const htmlBody = `
-<!doctype html>
-<html lang="en">
-  <body style="margin:0;padding:0;background:#E5E4E2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#E5E4E2;padding:32px 16px;">
-      <tr><td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;">
-          <tr>
-            <td style="background:#1a1713;padding:28px 32px;border-radius:16px 16px 0 0;">
-              <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#c9c5c0;">${escapeHtml(args.shop.name)}</p>
-              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;line-height:1.2;">${escapeHtml(args.subject)}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;padding:28px 32px;border-left:1px solid #e8e0d6;border-right:1px solid #e8e0d6;">
-              ${args.lines
-                .map((line) => line.trim().length === 0
-                  ? `<div style="height:8px;"></div>`
-                  : `<p style="margin:0 0 12px;font-size:14px;line-height:1.55;color:#1a1713;">${escapeHtml(line)}</p>`
-                ).join("\n")}
-              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0 4px;">
-                <tr>
-                  <td align="center">
-                    <a href="${escapeHtml(crmUrl)}" style="display:inline-block;padding:13px 28px;background:${accent};color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px;">
-                      ${escapeHtml(ctaLabel)}
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#1a1713;padding:18px 32px;border-radius:0 0 16px 16px;">
-              <p style="margin:0;font-size:12px;color:#7a6f68;">${escapeHtml(args.shop.name)} CRM - sent automatically by the customer-action handler</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-    </table>
-  </body>
-</html>
-  `.trim();
-
-  const postmark = getPostmarkClient();
-  await postmark.sendEmail({
-    From: from,
-    To: recipients,
-    Subject: args.subject,
-    TextBody: textBody,
-    HtmlBody: htmlBody,
-    MessageStream: "booking-emails",
-    TrackOpens: false,
-    TrackLinks: "None" as never,
-    Metadata: {
-      shop_id: args.shop.id,
-      booking_id: args.bookingId,
-      template_key: `booking_action_${args.kind}`,
-    },
-  });
-}
