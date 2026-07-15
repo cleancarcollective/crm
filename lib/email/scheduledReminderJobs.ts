@@ -187,6 +187,21 @@ export async function processScheduledReminderJobs() {
         continue;
       }
 
+      // Safety net: a customer has asked to cancel but staff haven't
+      // actioned it yet, so the booking is still 'confirmed'. Never send a
+      // countdown reminder ("see you in a week") into a pending cancel.
+      const cancelRequestedAt = (bookingData as { cancel_requested_at?: string | null }).cancel_requested_at;
+      if (!isPostDetailTouchpoint && cancelRequestedAt) {
+        await updateScheduledJobStatus(claimedJob.id, "cancelled", "Customer requested cancellation - awaiting staff action.");
+        results.push({
+          jobId: claimedJob.id,
+          bookingId: claimedJob.booking_id,
+          status: "cancelled:cancel_requested",
+          templateKey: claimedJob.template_key
+        });
+        continue;
+      }
+
       // Post-detail recurring-offer touchpoints route to their own renderer.
       if (POST_DETAIL_TOUCHPOINT_TEMPLATE_KEYS.has(claimedJob.template_key)) {
         const contact = bookingData.contact;

@@ -66,8 +66,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await supabase
     .from("bookings")
-    .update({ notes: booking.notes ? `${booking.notes}\n${noteLine}` : noteLine })
+    .update({
+      notes: booking.notes ? `${booking.notes}\n${noteLine}` : noteLine,
+      // The booking stays confirmed until staff action it, but a pending
+      // cancel must silence the countdown reminders. Cleared when staff
+      // set a status (see the booking PATCH route).
+      ...(kind === "cancel" ? { cancel_requested_at: new Date().toISOString() } : {}),
+    })
     .eq("id", booking.id);
+
+  // Kill queued reminders now, so we never send "see you in a week" /
+  // "your booking is tomorrow" for a booking they asked to cancel.
+  if (kind === "cancel") {
+    const reason = "Cancel requested by customer via portal";
+    await Promise.all([
+      supabase
+        .from("scheduled_email_jobs")
+        .update({ status: "cancelled", last_error: reason })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending"),
+      supabase
+        .from("scheduled_sms_jobs")
+        .update({ status: "cancelled", last_error: reason })
+        .eq("booking_id", booking.id)
+        .eq("status", "pending"),
+    ]);
+  }
 
   // Notify the shop team.
   const customerName = owner.full_name || [owner.first_name, owner.last_name].filter(Boolean).join(" ") || session.email;

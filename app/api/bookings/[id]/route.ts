@@ -120,6 +120,13 @@ export async function PATCH(
     notes: payload.notes ?? existingBooking.notes
   };
 
+  // Staff explicitly setting a status resolves any pending portal cancel
+  // request (they either cancelled it or decided to keep it), so clear the
+  // flag that was holding reminders back.
+  if (payload.status) {
+    updateData.cancel_requested_at = null;
+  }
+
   // "Just this one" semantics for recurring series: a per-booking edit
   // (incl. a cancel via status='cancelled') protects this occurrence from
   // future series-wide overwrites.
