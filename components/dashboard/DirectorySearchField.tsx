@@ -37,6 +37,7 @@ export function DirectorySearchField({ defaultValue = "", placeholder }: { defau
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1); // -1 => Enter submits the filter
   const [loading, setLoading] = useState(false);
+  const [maxH, setMaxH] = useState<number | undefined>(undefined);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,6 +48,26 @@ export function DirectorySearchField({ defaultValue = "", placeholder }: { defau
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // Cap the dropdown to the space below the input so it never runs off the
+  // bottom of the screen (the filter sits low on mobile) - it scrolls
+  // internally instead. Recompute on open, scroll and resize.
+  useEffect(() => {
+    if (!open) return;
+    function fit() {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const avail = window.innerHeight - wrap.getBoundingClientRect().bottom - 14;
+      setMaxH(Math.max(150, Math.min(avail, 380)));
+    }
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("scroll", fit, true);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("scroll", fit, true);
+    };
   }, [open]);
 
   const runSearch = useCallback((query: string) => {
@@ -124,7 +145,7 @@ export function DirectorySearchField({ defaultValue = "", placeholder }: { defau
           aria-label="Search customers"
         />
         {open ? (
-          <div className="globalSearchResults directorySearchResults" role="listbox">
+          <div className="globalSearchResults directorySearchResults" role="listbox" style={maxH ? { maxHeight: maxH } : undefined}>
             {results.length === 0 ? (
               <div className="globalSearchEmpty">{loading ? "Searching…" : "No matches"}</div>
             ) : (
