@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { NewBookingModal } from "@/components/dashboard/NewBookingModal";
 
 type Props = {
   defaultDate?: string; // yyyy-MM-dd
-  label?: string;
+  label?: ReactNode;
   className?: string;
 };
 

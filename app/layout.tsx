@@ -133,7 +133,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <GlobalNavLinks items={navItems} />
           <div className="globalNavRight">
             <GlobalSearch />
-            <NewBookingButton className="buttonPrimary globalNavCta" />
+            <NewBookingButton
+              className="buttonPrimary globalNavCta"
+              label={
+                <>
+                  <span className="ctaFull">+ New Booking</span>
+                  <span className="ctaShort">+ Book</span>
+                </>
+              }
+            />
             <span className="globalNavUser">{user.name}</span>
             <LogoutButton />
           </div>

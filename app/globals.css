@@ -1909,6 +1909,21 @@ textarea {
   color: var(--text);
 }
 
+.globalNavLogout {
+  display: inline-flex;
+  align-items: center;
+}
+.globalNavLogoutIcon {
+  display: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive New Booking label: full text on desktop, "+ Book" on phones. */
+.ctaShort {
+  display: none;
+}
+
 /* ── Login page ─────────────────────────────────────────── */
 
 .loginShell {
@@ -4572,6 +4587,44 @@ textarea {
   }
   .globalSearchMobileBtn {
     display: inline-flex;
+  }
+
+  /* Keep the whole right cluster on-screen: tighten spacing, compact the
+     CTA + logout, and let the middle links strip absorb the overflow. */
+  .globalNav {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .globalNavRight {
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .globalNavCta {
+    padding: 8px 11px;
+  }
+  .ctaFull {
+    display: none;
+  }
+  .ctaShort {
+    display: inline;
+  }
+  .globalNavLogout {
+    padding: 7px 9px;
+  }
+  .globalNavLogoutText {
+    display: none;
+  }
+  .globalNavLogoutIcon {
+    display: block;
+  }
+  /* Shop pill / switcher: cap width so a long shop name can't shove the
+     right controls off-screen. */
+  .globalNavShopPill,
+  .globalNavShopSwitcher {
+    max-width: 112px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
