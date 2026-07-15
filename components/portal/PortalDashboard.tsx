@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PortalBooking, PortalReminder, PortalSnapshot, PortalVehicle } from "@/lib/portal/data";
@@ -40,20 +40,13 @@ function fmtNzd(cents: number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(cents / 100);
 }
 
+type TabKey = "overview" | "bookings" | "vehicles" | "photos" | "profile";
+
 export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSnapshot; initialView?: string }) {
   const router = useRouter();
-  // Arriving from the "see my photos" email: land on the photos, not the
-  // Collective upsell. Hide that CTA for this entry and scroll to photos.
+  // Arriving from the "see my photos" email lands on the Photos tab.
   const photosFirst = initialView === "photos" && snapshot.photos.length > 0;
-
-  useEffect(() => {
-    if (!photosFirst) return;
-    // Defer past Next's post-navigation scroll restoration so ours wins.
-    const raf = requestAnimationFrame(() => {
-      document.getElementById("portal-photos")?.scrollIntoView({ block: "start" });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [photosFirst]);
+  const [tab, setTab] = useState<TabKey>(photosFirst ? "photos" : "overview");
   const shopById = useMemo(
     () => new Map(snapshot.shops.map((s) => [s.id, s])),
     [snapshot.shops]
@@ -67,6 +60,16 @@ export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSna
   // Home shop (most recent booking's shop) decides which city's booking
   // form every CTA points at.
   const bookUrl = BOOKING_URLS[snapshot.primaryShopSlug] ?? BOOKING_URLS.wellington;
+
+  const tabs: { key: TabKey; label: string; count?: number }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "bookings", label: "Bookings", count: snapshot.upcomingBookings.length },
+    { key: "vehicles", label: "Vehicles", count: snapshot.vehicles.length },
+    ...(snapshot.photos.length > 0
+      ? [{ key: "photos" as TabKey, label: "Photos", count: snapshot.photos.length }]
+      : []),
+    { key: "profile", label: "Profile" },
+  ];
 
   return (
     <main className="portalShell">
@@ -97,38 +100,61 @@ export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSna
         </section>
       ) : null}
 
-      {snapshot.stats.lifetimeDetails > 0 ? (
-        <section className="portalStatsStrip">
-          <div className="portalStat">
-            <span className="portalStatValue">{snapshot.stats.lifetimeDetails}</span>
-            <span className="portalStatLabel">detail{snapshot.stats.lifetimeDetails === 1 ? "" : "s"} with us</span>
-          </div>
-          <div className="portalStat">
-            <span className="portalStatValue">{fmtNzd(snapshot.stats.lifetimeSpendCents)}</span>
-            <span className="portalStatLabel">invested in your car{snapshot.vehicles.length === 1 ? "" : "s"}</span>
-          </div>
-          {snapshot.stats.memberBonusCents > 0 ? (
-            <div className="portalStat portalStat--good">
-              <span className="portalStatValue">{fmtNzd(snapshot.stats.memberBonusCents)}</span>
-              <span className="portalStatLabel">earned in member bonus credit</span>
-            </div>
+      {/* Tab menu - one dedicated view per part of the account. */}
+      <nav className="portalTabs" role="tablist" aria-label="Account sections">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`portalTab${tab === t.key ? " portalTab--active" : ""}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            {typeof t.count === "number" && t.count > 0 ? <span className="portalTabCount">{t.count}</span> : null}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "overview" ? (
+        <>
+          {snapshot.stats.lifetimeDetails > 0 ? (
+            <section className="portalStatsStrip">
+              <div className="portalStat">
+                <span className="portalStatValue">{snapshot.stats.lifetimeDetails}</span>
+                <span className="portalStatLabel">detail{snapshot.stats.lifetimeDetails === 1 ? "" : "s"} with us</span>
+              </div>
+              <div className="portalStat">
+                <span className="portalStatValue">{fmtNzd(snapshot.stats.lifetimeSpendCents)}</span>
+                <span className="portalStatLabel">invested in your car{snapshot.vehicles.length === 1 ? "" : "s"}</span>
+              </div>
+              {snapshot.stats.memberBonusCents > 0 ? (
+                <div className="portalStat portalStat--good">
+                  <span className="portalStatValue">{fmtNzd(snapshot.stats.memberBonusCents)}</span>
+                  <span className="portalStatLabel">earned in member bonus credit</span>
+                </div>
+              ) : null}
+            </section>
           ) : null}
-        </section>
+          <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />
+          <WarrantySection snapshot={snapshot} vehicleById={vehicleById} />
+        </>
       ) : null}
 
-      {/* From the "see my photos" email: photos lead, no Collective CTA. */}
-      {photosFirst ? <PhotosSection snapshot={snapshot} shopById={shopById} /> : null}
+      {tab === "bookings" ? (
+        <>
+          <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
+          <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
+          <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
+        </>
+      ) : null}
 
-      {photosFirst ? null : <CollectiveSection snapshot={snapshot} onChanged={() => router.refresh()} />}
+      {tab === "vehicles" ? <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} /> : null}
 
-      <WarrantySection snapshot={snapshot} vehicleById={vehicleById} />
+      {tab === "photos" ? <PhotosSection snapshot={snapshot} shopById={shopById} /> : null}
 
-      <BookingsSection snapshot={snapshot} shopById={shopById} vehicleById={vehicleById} onChanged={() => router.refresh()} />
-      <RemindersSection snapshot={snapshot} shopById={shopById} onChanged={() => router.refresh()} />
-      {photosFirst ? null : <PhotosSection snapshot={snapshot} shopById={shopById} />}
-      <GarageSection snapshot={snapshot} onChanged={() => router.refresh()} />
-      <PastSection snapshot={snapshot} shopById={shopById} bookUrl={bookUrl} />
-      <ProfileSection snapshot={snapshot} onChanged={() => router.refresh()} />
+      {tab === "profile" ? <ProfileSection snapshot={snapshot} onChanged={() => router.refresh()} /> : null}
     </main>
   );
 }
@@ -226,6 +252,7 @@ const MEMBERSHIP_PRICING: Record<string, { fee: number; credit: number }> = {
 function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onChanged: () => void }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const membership = snapshot.memberships[0] ?? null;
   const totalBanked = Object.values(snapshot.creditByShop).reduce((a, b) => a + b, 0);
 
@@ -237,6 +264,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
   async function join() {
     setPending(true);
     setError(null);
+    setInfo(null);
     try {
       const res = await fetch("/api/portal/membership/join", {
         method: "POST",
@@ -246,9 +274,14 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; checkout_url?: string | null; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not sign you up");
       if (data.checkout_url) {
+        // Straight to Stripe - no intermediate step.
         window.location.href = data.checkout_url;
         return;
       }
+      // No checkout link (payment temporarily unavailable): the signup is
+      // saved and a secure payment link has been emailed. Say so clearly
+      // instead of stranding them on a dead button.
+      setInfo("You're in. We've emailed you a secure payment link to switch on your credit - it takes about 2 minutes. Check your inbox (and spam just in case).");
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign you up");
@@ -305,10 +338,11 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
             </span>
           </div>
           {error ? <p className="portalError">{error}</p> : null}
+          {info ? <p className="portalCardMeta" style={{ color: "var(--success)", fontWeight: 600 }}>{info}</p> : null}
           <div className="portalCardActions">
             {membership.status === "pending" ? (
               <button type="button" className="portalPrimaryBtn portalPrimaryBtn--compact" onClick={join} disabled={pending}>
-                {pending ? "Opening…" : "Complete setup - 2 min"}
+                {pending ? "Opening payment…" : "Set up payment"}
               </button>
             ) : (
               <button type="button" className="portalGhostBtn" onClick={openBilling} disabled={pending}>
@@ -325,21 +359,26 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
     <section className="portalSection">
       <div className="portalCard portalCollectiveCard">
         <p className="portalEyebrow" style={{ marginBottom: 2 }}>The Collective</p>
-        <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Detailing credit that builds every month</h2>
+        <h2 className="portalCardTitle" style={{ fontSize: 18 }}>Your car&rsquo;s maintenance plan</h2>
+        <p className="portalCardMeta" style={{ marginBottom: 8 }}>
+          ${pricing.fee}/mo +GST turns into <strong>${pricing.credit} of detailing credit</strong> on your account
+          every month. Spend it on any service - a quick express wash or a full detail, your call.
+        </p>
         <p className="portalCardMeta" style={{ marginBottom: 10 }}>
-          <strong>${pricing.credit}/mo of detailing credit</strong> for ${pricing.fee}/mo +GST -
-          ${pricing.credit - pricing.fee} of bonus value every month ({Math.round(((pricing.credit - pricing.fee) / pricing.fee) * 100)}%).
+          Come in often for express cleans, or let the credit stack and come when the car&rsquo;s actually dirty.
+          Either way the car stays clean - you pick the rhythm.
         </p>
         <ul className="portalPerkList">
-          <li>Get busy? Credit stacks - bank a quiet month and put it toward a bigger detail</li>
-          <li>Free mobile service + valet pickup &amp; drop-off (members only)</li>
+          <li><strong>${pricing.credit - pricing.fee} extra credit</strong> every month - it never expires and it stacks</li>
+          <li>Free mobile service + pickup &amp; drop-off (members only)</li>
           <li>Priority booking - first pick of the calendar + extended hours</li>
           <li>Pro photos of every detail, right here in your account</li>
         </ul>
         {error ? <p className="portalError">{error}</p> : null}
+        {info ? <p className="portalCardMeta" style={{ color: "var(--success)", fontWeight: 600 }}>{info}</p> : null}
         <div className="portalCardActions">
           <button type="button" className="portalPrimaryBtn portalPrimaryBtn--compact" onClick={join} disabled={pending}>
-            {pending ? "Signing you up…" : "Join the Collective"}
+            {pending ? "Taking you to payment…" : "Join the Collective"}
           </button>
           <span className="portalCardMeta">No lock-in · cancel anytime · banked credit stays yours</span>
         </div>
@@ -930,6 +969,10 @@ function GarageSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onCh
   const [rego, setRego] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Optimistically hidden vehicle ids - the row disappears instantly on
+  // delete instead of waiting for the full account reload.
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const vehicles = snapshot.vehicles.filter((v) => !removedIds.includes(v.id));
 
   async function add() {
     setPending(true);
@@ -955,13 +998,21 @@ function GarageSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onCh
   }
 
   async function remove(id: string) {
-    const res = await fetch(`/api/portal/vehicles?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(data.error ?? "Could not remove vehicle");
-      return;
+    // Hide it right away; reconcile the snapshot in the background.
+    setRemovedIds((prev) => [...prev, id]);
+    try {
+      const res = await fetch(`/api/portal/vehicles?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setRemovedIds((prev) => prev.filter((x) => x !== id)); // put it back
+        alert(data.error ?? "Could not remove vehicle");
+        return;
+      }
+      onChanged(); // background refresh so the snapshot catches up
+    } catch {
+      setRemovedIds((prev) => prev.filter((x) => x !== id));
+      alert("Could not remove vehicle");
     }
-    onChanged();
   }
 
   return (
@@ -975,14 +1026,14 @@ function GarageSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onCh
         ) : null}
       </div>
 
-      {snapshot.vehicles.length === 0 && !adding ? (
+      {vehicles.length === 0 && !adding ? (
         <div className="portalEmpty">
           <p>No vehicles saved yet.</p>
           <p className="portalEmptySub">Add your car so booking takes seconds.</p>
         </div>
       ) : (
         <div className="portalGarageGrid">
-          {snapshot.vehicles.map((v) => (
+          {vehicles.map((v) => (
             <div key={v.id} className="portalCard">
               <div className="portalCardTop">
                 <div>
