@@ -1,13 +1,12 @@
 /**
- * Post-detail recurring-discount touchpoint emails (Phase B).
+ * Post-detail touchpoint emails - a 4-touch drip after a completed detail
+ * inviting the customer to join the Collective membership. One renderer
+ * covers all 4 touchpoints (copy varies by how long since the detail).
+ * Inline HTML, same shell pattern as sendSeriesConfirmation.ts.
  *
- * One renderer covers all 4 touchpoints - copy varies by featured cadence
- * + featured discount %. Inline HTML, same shell pattern as
- * sendSeriesConfirmation.ts.
- *
- * Each email links to /lock-in-recurring?token=<signed> (Phase C page).
- * Token: action='lock_in_recurring', resource = booking_id, 30-day expiry.
- * Payload carries the featured cadence so the page can pre-select it.
+ * Each email links to /account (the portal Collective signup); reply is
+ * the primary CTA. Template keys keep the historical
+ * `post_detail_recurring_offer_*` names so scheduled jobs stay stable.
  */
 
 import { signActionToken } from "@/lib/auth/signedTokens";

@@ -236,12 +236,12 @@ export function buildJourneyStages(): Stage[] {
     },
     {
       id: "upsell",
-      title: "6 · Recurring plan upsell",
-      subtitle: "4-touch drip after a completed detail — discounted recurring plan via /lock-in-recurring",
+      title: "6 · The Collective upsell",
+      subtitle: "4-touch email drip after a completed detail — invites them to join the Collective (recurring detailing, 15% off) at /account",
       touchpoints: [
         {
           id: "drip_next_day",
-          label: "Next-day offer (35% off, monthly)",
+          label: "Next-day Collective invite",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+1 day, 9am",
@@ -259,7 +259,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_6w",
-          label: "6-week offer (35% off, monthly)",
+          label: "6-week Collective invite",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+42 days, 11am",
@@ -277,7 +277,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_10w",
-          label: "10-week offer (20% off, 3-monthly)",
+          label: "10-week Collective invite",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+70 days, 11am",
@@ -295,7 +295,7 @@ export function buildJourneyStages(): Stage[] {
         },
         {
           id: "drip_16w",
-          label: "16-week offer (10% off, 6-monthly)",
+          label: "16-week Collective invite",
           channel: "email",
           trigger: "Detail completed",
           timing: "T+112 days, 11am",
