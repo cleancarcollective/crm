@@ -16,7 +16,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
  * parse defensively and always 204 fast. CORS is open — cross-origin iframe.
  */
 
-const ALLOWED_STEPS = new Set(["started", "service", "schedule", "addons", "review", "booked"]);
+const ALLOWED_STEPS = new Set(["started", "service", "schedule", "addons", "review", "booked", "collective_select"]);
 const ALLOWED_FUNNELS = new Set(["main", "ceramic", "interior"]);
 
 function withCors(res: NextResponse) {
