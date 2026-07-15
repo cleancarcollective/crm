@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PortalBooking, PortalReminder, PortalSnapshot, PortalVehicle } from "@/lib/portal/data";
+import { trackPortal } from "@/lib/portal/track";
 
 const BOOKING_URLS: Record<string, string> = {
   wellington: "https://cleancarcollective.co.nz/make-a-booking/",
@@ -47,6 +48,16 @@ export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSna
   // Arriving from the "see my photos" email lands on the Photos tab.
   const photosFirst = initialView === "photos" && snapshot.photos.length > 0;
   const [tab, setTab] = useState<TabKey>(photosFirst ? "photos" : "overview");
+
+  // Log the visit + each tab view for the in-account funnel.
+  useEffect(() => {
+    trackPortal("portal_open", { tab: photosFirst ? "photos" : "overview" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function selectTab(next: TabKey) {
+    setTab(next);
+    trackPortal("tab_view", { tab: next });
+  }
   const shopById = useMemo(
     () => new Map(snapshot.shops.map((s) => [s.id, s])),
     [snapshot.shops]
@@ -109,7 +120,7 @@ export function PortalDashboard({ snapshot, initialView }: { snapshot: PortalSna
             role="tab"
             aria-selected={tab === t.key}
             className={`portalTab${tab === t.key ? " portalTab--active" : ""}`}
-            onClick={() => setTab(t.key)}
+            onClick={() => selectTab(t.key)}
           >
             {t.label}
             {typeof t.count === "number" && t.count > 0 ? <span className="portalTabCount">{t.count}</span> : null}
@@ -265,6 +276,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
     setPending(true);
     setError(null);
     setInfo(null);
+    trackPortal("join_click", { tier });
     try {
       const res = await fetch("/api/portal/membership/join", {
         method: "POST",
@@ -274,6 +286,8 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; checkout_url?: string | null; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not sign you up");
       if (data.checkout_url) {
+        // Reached Stripe - fire before we navigate (sendBeacon survives it).
+        trackPortal("join_start", { tier });
         // Straight to Stripe - no intermediate step.
         window.location.href = data.checkout_url;
         return;
@@ -593,6 +607,7 @@ function BookingCard({
         throw new Error(data.error ?? "Could not send request");
       }
       setMode("done");
+      trackPortal("change_request", { kind });
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send request");
@@ -711,6 +726,7 @@ function RemindersSection({
         throw new Error(data.error ?? "Could not save reminder");
       }
       setAdding(false);
+      trackPortal("reminder_add", { cadence });
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save reminder");
@@ -989,6 +1005,7 @@ function GarageSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; onCh
       }
       setMake(""); setModel(""); setYear(""); setRego("");
       setAdding(false);
+      trackPortal("vehicle_add");
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save vehicle");
