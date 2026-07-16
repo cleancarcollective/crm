@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = getSupabaseAdminClient();
   const { data } = await supabase
     .from("detail_photos")
-    .select("id, public_url, kind, label, notified, created_at")
+    .select("id, public_url, kind, label, notified, staged, created_at")
     .eq("booking_id", id)
     .eq("shop_id", shop.id)
     .order("created_at", { ascending: true });
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const user = await getCurrentUser();
   const { id } = await params;
 
-  let body: { photos?: Array<{ data?: string; kind?: string; label?: string }> };
+  let body: { photos?: Array<{ data?: string; kind?: string; label?: string; staged?: boolean }> };
   try {
     body = await req.json();
   } catch {
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         public_url: pub.publicUrl,
         kind,
         label: (p.label ?? "").trim().slice(0, 60) || null,
+        staged: p.staged === true,
         created_by: user?.name ?? "staff",
       })
       .select("id, public_url")
@@ -95,9 +96,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // No auto-send: pairs collect in the panel and staff explicitly send
-  // via /photos/notify when they're happy with the set. The portal
-  // shows everything as soon as it's uploaded either way.
-  return NextResponse.json({ ok: true, uploaded: uploaded.length });
+  // via /photos/notify when they're happy with the set. Staged "before"
+  // shots are held back from the customer until their pair is built.
+  // `photos` carries the rows back so the panel can track a staged before.
+  return NextResponse.json({ ok: true, uploaded: uploaded.length, photos: uploaded });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

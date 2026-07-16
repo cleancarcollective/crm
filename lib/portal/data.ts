@@ -126,6 +126,7 @@ export async function loadPortalSnapshot(email: string): Promise<PortalSnapshot 
     .from("detail_photos")
     .select("id, booking_id, public_url, kind, label, created_at")
     .in("contact_id", contactIds)
+    .eq("staged", false)
     .order("created_at", { ascending: false })
     .limit(60);
 

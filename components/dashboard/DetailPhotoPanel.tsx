@@ -5,17 +5,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 /**
  * Staff before/after photo tool on the booking page. Template-driven:
  * the service decides which pair templates are suggested (Exterior /
- * Interior / Wheels), plus a custom pair for anything else. Each pair
- * is two taps (before shot, after shot) - the side-by-side composite
- * with BEFORE/AFTER labels + CCC logo is built on-device and uploads
- * automatically when both slots are filled.
+ * Interior / Wheels), plus a custom pair for anything else.
  *
- * Nothing is ever auto-sent: pairs collect in the panel (and appear in
- * the customer's portal), and staff hit "Send to customer" when the
- * set looks right.
+ * The "before" is SAVED to the server the moment it's taken (kind='before',
+ * staged=true) - the after usually lands hours later, often after the tab
+ * has been reloaded or on a different phone, so it can't live in React
+ * state. Staged befores are hidden from the customer; when the after
+ * arrives we composite the pair on-device (fetching the staged before by
+ * URL), upload it, and delete the staged row.
+ *
+ * Nothing is ever auto-sent: finished pairs collect in the panel and staff
+ * hit "Send to customer" when the set looks right. File inputs carry no
+ * `capture` attr, so the picker offers Camera and Photo Library.
  */
 
-type PhotoRow = { id: string; public_url: string; kind: string; label: string | null; notified: boolean; created_at: string };
+type PhotoRow = { id: string; public_url: string; kind: string; label: string | null; notified: boolean; staged: boolean; created_at: string };
 
 const MAX_W = 1600;
 const HALF_W = MAX_W / 2;
@@ -31,8 +35,26 @@ function templatesForService(serviceName: string): string[] {
   return ["Exterior", "Interior", "Wheels"];
 }
 
-async function loadBitmap(file: File): Promise<ImageBitmap> {
-  return createImageBitmap(file);
+async function loadBitmap(src: File | string): Promise<ImageBitmap> {
+  // A staged "before" comes back as a public URL - fetch it, then decode.
+  if (typeof src === "string") {
+    const res = await fetch(src);
+    return createImageBitmap(await res.blob());
+  }
+  return createImageBitmap(src);
+}
+
+/** Downscaled JPEG data-url, used when staging a lone "before" shot. */
+async function compressToDataUrl(file: File, maxW = 1600): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, maxW / bmp.width);
+  const w = Math.round(bmp.width * scale);
+  const h = Math.round(bmp.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", 0.85);
 }
 
 function drawCover(ctx: CanvasRenderingContext2D, img: ImageBitmap, dx: number, dy: number, dw: number, dh: number) {
@@ -57,7 +79,7 @@ function drawTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
   ctx.fillText(text, x + 18, y + h / 2 + 2);
 }
 
-async function compositePair(before: File, after: File, logo: HTMLImageElement | null): Promise<string> {
+async function compositePair(before: File | string, after: File, logo: HTMLImageElement | null): Promise<string> {
   const [bImg, aImg] = await Promise.all([loadBitmap(before), loadBitmap(after)]);
   const canvas = document.createElement("canvas");
   canvas.width = MAX_W;
@@ -94,55 +116,52 @@ async function compositePair(before: File, after: File, logo: HTMLImageElement |
 function PairCard({
   label,
   disabled,
+  stagedBefore,
+  onStageBefore,
   onComplete,
+  onDiscardBefore,
 }: {
   label: string;
   disabled: boolean;
-  onComplete: (label: string, before: File, after: File) => void;
+  /** A "before" already saved on the server, waiting for its after. */
+  stagedBefore: PhotoRow | null;
+  onStageBefore: (label: string, file: File) => void;
+  onComplete: (label: string, beforeUrl: string, after: File) => void;
+  onDiscardBefore: (photoId: string) => void;
 }) {
-  const [before, setBefore] = useState<File | null>(null);
-  const [after, setAfter] = useState<File | null>(null);
-  const [beforeUrl, setBeforeUrl] = useState<string | null>(null);
-  const [afterUrl, setAfterUrl] = useState<string | null>(null);
   const beforeInput = useRef<HTMLInputElement>(null);
   const afterInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (before && after) {
-      onComplete(label, before, after);
-      setBefore(null);
-      setAfter(null);
-      setBeforeUrl(null);
-      setAfterUrl(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [before, after]);
+  const hasBefore = !!stagedBefore;
 
   const slot = (
     which: "before" | "after",
-    file: File | null,
+    filled: boolean,
     url: string | null,
     ref: React.RefObject<HTMLInputElement | null>,
-    set: (f: File, u: string) => void
+    onPick: (f: File) => void,
+    slotDisabled: boolean
   ) => (
     <button
       type="button"
       onClick={() => ref.current?.click()}
-      disabled={disabled}
+      disabled={slotDisabled}
+      title={which === "after" && !hasBefore ? "Take the before shot first" : undefined}
       style={{
         flex: 1,
         minHeight: 92,
         borderRadius: 10,
-        border: file ? "2px solid var(--success)" : "2px dashed var(--line)",
+        border: filled ? "2px solid var(--success)" : "2px dashed var(--line)",
         background: url ? `url(${url}) center/cover` : "var(--panel-soft)",
-        color: file ? "transparent" : "var(--muted)",
+        color: filled ? "transparent" : "var(--muted)",
         fontSize: 13,
         fontWeight: 700,
-        cursor: "pointer",
+        cursor: slotDisabled ? "not-allowed" : "pointer",
+        opacity: slotDisabled && !filled ? 0.5 : 1,
         position: "relative",
       }}
     >
-      {!file ? `📷 ${which === "before" ? "Before" : "After"}` : null}
+      {!filled ? `📷 ${which === "before" ? "Before" : "After"}` : null}
+      {/* No `capture` attr on purpose - the picker offers Camera AND Photo Library. */}
       <input
         ref={ref}
         type="file"
@@ -150,7 +169,7 @@ function PairCard({
         style={{ display: "none" }}
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) set(f, URL.createObjectURL(f));
+          if (f) onPick(f);
           e.target.value = "";
         }}
       />
@@ -161,11 +180,28 @@ function PairCard({
     <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 10 }}>
       <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700 }}>{label}</p>
       <div style={{ display: "flex", gap: 8 }}>
-        {slot("before", before, beforeUrl, beforeInput, (f, u) => { setBefore(f); setBeforeUrl(u); })}
-        {slot("after", after, afterUrl, afterInput, (f, u) => { setAfter(f); setAfterUrl(u); })}
+        {slot("before", hasBefore, stagedBefore?.public_url ?? null, beforeInput, (f) => onStageBefore(label, f), disabled)}
+        {slot(
+          "after",
+          false,
+          null,
+          afterInput,
+          (f) => { if (stagedBefore) onComplete(label, stagedBefore.public_url, f); },
+          disabled || !hasBefore
+        )}
       </div>
-      {before && !after ? (
-        <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--muted)" }}>Now add the after shot - it uploads automatically.</p>
+      {hasBefore ? (
+        <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--success)", fontWeight: 600 }}>
+          ✓ Before saved - come back any time for the after.{" "}
+          <button
+            type="button"
+            onClick={() => onDiscardBefore(stagedBefore!.id)}
+            disabled={disabled}
+            style={{ border: "none", background: "none", color: "var(--muted)", textDecoration: "underline", cursor: "pointer", fontSize: 11, padding: 0 }}
+          >
+            Retake
+          </button>
+        </p>
       ) : null}
     </div>
   );
@@ -202,13 +238,41 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
 
   useEffect(() => { void load(); }, [load]);
 
-  async function handlePair(label: string, before: File, after: File) {
+  /**
+   * Save a lone "before" straight away. The after often lands hours later
+   * (and maybe on another phone), so it can't just live in React state.
+   * Staged photos are hidden from the customer until the pair is built.
+   */
+  async function handleStageBefore(label: string, file: File) {
+    setBusy(true);
+    setError(null);
+    setSentMsg(null);
+    try {
+      setProgress(`Saving ${label} before shot…`);
+      const data = await compressToDataUrl(file);
+      const res = await fetch(`/api/bookings/${bookingId}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photos: [{ data, kind: "before", label, staged: true }] }),
+      });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !out.ok) throw new Error(out.error ?? "Could not save the before shot");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the before shot");
+    } finally {
+      setBusy(false);
+      setProgress("");
+    }
+  }
+
+  async function handlePair(label: string, beforeUrl: string, after: File) {
     setBusy(true);
     setError(null);
     setSentMsg(null);
     try {
       setProgress(`Building ${label} before/after…`);
-      const data = await compositePair(before, after, logoRef.current);
+      const data = await compositePair(beforeUrl, after, logoRef.current);
       setProgress("Uploading…");
       const res = await fetch(`/api/bookings/${bookingId}/photos`, {
         method: "POST",
@@ -217,6 +281,11 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
       });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !out.ok) throw new Error(out.error ?? "Upload failed");
+      // Pair is built - drop the staged before so it can't linger.
+      const staged = photos.find((p) => p.staged && p.label === label);
+      if (staged) {
+        await fetch(`/api/bookings/${bookingId}/photos?photo_id=${encodeURIComponent(staged.id)}`, { method: "DELETE" });
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -248,7 +317,11 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
     await load();
   }
 
-  const unsent = photos.filter((p) => !p.notified).length;
+  // Staged "before" shots are work-in-progress, not deliverables: they
+  // never count toward the collected set or the send button.
+  const stagedFor = (label: string) => photos.find((p) => p.staged && p.label === label) ?? null;
+  const finished = photos.filter((p) => !p.staged);
+  const unsent = finished.filter((p) => !p.notified).length;
 
   return (
     <div className="detailPanel" style={{ marginTop: 18 }}>
@@ -264,8 +337,31 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
       {/* Suggested templates for this service + custom */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10, marginTop: 10 }}>
         {templates.map((t) => (
-          <PairCard key={t} label={t} disabled={busy} onComplete={handlePair} />
+          <PairCard
+            key={t}
+            label={t}
+            disabled={busy}
+            stagedBefore={stagedFor(t)}
+            onStageBefore={handleStageBefore}
+            onComplete={handlePair}
+            onDiscardBefore={remove}
+          />
         ))}
+        {/* A staged before under a custom label - rebuild its card after a
+            reload so the after shot can still find it. */}
+        {photos
+          .filter((p) => p.staged && p.label && !templates.includes(p.label))
+          .map((p) => (
+            <PairCard
+              key={`staged-${p.id}`}
+              label={p.label as string}
+              disabled={busy}
+              stagedBefore={p}
+              onStageBefore={handleStageBefore}
+              onComplete={handlePair}
+              onDiscardBefore={remove}
+            />
+          ))}
         <div style={{ border: "1px dashed var(--line)", borderRadius: 12, padding: 10 }}>
           <input
             className="detailInput"
@@ -279,11 +375,14 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
               key={customKey}
               label={customLabel.trim()}
               disabled={busy}
+              stagedBefore={stagedFor(customLabel.trim())}
+              onStageBefore={handleStageBefore}
               onComplete={(l, b, a) => {
                 void handlePair(l, b, a);
                 setCustomLabel("");
                 setCustomKey((k) => k + 1);
               }}
+              onDiscardBefore={remove}
             />
           ) : (
             <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>Name it and before/after slots appear.</p>
@@ -295,11 +394,11 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
       {sentMsg ? <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, color: "var(--success)" }}>{sentMsg}</p> : null}
 
       {/* Collected set */}
-      {photos.length > 0 ? (
+      {finished.length > 0 ? (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, margin: "16px 0 8px", flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700 }}>
-              Collected ({photos.length}){unsent > 0 ? ` · ${unsent} not sent yet` : " · all sent"}
+              Collected ({finished.length}){unsent > 0 ? ` · ${unsent} not sent yet` : " · all sent"}
             </span>
             <button
               type="button"
@@ -312,7 +411,7 @@ export function DetailPhotoPanel({ bookingId, serviceName }: { bookingId: string
             </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-            {photos.map((p) => (
+            {finished.map((p) => (
               <div key={p.id} style={{ position: "relative" }}>
                 <a href={p.public_url} target="_blank" rel="noopener noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

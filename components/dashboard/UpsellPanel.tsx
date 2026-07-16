@@ -306,7 +306,9 @@ export function UpsellPanel({ bookingId }: { bookingId: string }) {
               📷
             </button>
           ) : null}
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple style={{ display: "none" }} onChange={(e) => { void onPickPhotos(e.target.files); e.target.value = ""; }} />
+          {/* No `capture` attr: the picker offers Camera AND Photo Library,
+              so staff can attach a shot they already took. */}
+          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { void onPickPhotos(e.target.files); e.target.value = ""; }} />
         </div>
 
         <button type="button" className="buttonGhost" onClick={addItem} style={{ alignSelf: "flex-start" }}>
