@@ -79,7 +79,16 @@ type ProcessLeadInput = {
   landingUrl: string | null;
   /** Customer phone — used by the ad-lead nurture SMS touch. */
   phone: string | null;
+  /** Shop slug — gates the CHC web-price experiment on estimate pricing. */
+  shopSlug: string | null;
 };
+
+// Christchurch web-form price experiment (chc-web-15off-2026-07): the CHC
+// booking form and all CHC organic pages show sticker × 0.85, so estimates
+// must match. Ad-promo leads are excluded — they get their code discount
+// instead, mirroring the booking app's funnel gate. Remove alongside the
+// booking-app PRICE_EXPERIMENT when the experiment ends.
+const CHC_WEB_PRICE_CUT = { shopSlug: "christchurch", percentOff: 15 };
 
 /**
  * Ad-page promos. If a lead's landing_url matches one of these, the auto-quote
@@ -323,6 +332,8 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     // offer (e.g. /10-off-road-trip/ => 10% off, code CCC10).
     if (landingPromo) {
       pricing = discountPricing(pricing, landingPromo.percentOff);
+    } else if (input.shopSlug === CHC_WEB_PRICE_CUT.shopSlug) {
+      pricing = discountPricing(pricing, CHC_WEB_PRICE_CUT.percentOff);
     }
     const ctx = buildTemplateContext(
       templateKey,

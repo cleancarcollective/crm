@@ -34,7 +34,11 @@ const OPEN_LEAD_STATUSES = ["new", "contacted", "quoted", "clicked"];
 // Instant on-page quote shops. Both shops have full pricing + auto-respond,
 // so the on-page quote (with Book-now prefill) is live for both. Remove a
 // slug here to fall a shop back to the thank-you redirect + email-only route.
-const QUOTE_ENABLED_SHOP_SLUGS = new Set(["wellington", "christchurch"]);
+// Christchurch removed 2026-07-21: instant quote didn't lift conversions, so
+// CHC leads take the classic thank-you redirect + estimate email instead.
+// The estimate email still auto-sends and ad-lead nurture still schedules —
+// this gate only controls the on-page quote screen.
+const QUOTE_ENABLED_SHOP_SLUGS = new Set(["wellington"]);
 
 // Auto-respond runs LLM calls (notes judge, vehicle-size fallback) in the
 // hot path — give the route headroom beyond the default 10s.
@@ -372,6 +376,7 @@ export async function POST(request: Request) {
           notes: payload.notes ?? null,
           landingUrl: payload.landing_url ?? null,
           phone: payload.phone ?? null,
+          shopSlug: shop.slug,
         });
       })(),
     ]);
