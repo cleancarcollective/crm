@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/portal-reminders",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/warm-availability",
+      "schedule": "*/10 19-23,0-9 * * *"
     }
   ]
 }
