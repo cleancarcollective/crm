@@ -92,10 +92,15 @@ export async function GET(request: Request) {
   const settled = await Promise.allSettled(
     dates.map(async (date) => {
       const params = new URLSearchParams({ type: locationType, date });
+      // Hard timeout per date. A healthy Apps Script answers in ~1-2s; a
+      // stale/misconfigured deployment can hang for 30s+ behind an auth
+      // redirect chain (Christchurch, 1 Aug 2026) which froze the whole
+      // booking flow on "Finding slots". Cap it: a timed-out date falls
+      // through to "no busy blocks" (all slots open) — a slow calendar
+      // must never block a booking.
       const res = await fetch(`${scriptUrl}?${params.toString()}`, {
-        // Cache at the fetch layer too — Vercel may dedupe identical fetches
-        // within the same invocation.
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) {
         throw new Error(`Apps Script ${res.status} for ${date}`);
