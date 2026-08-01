@@ -6,6 +6,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
+import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
@@ -99,6 +100,47 @@ async function markEmail(id: string | null, status: "sent" | "failed", providerM
     .eq("id", id);
 }
 
+/**
+ * Send a portal email via Gmail SMTP, falling back to Postmark if SMTP
+ * fails. Gmail's outbound relay occasionally throttles (a burst of sends
+ * returns a transient error) — without a fallback that bubbled up as a 500
+ * on request-code and blocked the "load my details" prefill. Mirrors the
+ * belt+braces pattern in the booking-email senders.
+ */
+async function deliverPortalEmail(args: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  metadata?: Record<string, string>;
+}): Promise<{ providerMessageId: string }> {
+  try {
+    const res = await sendViaGmailSmtp({
+      From: PORTAL_FROM,
+      To: args.to,
+      Subject: args.subject,
+      TextBody: args.text,
+      HtmlBody: args.html,
+      Metadata: args.metadata,
+    });
+    return { providerMessageId: res.MessageID };
+  } catch (smtpErr) {
+    console.warn("Portal email via SMTP failed, trying Postmark fallback", { to: args.to, subject: args.subject, smtpErr });
+    const pm = await getPostmarkClient().sendEmail({
+      From: PORTAL_FROM,
+      To: args.to,
+      Subject: args.subject,
+      TextBody: args.text,
+      HtmlBody: args.html,
+      MessageStream: "booking-emails",
+      TrackOpens: false,
+      TrackLinks: "None" as never,
+      Metadata: args.metadata,
+    });
+    return { providerMessageId: pm.MessageID };
+  }
+}
+
 // ── Magic link ─────────────────────────────────────────────────────────
 
 export async function sendMagicLinkEmail(args: {
@@ -140,15 +182,14 @@ The link works once and expires in 20 minutes. Didn't request this? Ignore this 
   });
 
   try {
-    const res = await sendViaGmailSmtp({
-      From: PORTAL_FROM,
-      To: args.email,
-      Subject: subject,
-      TextBody: text,
-      HtmlBody: html,
-      Metadata: { template_key: "portal-magic-link", email_message_id: messageId ?? "none" },
+    const { providerMessageId } = await deliverPortalEmail({
+      to: args.email,
+      subject,
+      text,
+      html,
+      metadata: { template_key: "portal-magic-link", email_message_id: messageId ?? "none" },
     });
-    await markEmail(messageId, "sent", res.MessageID);
+    await markEmail(messageId, "sent", providerMessageId);
   } catch (err) {
     await markEmail(messageId, "failed");
     throw err;
@@ -192,15 +233,14 @@ Enter it on the booking page to load your saved details. Expires in 10 minutes, 
   });
 
   try {
-    const res = await sendViaGmailSmtp({
-      From: PORTAL_FROM,
-      To: args.email,
-      Subject: subject,
-      TextBody: text,
-      HtmlBody: html,
-      Metadata: { template_key: "portal-checkout-code", email_message_id: messageId ?? "none" },
+    const { providerMessageId } = await deliverPortalEmail({
+      to: args.email,
+      subject,
+      text,
+      html,
+      metadata: { template_key: "portal-checkout-code", email_message_id: messageId ?? "none" },
     });
-    await markEmail(messageId, "sent", res.MessageID);
+    await markEmail(messageId, "sent", providerMessageId);
   } catch (err) {
     await markEmail(messageId, "failed");
     throw err;
@@ -273,15 +313,14 @@ Manage reminders: ${accountUrl}`;
   });
 
   try {
-    const res = await sendViaGmailSmtp({
-      From: PORTAL_FROM,
-      To: args.email,
-      Subject: subject,
-      TextBody: text,
-      HtmlBody: html,
-      Metadata: { template_key: "portal-detail-due", email_message_id: messageId ?? "none" },
+    const { providerMessageId } = await deliverPortalEmail({
+      to: args.email,
+      subject,
+      text,
+      html,
+      metadata: { template_key: "portal-detail-due", email_message_id: messageId ?? "none" },
     });
-    await markEmail(messageId, "sent", res.MessageID);
+    await markEmail(messageId, "sent", providerMessageId);
   } catch (err) {
     await markEmail(messageId, "failed");
     throw err;
