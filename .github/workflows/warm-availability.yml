@@ -1,0 +1,44 @@
+name: Warm availability (CHC cold-start)
+
+# Keeps the per-shop availability Apps Scripts warm through the NZ booking
+# day so Christchurch customers don't hit a ~30s cold start on "Finding
+# slots" (1 Aug 2026 incident). This used to be a Vercel cron, but the
+# crm's Vercel plan rejects sub-daily cron schedules — so it lives here
+# instead. Hits the exact same endpoint the Vercel cron did.
+#
+# NOTE: GitHub-scheduled runs can drift a few minutes (or occasionally be
+# dropped) under load. That's fine for warming — a missed tick just means
+# one possible cold start, not an outage.
+#
+# Requires repo secret CRON_SECRET (same value as the crm's Vercel
+# CRON_SECRET env var): Settings > Secrets and variables > Actions.
+
+on:
+  schedule:
+    # UTC. 19:00-09:59 UTC == ~07:00-22:00 Pacific/Auckland. Every 10 min.
+    - cron: "*/10 19-23,0-9 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: warm-availability
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping warm-availability endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          code=$(curl -sS -m 60 -o /tmp/body -w '%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://crm.cleancarcollective.co.nz/api/cron/warm-availability")
+          echo "HTTP ${code}"
+          cat /tmp/body || true
+          echo
+          test "$code" = "200"
