@@ -14,8 +14,18 @@ export default async function HomePage({
   const currentShop = await requireCurrentShop();
   const { shop, month, previous, next, days } = await getBookingsForMonth(params?.month, currentShop.slug);
 
-  const totalRevenue = days.reduce((sum, day) => sum + day.totalRevenue, 0);
-  const totalBookings = days.reduce((sum, day) => sum + day.bookingCount, 0);
+  // Only sum days that belong to the displayed month. The calendar grid runs
+  // from the Sunday before the 1st to the Saturday after the last day, so it
+  // carries leading days from the previous month and trailing days from the
+  // next one; those must not count toward this month's totals.
+  const totalRevenue = days.reduce(
+    (sum, day) => sum + (day.isCurrentMonth ? day.totalRevenue : 0),
+    0
+  );
+  const totalBookings = days.reduce(
+    (sum, day) => sum + (day.isCurrentMonth ? day.bookingCount : 0),
+    0
+  );
 
   return (
     <main className="pageShell">
