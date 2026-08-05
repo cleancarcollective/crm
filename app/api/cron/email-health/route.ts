@@ -29,7 +29,8 @@ function isAuthorized(request: Request) {
   return authHeader === `Bearer ${cronSecret}`;
 }
 
-const WINDOW_MS = 3 * 60 * 60 * 1000; // look back 3 hours
+const WINDOW_MS = 3 * 60 * 60 * 1000; // look back 3 hours for rate + volume
+const RECENT_MS = 90 * 60 * 1000; // ...but only alert if a failure is this recent
 const MIN_ATTEMPTS = 6; // ignore low-volume noise
 const MAX_FAIL_PCT = 40; // >40% of attempted sends failing in-window = unhealthy
 
@@ -54,15 +55,22 @@ export async function GET(request: Request) {
   for (const shop of shops ?? []) {
     const { data } = await supabase
       .from("email_messages")
-      .select("status")
+      .select("status, created_at")
       .eq("shop_id", shop.id)
       .gte("created_at", since);
     const msgs = data ?? [];
     const sent = msgs.filter((m) => m.status === "sent").length;
-    const failed = msgs.filter((m) => m.status === "failed").length;
+    const failedMsgs = msgs.filter((m) => m.status === "failed");
+    const failed = failedMsgs.length;
     const attempted = sent + failed;
     const failPct = attempted > 0 ? Math.round((failed / attempted) * 100) : 0;
-    const unhealthy = attempted >= MIN_ATTEMPTS && failPct > MAX_FAIL_PCT;
+    // Only alert when the failures are CURRENT (at least one in the last
+    // RECENT_MS), so the alarm clears ~90 min after a fix instead of
+    // lingering for the full 3h window over already-resolved failures.
+    const recentFailure = failedMsgs.some(
+      (m) => Date.parse(m.created_at as string) > Date.now() - RECENT_MS
+    );
+    const unhealthy = attempted >= MIN_ATTEMPTS && failPct > MAX_FAIL_PCT && recentFailure;
     report.push({ shop: shop.slug, sent, failed, failPct, unhealthy });
   }
 
