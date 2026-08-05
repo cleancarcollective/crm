@@ -61,6 +61,21 @@ export async function POST(request: Request) {
     ));
   }
 
+  // Capture client IP + user-agent server-side (the client can't be trusted to
+  // report its own IP). Stashed into raw_payload so the Meta Conversions API
+  // upload can send them as match keys. The browser form supplies fbc/fbp
+  // (from the _fbc/_fbp cookies) in the payload; those flow through rawPayload.
+  try {
+    const fwd = request.headers.get("x-forwarded-for");
+    const clientIp = fwd ? fwd.split(",")[0].trim() : (request.headers.get("x-real-ip") ?? null);
+    const clientUa = request.headers.get("user-agent") ?? null;
+    const p = payload as Record<string, unknown>;
+    if (clientIp && !p.client_ip_address) p.client_ip_address = clientIp;
+    if (clientUa && !p.client_user_agent) p.client_user_agent = clientUa;
+  } catch {
+    /* never block a booking on attribution capture */
+  }
+
   const initialValidation = mapBookingPayload(payload);
   if (!initialValidation.success) {
     return withCors(NextResponse.json(

@@ -42,6 +42,7 @@ type CapiEvent = {
   event_time: number;
   event_id: string;
   action_source: string;
+  event_source_url?: string;
   custom_data: Record<string, unknown>;
   user_data: Record<string, unknown>;
 };
@@ -58,7 +59,7 @@ export async function uploadRecentBookingsToMeta(opts: {
 
   const { data: bookings, error } = await supabase
     .from("bookings")
-    .select("id, created_at, price_estimate, service_name, status, booking_source, contacts(email, phone)")
+    .select("id, created_at, price_estimate, service_name, status, booking_source, landing_url, raw_payload, contacts(id, email, phone)")
     .gte("created_at", since)
     .neq("status", "cancelled");
   if (error) return { ok: false, candidates: 0, sent: 0, skippedNoContact: 0, error: error.message };
@@ -67,7 +68,7 @@ export async function uploadRecentBookingsToMeta(opts: {
   let skippedNoContact = 0;
 
   for (const b of bookings ?? []) {
-    const contact = b.contacts as unknown as { email: string | null; phone: string | null } | null;
+    const contact = b.contacts as unknown as { id?: string; email: string | null; phone: string | null } | null;
     const em = hashEmail(contact?.email ?? null);
     const ph = hashPhone(contact?.phone ?? null);
     if (!em && !ph) {
@@ -78,11 +79,34 @@ export async function uploadRecentBookingsToMeta(opts: {
     if (em) userData.em = [em];
     if (ph) userData.ph = [ph];
 
+    // Match-quality boosters captured at booking time and stashed in
+    // raw_payload (fbc/fbp from the booking form; ip/ua added server-side at
+    // intake). fbc (the click id) is the strongest signal for tying a booking
+    // back to the specific ad click — email/phone alone misses anyone whose
+    // contact details don't match their Facebook account.
+    const rp = (b.raw_payload as Record<string, unknown> | null) ?? {};
+    const fbc = (rp.fbc ?? rp._fbc ?? null) as string | null;
+    const fbp = (rp.fbp ?? rp._fbp ?? null) as string | null;
+    const clientIp = (rp.client_ip_address ?? null) as string | null;
+    const clientUa = (rp.client_user_agent ?? null) as string | null;
+    if (fbc) userData.fbc = fbc;
+    if (fbp) userData.fbp = fbp;
+    if (clientIp) userData.client_ip_address = clientIp;
+    if (clientUa) userData.client_user_agent = clientUa;
+    if (contact?.id) userData.external_id = [sha256(String(contact.id))];
+
+    // A booking that came through the web funnel (has fbc/fbp) is a website
+    // conversion — tell Meta so, so it attributes to the click. Phone/manual
+    // bookings with no web signals stay "system_generated" (offline/CRM).
+    const isWeb = Boolean(fbc || fbp);
+    const landingUrl = (b.landing_url as string | null) ?? null;
+
     events.push({
       event_name: "Purchase",
       event_time: Math.floor(Date.parse(b.created_at as string) / 1000),
       event_id: b.id as string,
-      action_source: "system_generated",
+      action_source: isWeb ? "website" : "system_generated",
+      ...(isWeb && landingUrl ? { event_source_url: landingUrl } : {}),
       custom_data: {
         currency: "NZD",
         value: Number(b.price_estimate ?? 0),
