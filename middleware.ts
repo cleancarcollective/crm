@@ -26,6 +26,7 @@ const PUBLIC_PREFIXES = [
   "/api/cron/regenerate-series",     // Vercel cron 5pm UTC = 5am NZ daily
   "/api/cron/health-alert",          // Vercel cron 8pm UTC = 8am NZ daily
   "/api/cron/warm-availability",     // GitHub Actions cron */10 NZ hours (Vercel rejects sub-daily); Bearer CRON_SECRET in handler
+  "/api/cron/email-health",          // GitHub Actions email-deliverability monitor; Bearer CRON_SECRET in handler
   "/api/admin/pending-enquiries-report", // on-demand, authed by CRON_SECRET in handler
   "/lead-action/",                   // public confirmation pages after token-authed actions
   "/manage-booking",                 // customer self-service reschedule/cancel page

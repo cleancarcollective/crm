@@ -320,6 +320,34 @@ export async function runChecks(shopId: string): Promise<Check[]> {
 
   // ── Email & SMS ─────────────────────────────────────────────────────────
 
+  // Email send success rate (last 24h) — a SHORT window so a fresh outage
+  // (e.g. an expired SMTP app password) trips 'error' immediately instead of
+  // being averaged out by a week of healthy history. A silent 5-day
+  // Wellington email outage (Aug 2026) slipped past the 7d check for exactly
+  // this reason; the 24h window is the primary early-warning signal.
+  {
+    const { data } = await supabase
+      .from("email_messages")
+      .select("status")
+      .eq("shop_id", shopId)
+      .gte("created_at", oneDayAgo);
+    const msgs = data ?? [];
+    const sent = msgs.filter((m) => m.status === "sent").length;
+    const failed = msgs.filter((m) => m.status === "failed").length;
+    const attempted = sent + failed;
+    const pct = attempted > 0 ? Math.round((sent / attempted) * 100) : 100;
+    // Need enough volume before escalating to red so a single fluke send
+    // doesn't cry wolf.
+    const status =
+      attempted < 5 ? (failed > 0 ? "warn" : "info") : pct >= 90 ? "ok" : pct >= 75 ? "warn" : "error";
+    checks.push({
+      category: "Email & SMS",
+      name: "Email send rate (24h)",
+      status,
+      message: `${sent} sent / ${failed} failed${attempted > 0 ? ` (${pct}%)` : ""}`,
+    });
+  }
+
   // Email send success rate (last 7d).
   // Denominator excludes 'skipped' and 'cancelled' — those are intentional
   // non-sends (lead converted, customer cancelled, rate-limit retry merged,

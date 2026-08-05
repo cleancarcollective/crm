@@ -1,0 +1,48 @@
+name: Email deliverability monitor
+
+# Catches a CRM email-send outage (expired Gmail SMTP app password, provider
+# problem, etc.) in minutes instead of days. Hits /api/cron/email-health,
+# which returns 503 when any shop's recent send-failure rate is high. A
+# non-200 fails this workflow, and GitHub emails the repo owner — a channel
+# that does NOT depend on the CRM's own (possibly broken) email.
+#
+# Background: in Aug 2026 Wellington email silently failed ~60% of sends for
+# 5 days because the app password expired and nothing alerted. This is the
+# guard so that can't recur unnoticed.
+#
+# Requires repo secret CRON_SECRET (same value the warm-availability workflow
+# uses): Settings > Secrets and variables > Actions.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: email-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CRM email deliverability
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          body=$(mktemp)
+          code=$(curl -sS -m 60 -o "$body" -w '%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://crm.cleancarcollective.co.nz/api/cron/email-health")
+          echo "HTTP ${code}"
+          cat "$body" || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::CRM email deliverability alert (HTTP ${code}). One or more shops are failing to send email — check the Gmail SMTP app passwords (GMAIL_APP_PASSWORD_WELLINGTON / _CHRISTCHURCH) and the Vercel env, then redeploy."
+            exit 1
+          fi
+          echo "Email deliverability healthy."
