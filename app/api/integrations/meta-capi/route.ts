@@ -19,9 +19,16 @@ export async function GET(request: Request) {
     // overlapping windows are safe because event_id = booking id dedupes on
     // Meta's side). Optional ?test_event_code=X routes the batch to the
     // Events Manager Test Events tab instead of production data.
+    //
+    // HARD CAP OF 7 DAYS — this is a Meta constraint, not a preference.
+    // event_time may be at most 7 days in the past; if ANY event in the batch
+    // is older, Meta rejects the ENTIRE request and processes nothing, so a
+    // well-meant ?days=30 backfill would silently drop the recent events too.
+    // (Backdating further is only possible via offline events with
+    // action_source=physical_store, which is a different upload path.)
     const url = new URL(request.url);
     const daysParam = url.searchParams.get("days");
-    const days = daysParam ? Math.min(Math.max(parseInt(daysParam, 10) || 2, 1), 90) : 2;
+    const days = daysParam ? Math.min(Math.max(parseInt(daysParam, 10) || 2, 1), 7) : 2;
     const testEventCode = url.searchParams.get("test_event_code");
 
     const result = await uploadRecentBookingsToMeta({ windowDays: days, testEventCode });
