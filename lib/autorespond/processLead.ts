@@ -351,22 +351,11 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     templateId = rendered.templateId;
     templateVariant = rendered.variant;
 
-    // Ad-page promo: the prices above are already discounted; add a banner so
-    // the customer sees the offer is applied, and the code carries to booking.
-    if (landingPromo) {
-      draftSubject = `${draftSubject} (${landingPromo.percentOff}% off applied)`;
-      draftBody =
-        `Your ${landingPromo.percentOff}% discount is already applied to the prices below. ` +
-        `Code ${landingPromo.code} carries through automatically when you book.\n\n` +
-        draftBody;
-      const banner =
-        `<div style="margin:0 0 18px;padding:12px 16px;background:#0e3b2e;color:#eafff5;` +
-        `border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;` +
-        `font-size:14px;line-height:1.5;">` +
-        `<strong>${landingPromo.percentOff}% off applied</strong> &mdash; the prices below already include your ` +
-        `discount. Code <strong>${landingPromo.code}</strong> carries through automatically when you book.</div>`;
-      draftHtml = banner + draftHtml;
-    }
+    // Ad-page promo: the prices shown above are already discounted (see
+    // discountPricing above) and landingPromo.code still carries through to
+    // the booking form, so the customer pays the quoted number either way.
+    // We deliberately DON'T announce it: no "% off applied" subject suffix,
+    // no banner, no preamble line. The quote just reads as our price.
   } catch (e) {
     draftError = e instanceof Error ? e.message : String(e);
     console.error("Auto-respond draft error:", draftError);
