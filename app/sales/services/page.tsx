@@ -48,8 +48,33 @@ export default async function SalesServicesPage() {
     );
   }
 
-  const offerings = (data ?? []) as ServiceOffering[];
+  let offerings = (data ?? []) as ServiceOffering[];
   const isAdmin = user.role === "admin";
+
+  // Christchurch runs a live 15% price-experiment on the booking form
+  // (see Christchurch-Booking-System services/pricing.ts -> expPrice).
+  // service_offerings holds BASE prices, so without this the CRM would show
+  // staff numbers ~15% higher than what the form actually charges. Applied at
+  // render time rather than duplicated as CHC rows, so it disappears on its
+  // own when the experiment ends.
+  const CHC_PRICE_EXPERIMENT_MULTIPLIER = 0.85;
+  if (user.shop.slug === "christchurch") {
+    const disc = (n: number | undefined) =>
+      typeof n === "number" ? Math.round(n * CHC_PRICE_EXPERIMENT_MULTIPLIER) : n;
+    offerings = offerings.map((o) => {
+      if (!o.pricing_table) return o;
+      const pt: ServiceOffering["pricing_table"] = {};
+      for (const [size, row] of Object.entries(o.pricing_table)) {
+        pt[size] = {
+          ...row,
+          price: disc(row.price),
+          price_from: disc(row.price_from),
+          price_to: disc(row.price_to),
+        };
+      }
+      return { ...o, pricing_table: pt };
+    });
+  }
 
   return (
     <main className="pageShell">
