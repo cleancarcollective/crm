@@ -68,9 +68,13 @@ export default async function LeadsPage({
         status={status}
         statusOptions={[
           { label: "All leads", value: "" },
+          // Needs approval sits first: these are the only ones waiting on us.
+          { label: "Needs approval", value: "needs_approval" },
           { label: "New", value: "new" },
           { label: "Contacted", value: "contacted" },
-          { label: "Quoted", value: "quoted" },
+          // "Quoted" was a dead option - no lead has ever carried that status.
+          // The quote-sent state is "sent".
+          { label: "Quote sent", value: "sent" },
           { label: "Clicked", value: "clicked" },
           { label: "Won", value: "won" },
           { label: "Lost", value: "lost" },
