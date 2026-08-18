@@ -27,7 +27,7 @@ export type CoatingWarranty = {
 // (Gold is what sells most; staff adjust expires_at per row if wrong).
 export const TIER_TERM_MONTHS: Record<string, number | null> = {
   bronze: 12,
-  silver: 36,
+  silver: 24,
   gold: 60,
   unknown: 60,
 };
@@ -35,7 +35,7 @@ export const TIER_TERM_MONTHS: Record<string, number | null> = {
 export function detectTier(name: string): CoatingWarranty["tier"] {
   const s = name.toLowerCase();
   if (s.includes("gold")) return "gold";
-  if (s.includes("silver") || s.includes("3 year")) return "silver";
+  if (s.includes("silver") || s.includes("2 year")) return "silver";
   if (s.includes("bronze")) return "bronze";
   return "unknown";
 }
