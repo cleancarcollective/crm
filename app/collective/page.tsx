@@ -8,6 +8,7 @@
  *   - credit_ledger   → outstanding credit liability
  */
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/currentShop";
@@ -50,6 +51,21 @@ function FunnelRow({ label, count, of }: { label: string; count: number; of?: nu
   );
 }
 
+function StatusPill({ status }: { status: string | null }) {
+  const map: Record<string, { bg: string; fg: string; label: string }> = {
+    active: { bg: "#dcfce7", fg: "#166534", label: "Active" },
+    pending: { bg: "#fef3c7", fg: "#92400e", label: "Not paid" },
+    past_due: { bg: "#fee2e2", fg: "#991b1b", label: "Past due" },
+    cancelled: { bg: "#f4f4f5", fg: "#52525b", label: "Cancelled" },
+  };
+  const v = map[status ?? ""] ?? { bg: "#f4f4f5", fg: "#52525b", label: status ?? "-" };
+  return (
+    <span style={{ background: v.bg, color: v.fg, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap" }}>
+      {v.label}
+    </span>
+  );
+}
+
 export default async function CollectivePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login" as never);
@@ -57,11 +73,18 @@ export default async function CollectivePage() {
   const supabase = getSupabaseAdminClient();
   const since90 = new Date(Date.now() - 90 * 86400000).toISOString();
 
-  const [{ data: memberships }, { data: portalEvents }, { data: funnelEvents }, { data: ledger }] = await Promise.all([
+  const [{ data: memberships }, { data: portalEvents }, { data: funnelEvents }, { data: ledger }, { data: memberRows }] = await Promise.all([
     supabase.from("memberships").select("status, source, monthly_fee_cents, created_at"),
     supabase.from("portal_events").select("event").in("event", ["portal_open", "join_click", "join_start"]),
     supabase.from("funnel_events").select("session_id, step").in("step", ["review", "collective_select", "booked"]).gte("created_at", since90),
     supabase.from("credit_ledger").select("delta_cents"),
+    supabase
+      .from("memberships")
+      .select(
+        "id, status, source, size_tier, monthly_fee_cents, monthly_credit_cents, created_at, started_at, cancelled_at, stripe_subscription_id, shop_id, contacts(id, full_name, first_name, last_name, email, phone)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
 
   const m = memberships ?? [];
@@ -92,6 +115,28 @@ export default async function CollectivePage() {
   const bookedSessions = distinctSessions("booked");
   const bookingFormSignups = m.filter((x) => (x.source || "") === "booking-form").length;
   const portalSignups = m.filter((x) => (x.source || "") === "portal").length;
+
+  // Per-member list. "Pending" means they clicked join but never finished
+  // Stripe checkout, so those are the rows worth chasing - surfaced first.
+  type MemberRow = {
+    id: string;
+    status: string | null;
+    source: string | null;
+    size_tier: string | null;
+    monthly_fee_cents: number | null;
+    monthly_credit_cents: number | null;
+    created_at: string;
+    stripe_subscription_id: string | null;
+    shop_id: string | null;
+    contacts: { id: string; full_name: string | null; first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;
+  };
+  const rows = ((memberRows ?? []) as unknown as MemberRow[]).map((r) => {
+    const c = r.contacts;
+    const name = c?.full_name || [c?.first_name, c?.last_name].filter(Boolean).join(" ") || c?.email || "Unknown";
+    const days = Math.floor((Date.now() - Date.parse(r.created_at)) / 86400000);
+    return { ...r, name, email: c?.email ?? null, phone: c?.phone ?? null, contactId: c?.id ?? null, days };
+  });
+  const needsChasing = rows.filter((r) => r.status === "pending");
 
   const creditOutstanding = (ledger ?? []).reduce((s, x) => s + (x.delta_cents || 0), 0);
 
@@ -156,6 +201,63 @@ export default async function CollectivePage() {
         <FunnelRow label="Clicked Join" count={pe("join_click")} of={pe("portal_open")} />
         <FunnelRow label="Reached Stripe checkout" count={pe("join_start")} of={pe("portal_open")} />
         <FunnelRow label="Membership created (portal)" count={portalSignups} of={pe("portal_open")} />
+      </section>
+
+      <section className="detailPanel analyticsSection">
+        <h2>Member list</h2>
+        <p className="settingsDescription">
+          Everyone who has signed up, newest first.{" "}
+          {needsChasing.length > 0
+            ? `${needsChasing.length} clicked join but never completed payment, so they have no subscription and are not being billed.`
+            : "Everyone who signed up has completed payment."}
+        </p>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 780 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                <th style={{ padding: "6px 8px 6px 0" }}>Member</th>
+                <th style={{ padding: "6px 8px" }}>Contact</th>
+                <th style={{ padding: "6px 8px" }}>Status</th>
+                <th style={{ padding: "6px 8px" }}>Vehicle size</th>
+                <th style={{ padding: "6px 8px", textAlign: "right" }}>Fee</th>
+                <th style={{ padding: "6px 8px", textAlign: "right" }}>Credit</th>
+                <th style={{ padding: "6px 8px" }}>Source</th>
+                <th style={{ padding: "6px 8px" }}>Signed up</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 12, color: "var(--muted)" }}>No signups yet.</td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
+                    <td style={{ padding: "10px 8px 10px 0", fontWeight: 600 }}>
+                      {r.contactId ? <Link href={`/contacts/${r.contactId}`} className="profileNameLink">{r.name}</Link> : r.name}
+                    </td>
+                    <td style={{ padding: "10px 8px", color: "var(--muted)" }}>
+                      {r.email ? <div>{r.email}</div> : null}
+                      {r.phone ? <div>{r.phone}</div> : null}
+                      {!r.email && !r.phone ? "-" : null}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>
+                      <StatusPill status={r.status} />
+                      {r.status === "pending" ? (
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>{r.days}d waiting</div>
+                      ) : null}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>{r.size_tier ?? "-"}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "right" }}>{nzd(r.monthly_fee_cents ?? 0)}</td>
+                    <td style={{ padding: "10px 8px", textAlign: "right", color: "#166534", fontWeight: 600 }}>{nzd(r.monthly_credit_cents ?? 0)}</td>
+                    <td style={{ padding: "10px 8px" }}>{r.source ?? "-"}</td>
+                    <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>{String(r.created_at).slice(0, 10)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   );
