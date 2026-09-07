@@ -136,7 +136,11 @@ export default async function CollectivePage() {
     const days = Math.floor((Date.now() - Date.parse(r.created_at)) / 86400000);
     return { ...r, name, email: c?.email ?? null, phone: c?.phone ?? null, contactId: c?.id ?? null, days };
   });
-  const needsChasing = rows.filter((r) => r.status === "pending");
+  // Only members who actually completed checkout. "pending" means they clicked
+  // join but never finished Stripe, so they have no subscription and are not
+  // being billed - they're counted in the stats above, not listed here.
+  const paidRows = rows.filter((r) => r.status !== "pending");
+  const hiddenPending = rows.length - paidRows.length;
 
   const creditOutstanding = (ledger ?? []).reduce((s, x) => s + (x.delta_cents || 0), 0);
 
@@ -206,10 +210,10 @@ export default async function CollectivePage() {
       <section className="detailPanel analyticsSection">
         <h2>Member list</h2>
         <p className="settingsDescription">
-          Everyone who has signed up, newest first.{" "}
-          {needsChasing.length > 0
-            ? `${needsChasing.length} clicked join but never completed payment, so they have no subscription and are not being billed.`
-            : "Everyone who signed up has completed payment."}
+          Paying members, newest first.{" "}
+          {hiddenPending > 0
+            ? `${hiddenPending} signup${hiddenPending === 1 ? "" : "s"} not shown: clicked join but never completed payment.`
+            : null}
         </p>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 780 }}>
@@ -226,12 +230,12 @@ export default async function CollectivePage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {paidRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 12, color: "var(--muted)" }}>No signups yet.</td>
+                  <td colSpan={8} style={{ padding: 12, color: "var(--muted)" }}>No paying members yet.</td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                paidRows.map((r) => (
                   <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
                     <td style={{ padding: "10px 8px 10px 0", fontWeight: 600 }}>
                       {r.contactId ? <Link href={`/contacts/${r.contactId}`} className="profileNameLink">{r.name}</Link> : r.name}
