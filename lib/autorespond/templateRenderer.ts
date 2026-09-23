@@ -167,6 +167,11 @@ export function buildTemplateContext(
         one_step_price: fmtPrice(getPrice(pricing, "Paint Correction 1-Step", "Any")),
         two_step_price: fmtPrice(getPrice(pricing, "Paint Correction 2-Step", "Any")),
       };
+    case "mould_treatment":
+      // Deliberately no price lookups. Mould jobs are priced per-vehicle by
+      // severity; the {{mould_price}} tokens are left in the draft so staff
+      // fill them in on the lead before sending.
+      return base;
     case "other":
     case "lead_followup_3day":
     case "lead_followup_7day":

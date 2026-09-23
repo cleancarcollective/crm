@@ -377,7 +377,16 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
   // The Medium-render fallback above means staff-reviewed approvals
   // still show real prices, but we never blast a wrong-size quote.
   const sizeIsKnown = !needsSize || !!suggestedSize;
-  const shouldAutoSend = !draftError && !notesBlockAutoSend && sizeIsKnown;
+  // Hard stop: never auto-send a draft that still contains a {{token}}.
+  // The mould template leaves {{mould_price}} blank on purpose (priced by
+  // hand per job), so it must always land in needs_approval for a human to
+  // type the price in. This also catches any future template whose
+  // variable didn't resolve, instead of emailing the customer a raw token.
+  const unresolvedTokens = Array.from(
+    new Set(`${draftSubject}\n${draftBody}`.match(/\{\{\s*\w+\s*\}\}/g) ?? [])
+  ).filter((t) => !/sender_first_name/.test(t));
+  const hasUnresolved = unresolvedTokens.length > 0;
+  const shouldAutoSend = !draftError && !notesBlockAutoSend && sizeIsKnown && !hasUnresolved;
 
   if (draftError) {
     newStatus = "needs_approval";
@@ -394,6 +403,19 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     newStatus = "needs_approval";
     internalNote = `Needs approval: vehicle size unknown (${makeRaw}/${modelRaw}). Draft uses Medium pricing as fallback.`;
     approvalReason = "vehicle_size_unknown";
+  } else if (hasUnresolved) {
+    newStatus = "needs_approval";
+    internalNote =
+      templateKey === "mould_treatment"
+        ? "Needs approval: mould jobs are priced by hand. Fill in {{mould_price}} in the draft before sending."
+        : `Needs approval: draft still contains unfilled ${unresolvedTokens.join(", ")}. Fill in before sending.`;
+    // "other" renders approvalReasonDetail verbatim in the staff email, so
+    // the mould case reads as intended behaviour rather than a build error.
+    approvalReason = "other";
+    approvalReasonDetail =
+      templateKey === "mould_treatment"
+        ? "Mould jobs are priced by hand. Open the lead, type the price into the draft where it says {{mould_price}}, then send."
+        : `The draft still has unfilled fields (${unresolvedTokens.join(", ")}). Fill them in on the lead before sending.`;
   } else if (shouldAutoSend) {
     // Schedule the estimate send for 3 minutes from now — feels more human
     // than an instant auto-reply, gives the customer time to read the

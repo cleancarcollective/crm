@@ -242,7 +242,7 @@ export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: Se
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="0.01"
                     className="pricingInput"
                     value={row.price_ex_gst}
                     onChange={(e) => handlePriceChange(row.service_name, row.size, e.target.value)}

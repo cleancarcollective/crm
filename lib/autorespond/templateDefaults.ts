@@ -10,6 +10,7 @@
  *   exterior_only:   name, vehicle, deluxe_exterior_price, premium_exterior_price
  *   ceramic:         name, vehicle, bronze_price, silver_price, gold_price
  *   paint_correction: name, vehicle, one_step_price, two_step_price
+ *   mould_treatment: name, vehicle, mould_price (never auto-filled; staff type it)
  *   other:           name, vehicle
  */
 
@@ -138,7 +139,7 @@ Bronze Package -- {{bronze_price}}
 - Gloss enhancement & strong hydrophobic properties
 
 Silver Package -- {{silver_price}}
-- 3-year protection
+- 2-year protection
 - Added chemical resistance & easy-clean surface
 
 Gold Package -- {{gold_price}}
@@ -173,6 +174,32 @@ Paint correction removes light swirls, oxidation, and scratches, dramatically im
 - Maximises clarity and reflection for high-end results
 
 Correction is the perfect preparation step before applying a ceramic coating, ensuring a flawless, protected finish.
+
+Please let me know if you have any questions, or if you'd like to go ahead.
+${CTA}
+
+Cheers,
+{{sender_first_name}}`,
+  },
+  {
+    template_key: "mould_treatment",
+    variant: "A",
+    name: "Mould Treatment — Default",
+    subject: "Mould treatment estimate for your {{vehicle}}",
+    body_text: `Hi {{name}},
+
+Thanks for reaching out about the mould in your {{vehicle}}. It's a job we do regularly and it's very fixable.
+
+Every mould job is a bit different, so pricing depends on how far it has spread and what surfaces are affected. Based on what you've described, here's where it sits:
+
+Mould Treatment -- {{mould_price}}
+- Full interior strip-down and HEPA vacuum
+- Treatment of all affected surfaces (seats, carpets, headliner, plastics, vents)
+- Shampoo and extraction of fabrics
+- Anti-microbial fog to kill spores in the cabin air and ducting
+- Interior deodorising
+
+If the mould has got into the seat foam or the headliner is heavily affected, it can take longer and we'll let you know before we start any extra work.
 
 Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
@@ -282,6 +309,11 @@ export const TEMPLATE_VARIABLES: Record<TemplateKey, { key: string; label: strin
     { key: "one_step_price", label: "Paint Correction 1-Step price" },
     { key: "two_step_price", label: "Paint Correction 2-Step price" },
   ],
+  mould_treatment: [
+    { key: "name", label: "Customer first name" },
+    { key: "vehicle", label: "Vehicle (make + model)" },
+    { key: "mould_price", label: "Mould treatment price (left blank, type it in on the lead before sending)" },
+  ],
   other: [
     { key: "name", label: "Customer first name" },
     { key: "vehicle", label: "Vehicle (make + model)" },
@@ -306,6 +338,7 @@ export const TEMPLATE_KEY_LABELS: Record<TemplateKey, string> = {
   exterior_only: "Exterior Only",
   ceramic: "Ceramic Coating",
   paint_correction: "Paint Correction",
+  mould_treatment: "Mould Treatment",
   other: "Other / Fallback",
   lead_followup_3day: "Follow-up: 3 days after quote",
   lead_followup_7day: "Follow-up: 7 days after quote",

@@ -11,6 +11,7 @@ export type TemplateKey =
   | "exterior_only"
   | "ceramic"
   | "paint_correction"
+  | "mould_treatment"
   | "other"
   | "lead_followup_3day"
   | "lead_followup_7day"
@@ -100,9 +101,12 @@ export function pickTemplateKey(servicesRaw: string): TemplateKey {
   if (s.includes("inside") && s.includes("out")) return "inside_out";
   if (s === "inside and out package options") return "inside_out";
   if (s.includes("full detail") || s.includes("premium detail") || s.includes("deluxe detail")) return "inside_out";
+  // Mould / mildew jobs get their own template: pricing depends on severity
+  // so the estimate is written by hand rather than from the pricing table.
+  if (s.includes("mold") || s.includes("mould") || s.includes("mildew")) return "mould_treatment";
+  if (s.includes("smoke")) return "interior_only";
   // Interior
   if (s.includes("interior")) return "interior_only";
-  if (s.includes("mold") || s.includes("mould") || s.includes("smoke")) return "interior_only";
   // Exterior
   if (s.includes("exterior") || s.includes("hand wash")) return "exterior_only";
   // Specialist
@@ -232,7 +236,7 @@ export function buildQuotePackages(
       }),
       pkg(pricing, "Ceramic Silver (2 Year)", "Any", {
         name: "Silver Package",
-        duration: "3-year protection",
+        duration: "2-year protection",
         highlights: ["Added chemical resistance", "Easy-clean surface"],
         bookingServiceId: "ceramic-silver",
         fromPrice: true,

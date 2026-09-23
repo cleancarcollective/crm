@@ -39,6 +39,13 @@ export function LeadEstimatePanel({
   if (!draftBody && !draftSubject) return null;
 
   function handleSend() {
+    const unfilled = Array.from(new Set(`${subject}\n${body}`.match(/\{\{\s*\w+\s*\}\}/g) ?? [])).filter(
+      (t) => !/sender_first_name/.test(t)
+    );
+    if (unfilled.length > 0) {
+      setError(`Fill in ${unfilled.join(", ")} before sending. Replace the whole token, curly braces included, with the actual price or value.`);
+      return;
+    }
     if (!subject.trim() || !body.trim()) {
       setError("Subject and body are required before sending.");
       return;
@@ -89,6 +96,16 @@ export function LeadEstimatePanel({
             placeholder="Email subject…"
           />
         </label>
+        {(() => {
+          const pending = Array.from(new Set(`${subject}\n${body}`.match(/\{\{\s*\w+\s*\}\}/g) ?? [])).filter(
+            (t) => !/sender_first_name/.test(t)
+          );
+          return pending.length > 0 ? (
+            <p className="estimatePanelError" style={{ marginTop: 0 }}>
+              This draft has {pending.length === 1 ? "a field" : "fields"} to fill in before it can go: {pending.join(", ")}. Replace the whole token (curly braces included) with the price.
+            </p>
+          ) : null;
+        })()}
         <label className="estimatePanelLabel">
           Body
           <textarea
