@@ -27,6 +27,7 @@ const SERVICE_GROUPS = [
   "Ceramic Gold (5 Year)",
   "Paint Correction 1-Step",
   "Paint Correction 2-Step",
+  "Mould Treatment",
 ];
 
 export function SettingsClient({ shopName, autoRespondEnabled, pricingRows }: SettingsClientProps) {

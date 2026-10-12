@@ -116,7 +116,17 @@ export function pickTemplateKey(servicesRaw: string): TemplateKey {
 }
 
 export function templateNeedsSize(key: TemplateKey): boolean {
-  return key === "inside_out" || key === "interior_only" || key === "exterior_only";
+  // Every priced template is now sized. Ceramic and paint correction used
+  // to be a single "Any" price; they now scale by vehicle size the same way
+  // the detail packages do, so the size must resolve before pricing.
+  return (
+    key === "inside_out" ||
+    key === "interior_only" ||
+    key === "exterior_only" ||
+    key === "ceramic" ||
+    key === "paint_correction" ||
+    key === "mould_treatment"
+  );
 }
 
 // ── Structured quote packages (instant on-page quote) ─────────────────────
@@ -223,49 +233,53 @@ export function buildQuotePackages(
   }
 
   if (templateKey === "ceramic") {
-    // Ceramic prices are stored size-independent ("Any") but the booking
-    // page scales them by vehicle — label as "from" so the numbers never
-    // contradict each other.
+    // Ceramic is priced per vehicle size, matching the booking form.
     return [
-      pkg(pricing, "Ceramic Bronze (1 Year)", "Any", {
+      pkg(pricing, "Ceramic Bronze (1 Year)", sizeKey, {
         name: "Bronze Package",
         duration: "1-year protection",
         highlights: ["Gloss enhancement", "Strong hydrophobic properties"],
         bookingServiceId: "ceramic-bronze",
-        fromPrice: true,
       }),
-      pkg(pricing, "Ceramic Silver (2 Year)", "Any", {
+      pkg(pricing, "Ceramic Silver (2 Year)", sizeKey, {
         name: "Silver Package",
         duration: "2-year protection",
         highlights: ["Added chemical resistance", "Easy-clean surface"],
         bookingServiceId: "ceramic-silver",
-        fromPrice: true,
       }),
-      pkg(pricing, "Ceramic Gold (5 Year)", "Any", {
+      pkg(pricing, "Ceramic Gold (5 Year)", sizeKey, {
         name: "Gold Package",
         duration: "5-year protection",
         highlights: ["Backed by company warranty", "Maximum gloss retention & hardness"],
         bookingServiceId: "ceramic-gold",
-        fromPrice: true,
       }),
     ];
   }
 
   if (templateKey === "paint_correction") {
     return [
-      pkg(pricing, "Paint Correction 1-Step", "Any", {
+      pkg(pricing, "Paint Correction 1-Step", sizeKey, {
         name: "1-Step Correction",
         duration: "approx. 4-5 hours",
         highlights: ["Removes up to 90% of light swirls", "Great for most daily drivers"],
         bookingServiceId: "1-step-correction",
-        fromPrice: true,
       }),
-      pkg(pricing, "Paint Correction 2-Step", "Any", {
+      pkg(pricing, "Paint Correction 2-Step", sizeKey, {
         name: "2-Step Correction",
         duration: "approx. 7-8 hours",
         highlights: ["Removes deeper scratches & watermarks", "Maximises clarity & reflection"],
         bookingServiceId: "2-step-correction",
-        fromPrice: true,
+      }),
+    ];
+  }
+
+  if (templateKey === "mould_treatment") {
+    return [
+      pkg(pricing, "Mould Treatment", sizeKey, {
+        name: "Mould Treatment",
+        duration: "approx. 5-7 hours",
+        highlights: ["Full interior strip-down + HEPA vacuum", "Treatment of all affected surfaces", "Anti-microbial fog for cabin air + ducting", "Shampoo, extraction + deodorising"],
+        bookingServiceId: "mold-smoke-reset",
       }),
     ];
   }
@@ -390,9 +404,9 @@ Max`;
   }
 
   if (templateKey === "ceramic") {
-    const bronze = getPrice(pricing, "Ceramic Bronze (1 Year)", "Any");
-    const silver = getPrice(pricing, "Ceramic Silver (2 Year)", "Any");
-    const gold = getPrice(pricing, "Ceramic Gold (5 Year)", "Any");
+    const bronze = getPrice(pricing, "Ceramic Bronze (1 Year)", sizeKey);
+    const silver = getPrice(pricing, "Ceramic Silver (2 Year)", sizeKey);
+    const gold = getPrice(pricing, "Ceramic Gold (5 Year)", sizeKey);
 
     const text = `Hi ${name},
 
@@ -424,8 +438,8 @@ Max`;
   }
 
   if (templateKey === "paint_correction") {
-    const one = getPrice(pricing, "Paint Correction 1-Step", "Any");
-    const two = getPrice(pricing, "Paint Correction 2-Step", "Any");
+    const one = getPrice(pricing, "Paint Correction 1-Step", sizeKey);
+    const two = getPrice(pricing, "Paint Correction 2-Step", sizeKey);
 
     const text = `Hi ${name},
 

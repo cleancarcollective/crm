@@ -10,7 +10,7 @@
  *   exterior_only:   name, vehicle, deluxe_exterior_price, premium_exterior_price
  *   ceramic:         name, vehicle, bronze_price, silver_price, gold_price
  *   paint_correction: name, vehicle, one_step_price, two_step_price
- *   mould_treatment: name, vehicle, mould_price (never auto-filled; staff type it)
+ *   mould_treatment: name, vehicle, mould_price
  *   other:           name, vehicle
  */
 
@@ -190,7 +190,7 @@ Cheers,
 
 Thanks for reaching out about the mould in your {{vehicle}}. It's a job we do regularly and it's very fixable.
 
-Every mould job is a bit different, so pricing depends on how far it has spread and what surfaces are affected. Based on what you've described, here's where it sits:
+Every mould job is a bit different. Here's our standard treatment for a vehicle your size, and if the mould has spread further than usual we'll let you know before we start any extra work:
 
 Mould Treatment -- {{mould_price}}
 - Full interior strip-down and HEPA vacuum
@@ -199,7 +199,6 @@ Mould Treatment -- {{mould_price}}
 - Anti-microbial fog to kill spores in the cabin air and ducting
 - Interior deodorising
 
-If the mould has got into the seat foam or the headliner is heavily affected, it can take longer and we'll let you know before we start any extra work.
 
 Please let me know if you have any questions, or if you'd like to go ahead.
 ${CTA}
@@ -312,7 +311,7 @@ export const TEMPLATE_VARIABLES: Record<TemplateKey, { key: string; label: strin
   mould_treatment: [
     { key: "name", label: "Customer first name" },
     { key: "vehicle", label: "Vehicle (make + model)" },
-    { key: "mould_price", label: "Mould treatment price (left blank, type it in on the lead before sending)" },
+    { key: "mould_price", label: "Mould Treatment price (from Settings pricing, by vehicle size)" },
   ],
   other: [
     { key: "name", label: "Customer first name" },
