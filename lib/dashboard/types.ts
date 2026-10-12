@@ -41,6 +41,11 @@ export type ContactRecord = {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  /** Customer asked not to receive marketing texts. Transactional booking
+   *  texts still send. Optional: column may not exist pre-migration. */
+  sms_opt_out?: boolean | null;
+  sms_opt_out_at?: string | null;
+  sms_opt_out_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };

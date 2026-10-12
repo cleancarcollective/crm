@@ -51,6 +51,28 @@ export async function getContactProfileById(id: string) {
   }
 
   const typedContact = contact as ContactRecord;
+
+  // SMS opt-out columns are read separately so a contact page still loads
+  // before the 2026-10-12 migration has been applied (a missing column
+  // would otherwise fail the whole select above). Falls back to "not opted
+  // out" on any error; the consent register in lib/sms/consent.ts still
+  // governs actual sends.
+  try {
+    const { data: optOut } = await supabase
+      .from("contacts")
+      .select("sms_opt_out, sms_opt_out_at, sms_opt_out_reason")
+      .eq("id", id)
+      .maybeSingle();
+    if (optOut) {
+      const o = optOut as { sms_opt_out?: boolean | null; sms_opt_out_at?: string | null; sms_opt_out_reason?: string | null };
+      typedContact.sms_opt_out = o.sms_opt_out ?? false;
+      typedContact.sms_opt_out_at = o.sms_opt_out_at ?? null;
+      typedContact.sms_opt_out_reason = o.sms_opt_out_reason ?? null;
+    }
+  } catch {
+    /* column not migrated yet */
+  }
+
   const shop = await getShopById(String(typedContact.shop_id));
 
   const [vehicles, leads, bookings, credits] = await Promise.all([

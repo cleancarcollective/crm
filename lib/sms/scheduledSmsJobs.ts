@@ -5,6 +5,7 @@ import { getShopContactsById } from "@/lib/email/shopContacts";
 import { loadAndRenderSms } from "@/lib/sms/smsTemplateRenderer";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
+import { hasSmsOptOut, isMarketingSmsTemplate } from "@/lib/sms/consent";
 import {
   POST_DETAIL_TOUCHPOINTS,
   type TouchpointKey,
@@ -298,6 +299,20 @@ export async function processScheduledSmsJobs(): Promise<Array<{ id: string; sta
         results.push({ id: job.id as string, status: "skipped" });
         continue;
       }
+    }
+
+    // Consent gate: marketing texts stop dead for customers who opted out.
+    // Transactional ones (reminders, pickup, review) are untouched. Checked
+    // at send-time, not schedule-time, so an opt-out recorded today also
+    // kills drips that were queued weeks ago.
+    if (isMarketingSmsTemplate(tmpl) && (await hasSmsOptOut(job.contact_id as string | null))) {
+      await supabase
+        .from("scheduled_sms_jobs")
+        .update({ status: "cancelled", last_error: "Customer opted out of SMS marketing" })
+        .eq("id", job.id);
+      console.info("Marketing SMS suppressed (opt-out)", { jobId: job.id, contactId: job.contact_id, template: tmpl });
+      results.push({ id: job.id as string, status: "skipped" });
+      continue;
     }
 
     // Late-render post-detail touchpoint messages so the signed token is

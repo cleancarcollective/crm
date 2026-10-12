@@ -4,6 +4,7 @@ import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getShopById } from "@/lib/dashboard/bookings";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { recordSmsOptOut, clearSmsOptOut } from "@/lib/sms/consent";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,13 +13,17 @@ export async function PATCH(
   const { id } = await params;
   const shop = await requireCurrentShop();
   const body = await req.json();
-  const { notes, first_name, last_name, full_name, email, phone } = body as {
+  const { notes, first_name, last_name, full_name, email, phone, sms_opt_out, sms_opt_out_reason } = body as {
     notes?: string;
     first_name?: string | null;
     last_name?: string | null;
     full_name?: string | null;
     email?: string | null;
     phone?: string | null;
+    /** Marketing SMS opt-out toggle. Setting true also cancels pending
+     *  marketing texts; transactional booking texts are unaffected. */
+    sms_opt_out?: boolean;
+    sms_opt_out_reason?: string | null;
   };
 
   // Sales role can now edit contact details (phone/email/name) - prior
@@ -72,6 +77,23 @@ export async function PATCH(
 
   const phoneNorm = norm(phone);
   if (phoneNorm !== undefined) updates.phone = phoneNorm;
+
+  // SMS opt-out is handled by the consent module so the pending-job
+  // cancellation always happens, even if the column itself is missing.
+  if (sms_opt_out === true) {
+    const r = await recordSmsOptOut(id, (sms_opt_out_reason ?? "").trim() || "Set by staff in CRM");
+    if (!r.flagSaved) {
+      return NextResponse.json(
+        {
+          error: `Pending marketing texts cancelled (${r.cancelledJobs}), but the opt-out flag could not be saved: ${r.error ?? "unknown"}. The contacts.sms_opt_out column may not be migrated yet.`,
+        },
+        { status: 500 }
+      );
+    }
+  } else if (sms_opt_out === false) {
+    const r = await clearSmsOptOut(id);
+    if (!r.ok) return NextResponse.json({ error: r.error ?? "Could not clear opt-out" }, { status: 500 });
+  }
 
   const { error, count } = await supabase
     .from("contacts")

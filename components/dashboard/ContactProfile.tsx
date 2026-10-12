@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { ArchiveButton } from "@/components/dashboard/ArchiveButton";
+import { SmsOptOutToggle } from "@/components/dashboard/SmsOptOutToggle";
 import { BookCustomerButton } from "@/components/dashboard/BookCustomerButton";
 import { ContactDetailsEditor } from "@/components/dashboard/ContactDetailsEditor";
 import { CreditLedgerPanel } from "@/components/dashboard/CreditLedgerPanel";
@@ -130,6 +131,13 @@ export async function ContactProfile({ profile }: ContactProfileProps) {
           </div>
         </section>
       ) : null}
+
+      <SmsOptOutToggle
+        contactId={contact.id}
+        initialOptOut={Boolean(contact.sms_opt_out)}
+        optOutAt={contact.sms_opt_out_at ?? null}
+        optOutReason={contact.sms_opt_out_reason ?? null}
+      />
 
       <ContactNotesEditor contactId={contact.id} initialNotes={contact.notes ?? null} />
 
