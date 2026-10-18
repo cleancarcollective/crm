@@ -25,7 +25,7 @@ function escapeHtml(value: string) {
 export async function sendGiveawayEntryEmail(args: { shopId: string; to: string; firstName: string; code: string; test: boolean }) {
   const contacts = await getShopContactsById(args.shopId);
   const url = shareUrlFor(args.code);
-  const shareText = `I just entered Clean Car Collective's Wellington giveaway to win a Premium Detail + $100 cash. Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${url}`;
+  const shareText = `I just entered Clean Car Collective's Wellington giveaway to win a $1,000+ prize pack (a Premium Detail with ceramic protection, plus $100 cash). Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${url}`;
   const waLink = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
   const first = escapeHtml(args.firstName);
   const subject = `${args.test ? "[TEST] " : ""}You're in the draw. Here's your link for extra entries`;

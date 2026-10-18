@@ -26,6 +26,7 @@ const PUBLIC_PREFIXES = [
   "/api/emails/daily-approval-pending", // Vercel cron 11pm UTC = 11am NZ daily
   "/api/cron/regenerate-series",     // Vercel cron 5pm UTC = 5am NZ daily
   "/api/cron/health-alert",          // Vercel cron 8pm UTC = 8am NZ daily
+  "/api/cron/giveaway-drip",         // GitHub Actions */20 NZ day + Vercel daily backup; Bearer CRON_SECRET in handler
   "/api/cron/warm-availability",     // GitHub Actions cron */10 NZ hours (Vercel rejects sub-daily); Bearer CRON_SECRET in handler
   "/api/cron/email-health",          // GitHub Actions email-deliverability monitor; Bearer CRON_SECRET in handler
   "/api/admin/pending-enquiries-report", // on-demand, authed by CRON_SECRET in handler

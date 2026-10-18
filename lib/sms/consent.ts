@@ -27,6 +27,10 @@ export const MARKETING_SMS_TEMPLATE_KEYS: ReadonlySet<string> = new Set([
   "ad_nurture_day1",
   "ad_nurture_day3",
   "ad_nurture_day6",
+  "giveaway_countdown_5d",
+  "giveaway_countdown_2d",
+  "giveaway_countdown_last",
+  "giveaway_post_draw",
 ]);
 
 export function isMarketingSmsTemplate(templateKey: string | null | undefined): boolean {

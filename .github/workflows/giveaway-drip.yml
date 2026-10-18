@@ -1,0 +1,39 @@
+name: Giveaway drip (WLG Oct 2026)
+
+# Fires the giveaway countdown touches (lib/giveaway/drip.ts) through the NZ
+# day. Lives here because the crm's Vercel plan rejects sub-daily cron
+# schedules; a daily Vercel cron at 21:40 UTC is the backup. The endpoint
+# is idempotent, so extra runs are harmless. Safe to delete after
+# 1 Nov 2026.
+#
+# Requires repo secret CRON_SECRET (same value as the crm's Vercel env var).
+
+on:
+  schedule:
+    # UTC. 21:00-08:59 UTC == 10:00-21:59 Pacific/Auckland (NZDT). Every 20 min.
+    - cron: "*/20 21-23,0-8 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: giveaway-drip
+  cancel-in-progress: false
+
+jobs:
+  drip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run giveaway drip
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set."
+            exit 1
+          fi
+          code=$(curl -sS -m 90 -o /tmp/body -w '%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://crm.cleancarcollective.co.nz/api/cron/giveaway-drip")
+          echo "HTTP ${code}"
+          cat /tmp/body || true
+          echo
+          test "$code" = "200"

@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { GIVEAWAY, REFERRAL, parseEntryTag, referralCounts, ticketsFor, type EntryTag } from "@/lib/giveaway/wlgOct2026";
 import { GiveawayDrawButton } from "@/components/dashboard/GiveawayDrawButton";
+import { TOUCHES, sentTouches } from "@/lib/giveaway/drip";
 
 export const metadata = { title: "Giveaway - CCC CRM" };
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ type Entry = Row & { tag: EntryTag };
 
 const th = { padding: "6px 8px" } as const;
 const td = { padding: "8px" } as const;
-const prizeRank = (p?: string) => (!p ? 9 : p.startsWith("GRAND PRIZE -") ? 0 : p.startsWith("GRAND PRIZE (") ? 1 : p.startsWith("Runner") ? 2 : 3);
+const prizeRank = (p?: string) => (!p ? 9 : p.startsWith("GRAND PRIZE -") ? 0 : p.startsWith("GRAND PRIZE (") ? 1 : p.startsWith("Second") ? 2 : 3);
 
 export default async function GiveawayPage() {
   const user = await getCurrentUser();
@@ -86,6 +87,27 @@ export default async function GiveawayPage() {
           Each entry holds 1 ticket plus 1 per friend who entered through its share link (max {REFERRAL.maxExtraEntries} extra).
           If the grand prize winner came in through a link, the referrer wins a grand prize too.
         </p>
+      </section>
+
+      <section className="detailPanel analyticsSection">
+        <h2>Countdown messages</h2>
+        <p className="settingsDescription">Email (Postmark broadcast, unsubscribe link) + SMS (TNZ, opt-outs honoured). Each entrant gets each touch once; "sent" counts entrants marked for that touch.</p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, maxWidth: 720 }}>
+          <thead><tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, textTransform: "uppercase" }}>
+            <th style={{ padding: "6px 8px 6px 0" }}>Touch</th><th style={th}>Sends (NZ)</th><th style={th}>Channels</th><th style={th}>Status</th><th style={th}>Sent</th>
+          </tr></thead>
+          <tbody>
+            {TOUCHES.map((t) => (
+              <tr key={t.key} style={{ borderTop: "1px solid var(--line)" }}>
+                <td style={{ padding: "8px 8px 8px 0" }}>{t.note}</td>
+                <td style={td}>{t.sendAt.toLocaleString("en-NZ", { timeZone: "Pacific/Auckland", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                <td style={td}>{[t.email ? "email" : null, t.sms ? "SMS" : null].filter(Boolean).join(" + ")}</td>
+                <td style={td}>{t.enabled ? "on" : "off"}</td>
+                <td style={td}>{rows.filter((r) => sentTouches(r.internal_notes).has(t.key)).length} / {rows.length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       {winners.length > 0 ? (

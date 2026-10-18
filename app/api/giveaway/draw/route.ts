@@ -21,9 +21,9 @@ import { GIVEAWAY, parseEntryTag, replaceEntryTag, referralCounts, ticketsFor, r
 
 const RUNNERS_UP = 10;
 const RESERVES = 3;
-const PRIZE_GRAND = "GRAND PRIZE - Premium Detail + $100";
-const PRIZE_GRAND_BONUS = "GRAND PRIZE (referral bonus) - Premium Detail + $100";
-const PRIZE_RUNNER_UP = "Runner-up - 40% off";
+const PRIZE_GRAND = "GRAND PRIZE - Premium Protection Pack + $100";
+const PRIZE_GRAND_BONUS = "GRAND PRIZE (referral bonus) - Premium Protection Pack + $100";
+const PRIZE_RUNNER_UP = "Second prize - $250 off the Protection Pack";
 
 type Contact = { full_name?: string | null; first_name?: string | null; last_name?: string | null; email?: string | null; phone?: string | null };
 type Vehicle = { year?: string | null; make?: string | null; model?: string | null };

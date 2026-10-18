@@ -12,7 +12,7 @@ export function GiveawayDrawButton({ alreadyDrawn }: { alreadyDrawn: boolean }) 
     const ok = window.confirm(
       alreadyDrawn
         ? "A draw already exists. Drawing again REPLACES the current winners. Continue?"
-        : "Draw 1 grand prize winner, 10 runners-up and 3 reserves now? Chances are weighted by tickets (1 + friends referred). If the grand prize winner came in through a friend's link, that friend wins a grand prize too. Only do this once entries have closed."
+        : "Draw 1 grand prize winner, 10 second prizes and 3 reserves now? Chances are weighted by tickets (1 + friends referred). If the grand prize winner came in through a friend's link, that friend wins a grand prize too. Only do this once entries have closed."
     );
     if (!ok) return;
     setMsg("");
