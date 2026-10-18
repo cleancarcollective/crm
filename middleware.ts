@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth/",
   "/api/leads/intake",
+  "/api/giveaway/enter",              // public giveaway entry form (cleancarcollective.co.nz/giveaway)
   "/api/bookings/intake",
   "/api/booking-series/intake",
   "/api/quote-events",               // instant-quote funnel beacons (sendBeacon, no session)

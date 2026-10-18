@@ -113,6 +113,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       ? [
           { href: "/analytics", label: "Funnel" },
           { href: "/collective", label: "Collective" },
+          { href: "/giveaway", label: "Giveaway" },
           { href: "/journey", label: "Journey" },
           { href: "/settings", label: "Settings" },
         ]
