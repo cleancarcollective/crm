@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentShop } from "@/lib/auth/currentShop";
+import { fetchAllRows } from "@/lib/export/fetchAllRows";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function GET(req: NextRequest) {
@@ -6,19 +8,28 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") ?? "";
   const q = searchParams.get("q") ?? "";
 
+  const shop = await getCurrentShop();
+  if (!shop) return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+
   const supabase = getSupabaseAdminClient();
-  let query = supabase
-    .from("leads")
-    .select("id, status, won_source, service_requested, notes, source, source_detail, created_at, updated_at, contacts(full_name, first_name, last_name, email, phone), vehicles(year, make, model)")
-    .not("archived", "eq", true)
-    .order("updated_at", { ascending: false });
 
-  if (status) query = query.eq("status", status);
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  let rows = (data ?? []) as Record<string, unknown>[];
+  let rows: Record<string, unknown>[];
+  try {
+    // Page through every lead for this shop (Supabase returns max 1000 per request).
+    rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+      let query = supabase
+        .from("leads")
+        .select("id, status, won_source, service_requested, notes, source, source_detail, created_at, updated_at, contacts(full_name, first_name, last_name, email, phone), vehicles(year, make, model)")
+        .eq("shop_id", shop.id)
+        .not("archived", "eq", true)
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true });
+      if (status) query = query.eq("status", status);
+      return query.range(from, to);
+    });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  }
 
   if (q) {
     const qLower = q.toLowerCase();

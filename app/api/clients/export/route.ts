@@ -1,31 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentShop } from "@/lib/auth/currentShop";
+import { fetchAllRows } from "@/lib/export/fetchAllRows";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") ?? "";
 
+  const shop = await getCurrentShop();
+  if (!shop) return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+
   const supabase = getSupabaseAdminClient();
-  const { data: contacts, error } = await supabase
-    .from("contacts")
-    .select("id, full_name, first_name, last_name, email, phone, created_at")
-    .not("archived", "eq", true)
-    .order("updated_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  type ContactRow = {
+    id: string; full_name: string | null; first_name: string | null; last_name: string | null;
+    email: string | null; phone: string | null; created_at: string | null;
+  };
+  type BookingRow = {
+    contact_id: string | null; status: string | null; price_estimate: number | null;
+    service_name: string | null; scheduled_start: string | null;
+  };
 
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select("contact_id, status, price_estimate, service_name, scheduled_start");
+  let contacts: ContactRow[];
+  let bookings: BookingRow[];
+  try {
+    // Both tables are well over 1000 rows, so page through each in full.
+    // Previously bookings were also capped, which dropped real clients
+    // whose bookings fell outside the first 1000.
+    [contacts, bookings] = await Promise.all([
+      fetchAllRows<ContactRow>((from, to) =>
+        supabase
+          .from("contacts")
+          .select("id, full_name, first_name, last_name, email, phone, created_at")
+          .eq("shop_id", shop.id)
+          .not("archived", "eq", true)
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<BookingRow>((from, to) =>
+        supabase
+          .from("bookings")
+          .select("contact_id, status, price_estimate, service_name, scheduled_start")
+          .eq("shop_id", shop.id)
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+    ]);
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  }
 
   const bookingsByContact = new Map<string, Record<string, unknown>[]>();
-  for (const b of bookings ?? []) {
+  for (const b of bookings) {
     const arr = bookingsByContact.get(String(b.contact_id)) ?? [];
     arr.push(b as Record<string, unknown>);
     bookingsByContact.set(String(b.contact_id), arr);
   }
 
-  let rows = (contacts ?? []).filter((c) => (bookingsByContact.get(c.id) ?? []).length > 0);
+  let rows = contacts.filter((c) => (bookingsByContact.get(c.id) ?? []).length > 0);
 
   if (q) {
     const qLower = q.toLowerCase();

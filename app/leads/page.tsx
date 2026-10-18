@@ -81,7 +81,7 @@ export default async function LeadsPage({
         ]}
       />
 
-      <ImportExportBar mode="leads" exportParams={status || query ? `?status=${status}&q=${query}` : ""} />
+      <ImportExportBar mode="leads" exportParams={status || query ? `?${new URLSearchParams({ status, q: query }).toString()}` : ""} />
 
       <ContactDirectoryList mode="leads" entries={entries} timezone={shop.timezone} />
 

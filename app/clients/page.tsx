@@ -88,7 +88,7 @@ export default async function ClientsPage({
         ]}
       />
 
-      <ImportExportBar mode="clients" exportParams={query ? `?q=${query}` : ""} />
+      <ImportExportBar mode="clients" exportParams={query ? `?${new URLSearchParams({ q: query }).toString()}` : ""} />
 
       <ContactDirectoryList mode="clients" entries={entries} timezone={shop.timezone} />
 
