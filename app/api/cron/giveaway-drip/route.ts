@@ -99,6 +99,7 @@ export async function GET(req: NextRequest) {
 
     // Email: one Postmark batch call on the broadcast stream.
     const emailResult = new Map<string, string>();
+    const postmarkDebug: Array<{ ErrorCode: number; Message: string; MessageID?: string }> = [];
     if (touch.email) {
       const withEmail = entrants.filter(({ e }) => e.email);
       if (withEmail.length) {
@@ -107,7 +108,8 @@ export async function GET(req: NextRequest) {
             const m = renderCountdownEmail(e, now);
             return { From: FROM_LINE, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
           }));
-          res.forEach((r, i) => emailResult.set(withEmail[i].row.id, r.ErrorCode === 0 ? "sent" : `failed:${r.ErrorCode}`));
+          res.forEach((r, i) => emailResult.set(withEmail[i].row.id, r.ErrorCode === 0 ? `sent:${(r.MessageID || "").slice(0, 8)}` : `failed:${r.ErrorCode}`));
+          if (test) postmarkDebug.push(...res.map((r) => ({ ErrorCode: r.ErrorCode, Message: r.Message, MessageID: r.MessageID })));
         } catch (err) {
           console.error("giveaway drip email batch failed", err);
           withEmail.forEach(({ row }) => emailResult.set(row.id, "failed:batch"));
@@ -132,7 +134,7 @@ export async function GET(req: NextRequest) {
     });
 
     const tally = (m: Map<string, string>) => { const t: Record<string, number> = {}; for (const v of m.values()) t[v.split(":")[0]] = (t[v.split(":")[0]] ?? 0) + 1; return t; };
-    report.push({ touch: touch.key, processed: entrants.length, remaining: pending.length - entrants.length, email: tally(emailResult), sms: tally(smsResult) });
+    report.push({ touch: touch.key, processed: entrants.length, remaining: pending.length - entrants.length, email: tally(emailResult), sms: tally(smsResult), ...(test ? { postmark: postmarkDebug, stream: BROADCAST_STREAM } : {}) });
   }
 
   return NextResponse.json({ ok: true, now: now.toISOString(), test, dry, report });
