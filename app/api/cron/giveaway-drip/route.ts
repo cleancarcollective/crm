@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { ServerClient } from "postmark";
 import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { hasSmsOptOut } from "@/lib/sms/consent";
@@ -29,6 +30,16 @@ export const maxDuration = 60;
 const PER_RUN = 150;          // entrants per touch per run
 const SMS_CONCURRENCY = 8;
 const BROADCAST_STREAM = process.env.POSTMARK_BROADCAST_STREAM || "broadcast";
+// Bulk sends can run on a different Postmark server than transactional mail.
+// Set POSTMARK_BROADCAST_TOKEN to point the drip at it; otherwise it shares
+// POSTMARK_SERVER_TOKEN.
+let broadcastClient: ServerClient | null = null;
+function getBroadcastClient() {
+  const t = process.env.POSTMARK_BROADCAST_TOKEN;
+  if (!t) return getPostmarkClient();
+  if (!broadcastClient) broadcastClient = new ServerClient(t);
+  return broadcastClient;
+}
 
 type Row = {
   id: string;
@@ -104,7 +115,7 @@ export async function GET(req: NextRequest) {
       const withEmail = entrants.filter(({ e }) => e.email);
       if (withEmail.length) {
         try {
-          const res = await getPostmarkClient().sendEmailBatch(withEmail.map(({ e }) => {
+          const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ e }) => {
             const m = renderCountdownEmail(e, now);
             return { From: FROM_LINE, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
           }));
@@ -134,7 +145,7 @@ export async function GET(req: NextRequest) {
     });
 
     const tally = (m: Map<string, string>) => { const t: Record<string, number> = {}; for (const v of m.values()) t[v.split(":")[0]] = (t[v.split(":")[0]] ?? 0) + 1; return t; };
-    report.push({ touch: touch.key, processed: entrants.length, remaining: pending.length - entrants.length, email: tally(emailResult), sms: tally(smsResult), ...(test ? { postmark: postmarkDebug, stream: BROADCAST_STREAM } : {}) });
+    report.push({ touch: touch.key, processed: entrants.length, remaining: pending.length - entrants.length, email: tally(emailResult), sms: tally(smsResult), ...(test ? { postmark: postmarkDebug, stream: BROADCAST_STREAM, token: process.env.POSTMARK_BROADCAST_TOKEN ? "POSTMARK_BROADCAST_TOKEN" : "POSTMARK_SERVER_TOKEN" } : {}) });
   }
 
   return NextResponse.json({ ok: true, now: now.toISOString(), test, dry, report });
