@@ -112,6 +112,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     ...(user.role === "admin"
       ? [
           { href: "/analytics", label: "Funnel" },
+          { href: "/revenue", label: "Revenue" },
           { href: "/collective", label: "Collective" },
           { href: "/giveaway", label: "Giveaway" },
           { href: "/journey", label: "Journey" },
