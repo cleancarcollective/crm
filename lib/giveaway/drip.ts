@@ -38,8 +38,10 @@ export const TOUCHES: Touch[] = [
   { key: "post_draw",      sendAt: new Date("2026-10-30T12:00:00+13:00"), validUntil: new Date("2026-10-31T20:00:00+13:00"), email: true, sms: true, enabled: false, note: "Fri 30 Oct, winners + second prize claim (OFF until copy approved)" },
 ];
 
-export const PRIZE_PACK_SHORT = "$1,000+ prize pack";
-export const PRIZE_PACK_LONG = "a Premium Detail with ceramic protection, plus $100 cash";
+// Matches the giveaway page and the ads: "Win a Free Premium Detail + $100 Cash", over $800 in value.
+export const PRIZE_SHORT = "free Premium Detail + $100 cash";
+export const PRIZE_LONG = "a free Premium Detail plus $100 cash, over $800 in value, with ceramic protection added on top";
+export const SECOND_PRIZES = "There's more than one winner: second prizes are drawn on Friday 30 October too.";
 export const BOOK_URL = "https://cleancarcollective.co.nz/make-a-booking/";
 export const FROM_LINE = "Clean Car Collective <hello@cleancarcollective.co.nz>";
 
@@ -81,13 +83,13 @@ function escapeHtml(value: string) {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function shareText(code: string): string {
-  return `I just entered Clean Car Collective's Wellington giveaway to win a ${PRIZE_PACK_SHORT} (${PRIZE_PACK_LONG}). Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${shareUrlFor(code)}`;
+  return `I just entered Clean Car Collective's Wellington giveaway to win a free Premium Detail plus $100 cash (over $800 in value). Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${shareUrlFor(code)}`;
 }
 
 export function renderCountdownSms(e: DripEntrant, now: Date): string {
   const label = daysLeftLabel(now);
   const closing = daysLeft(now) <= 0 ? "Entries close 11:59pm tonight." : "Entries close Thu 29 Oct, 11:59pm.";
-  return `Clean Car Collective giveaway: ${label}. You have ${plural(e.tickets, "entry", "entries")} to win a ${PRIZE_PACK_SHORT}. Every friend who enters with your link = +1 entry: ${shareUrlFor(e.code)} ${closing}`;
+  return `Clean Car Collective giveaway: ${label}. You have ${plural(e.tickets, "entry", "entries")} to win a ${PRIZE_SHORT}. Every friend who enters with your link = +1 entry: ${shareUrlFor(e.code)} ${closing}`;
 }
 
 export function renderCountdownEmail(e: DripEntrant, now: Date): { subject: string; text: string; html: string } {
@@ -102,7 +104,7 @@ export function renderCountdownEmail(e: DripEntrant, now: Date): { subject: stri
   const text = [
     `Hi ${first},`,
     ``,
-    `${label} in the Clean Car Collective Wellington giveaway. You have ${plural(e.tickets, "entry", "entries")} in the draw for the ${PRIZE_PACK_SHORT}: ${PRIZE_PACK_LONG}. ${closing}.`,
+    `${label} in the Clean Car Collective Wellington giveaway. You have ${plural(e.tickets, "entry", "entries")} in the draw for ${PRIZE_LONG}. ${closing}. ${SECOND_PRIZES}`,
     ``,
     `Want more chances? Share your link:`,
     url,
@@ -124,7 +126,8 @@ export function renderCountdownEmail(e: DripEntrant, now: Date): { subject: stri
       <tr><td style="padding:30px 28px 6px;">
         <p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#8a7a00;">${escapeHtml(label)}</p>
         <p style="margin:0 0 14px;font-size:24px;font-weight:800;line-height:1.2;color:#111;">You have ${plural(e.tickets, "entry", "entries")} in the draw, ${escapeHtml(first)}.</p>
-        <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">The grand prize is a <strong>${PRIZE_PACK_SHORT}</strong>: ${PRIZE_PACK_LONG}. ${closing}.</p>
+        <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">The grand prize is a <strong>${PRIZE_SHORT}</strong>, over $800 in value, with ceramic protection added on top. ${closing}.</p>
+        <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">${SECOND_PRIZES}</p>
       </td></tr>
       <tr><td style="padding:8px 28px 10px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffbe6;border:2px solid #f7e04a;border-radius:14px;"><tr><td style="padding:22px 22px 20px;">

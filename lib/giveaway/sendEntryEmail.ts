@@ -25,7 +25,7 @@ function escapeHtml(value: string) {
 export async function sendGiveawayEntryEmail(args: { shopId: string; to: string; firstName: string; code: string; test: boolean }) {
   const contacts = await getShopContactsById(args.shopId);
   const url = shareUrlFor(args.code);
-  const shareText = `I just entered Clean Car Collective's Wellington giveaway to win a $1,000+ prize pack (a Premium Detail with ceramic protection, plus $100 cash). Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${url}`;
+  const shareText = `I just entered Clean Car Collective's Wellington giveaway to win a free Premium Detail plus $100 cash (over $800 in value). Free to enter, takes 30 seconds, and if you win the grand prize I win one too: ${url}`;
   const waLink = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
   const first = escapeHtml(args.firstName);
   const subject = `${args.test ? "[TEST] " : ""}You're in the draw. Here's your link for extra entries`;
@@ -33,7 +33,7 @@ export async function sendGiveawayEntryEmail(args: { shopId: string; to: string;
   const TextBody = [
     `Hi ${args.firstName},`,
     ``,
-    `Your entry for the Wellington giveaway is in. Winners are drawn on Friday 30 October and we'll email or call you if you win.`,
+    `Your entry for the Wellington giveaway is in. You're in the draw for a free Premium Detail plus $100 cash, over $800 in value. Winners are drawn on Friday 30 October (there's more than one) and we'll email or call you if you win.`,
     ``,
     `Want more chances to win? Share your link:`,
     url,
@@ -61,7 +61,7 @@ export async function sendGiveawayEntryEmail(args: { shopId: string; to: string;
           <tr><td style="background:#000000;padding:22px 28px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">Clean Car Collective</td></tr>
           <tr><td style="padding:30px 28px 8px;">
             <p style="margin:0 0 14px;font-size:22px;font-weight:800;color:#111;">You're in, ${first}!</p>
-            <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Your entry for the Wellington giveaway is locked in. Winners are drawn on <strong>Friday 30 October</strong> and we'll email or call you if you win.</p>
+            <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">Your entry for the Wellington giveaway is locked in. You're in the draw for a <strong>free Premium Detail plus $100 cash</strong>, over $800 in value. Winners are drawn on <strong>Friday 30 October</strong> (there's more than one) and we'll email or call you if you win.</p>
           </td></tr>
           <tr><td style="padding:8px 28px 10px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffbe6;border:2px solid #f7e04a;border-radius:14px;">
