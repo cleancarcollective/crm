@@ -24,18 +24,19 @@ export type Touch = {
   /** After this the touch is stale ("5 days left" sent 2 days late is wrong) and is skipped. */
   validUntil: Date;
   email: boolean;
+  /** SMS OFF for the whole campaign (Max, 27 Oct 2026: never approved paid texts). Email only. */
   sms: boolean;
   enabled: boolean;
   note: string;
 };
 
 export const TOUCHES: Touch[] = [
-  { key: "countdown_5d",   sendAt: new Date("2026-10-24T10:30:00+13:00"), validUntil: new Date("2026-10-24T20:00:00+13:00"), email: true, sms: true, enabled: true,  note: "Sat 24 Oct, 5 days left" },
-  { key: "countdown_2d",   sendAt: new Date("2026-10-27T10:30:00+13:00"), validUntil: new Date("2026-10-27T20:00:00+13:00"), email: true, sms: true, enabled: true,  note: "Tue 27 Oct, 2 days left" },
-  { key: "countdown_last", sendAt: new Date("2026-10-29T10:30:00+13:00"), validUntil: new Date("2026-10-29T20:00:00+13:00"), email: true, sms: true, enabled: true,  note: "Thu 29 Oct, closes tonight" },
+  { key: "countdown_5d",   sendAt: new Date("2026-10-24T10:30:00+13:00"), validUntil: new Date("2026-10-24T20:00:00+13:00"), email: true, sms: false, enabled: true,  note: "Sat 24 Oct, 5 days left" },
+  { key: "countdown_2d",   sendAt: new Date("2026-10-27T10:30:00+13:00"), validUntil: new Date("2026-10-27T20:00:00+13:00"), email: true, sms: false, enabled: true,  note: "Tue 27 Oct, 2 days left" },
+  { key: "countdown_last", sendAt: new Date("2026-10-29T10:30:00+13:00"), validUntil: new Date("2026-10-29T20:00:00+13:00"), email: true, sms: false, enabled: true,  note: "Thu 29 Oct, closes tonight" },
   // Winners announced + "you've won a second prize, 72h to claim". Copy and the
   // booking-form claim code still to be confirmed with Max, so it is off.
-  { key: "post_draw",      sendAt: new Date("2026-10-30T12:00:00+13:00"), validUntil: new Date("2026-10-31T20:00:00+13:00"), email: true, sms: true, enabled: false, note: "Fri 30 Oct, winners + second prize claim (OFF until copy approved)" },
+  { key: "post_draw",      sendAt: new Date("2026-10-30T12:00:00+13:00"), validUntil: new Date("2026-10-31T20:00:00+13:00"), email: true, sms: false, enabled: false, note: "Fri 30 Oct, winners + second prize claim (OFF until copy approved)" },
 ];
 
 // Matches the giveaway page and the ads: "Win a Free Premium Detail + $100 Cash", over $800 in value.
