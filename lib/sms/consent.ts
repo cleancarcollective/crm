@@ -47,9 +47,12 @@ export function isMarketingSmsTemplate(templateKey: string | null | undefined): 
  *
  * - f45b4640-288a-4a09-ae6a-b1bc82636417  Amy Bendall (WLG), email 10 Oct 2026:
  *   "Please take me off the texting list"
+ * - 7e083399-0347-4933-815f-dc3647b28d02  Dan Baxter (giveaway entrant, +64273429013),
+ *   replied STOP to the giveaway 2-days-left SMS, 27 Oct 2026
  */
 const OPT_OUT_CONTACT_IDS: ReadonlySet<string> = new Set([
   "f45b4640-288a-4a09-ae6a-b1bc82636417",
+  "7e083399-0347-4933-815f-dc3647b28d02",
 ]);
 
 /**
