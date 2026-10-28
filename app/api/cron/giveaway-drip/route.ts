@@ -21,6 +21,7 @@ import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { sendTnzSms } from "@/lib/sms/tnzClient";
 import { hasSmsOptOut } from "@/lib/sms/consent";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 import { GIVEAWAY, parseEntryTag, referralCounts, ticketsFor, type EntryTag } from "@/lib/giveaway/wlgOct2026";
 import { TOUCHES, FROM_LINE, appendSentMarker, sentTouches, renderCountdownEmail, renderCountdownSms, type DripEntrant, type Touch, type TouchKey } from "@/lib/giveaway/drip";
 
@@ -75,14 +76,12 @@ export async function GET(req: NextRequest) {
   const { data: shop } = await supabase.from("shops").select("id").eq("slug", GIVEAWAY.shopSlug).maybeSingle();
   if (!shop) return NextResponse.json({ error: "shop not found" }, { status: 500 });
 
-  const { data } = await supabase
-    .from("leads")
-    .select("id, internal_notes, contacts(id, first_name, full_name, email, phone)")
-    .eq("shop_id", shop.id)
-    .eq("source", GIVEAWAY.leadSource)
-    .ilike("internal_notes", `%[giveaway:${GIVEAWAY.key}]%`)
-    .limit(5000);
-  const entries = ((data ?? []) as unknown as Row[])
+  const data = await fetchAllGiveawayLeads<Row>(
+    supabase,
+    shop.id,
+    "id, internal_notes, contacts(id, first_name, full_name, email, phone)",
+  );
+  const entries = data
     .map((r) => ({ ...r, tag: parseEntryTag(r.internal_notes) as EntryTag }))
     .filter((r) => r.tag && r.tag.test === test && r.tag.code);
   const counts = referralCounts(entries);

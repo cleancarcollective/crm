@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse, after } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 import {
   GIVEAWAY, REFERRAL, clean, normaliseEmail, normaliseMobile, buildEntryTag, parseEntryTag,
   newReferralCode, normaliseReferralCode, shareUrlFor, referralCounts, ticketsFor, type EntryTag,
@@ -49,14 +50,8 @@ type SupabaseAdmin = ReturnType<typeof getSupabaseAdminClient>;
 type Entry = { id: string; tag: EntryTag };
 
 async function loadEntries(supabase: SupabaseAdmin, shopId: string): Promise<Entry[]> {
-  const { data } = await supabase
-    .from("leads")
-    .select("id, internal_notes")
-    .eq("shop_id", shopId)
-    .eq("source", GIVEAWAY.leadSource)
-    .ilike("internal_notes", `%[giveaway:${GIVEAWAY.key}]%`)
-    .limit(5000);
-  return (data ?? [])
+  const data = await fetchAllGiveawayLeads<{ id: string; internal_notes: string | null }>(supabase, shopId, "id, internal_notes");
+  return data
     .map((p) => ({ id: String(p.id), tag: parseEntryTag(p.internal_notes) }))
     .filter((p): p is Entry => p.tag !== null);
 }
