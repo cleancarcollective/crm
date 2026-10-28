@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/currentShop";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 import { GIVEAWAY, parseEntryTag, replaceEntryTag, referralCounts, ticketsFor, runDraw, type EntryTag } from "@/lib/giveaway/wlgOct2026";
 
 const RUNNERS_UP = 10;
@@ -36,13 +37,17 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { redraw?: boolean };
   const supabase = getSupabaseAdminClient();
 
-  const { data: entries } = await supabase
-    .from("leads")
-    .select("id, created_at, internal_notes, contacts(full_name, first_name, last_name, email, phone), vehicles(year, make, model)")
-    .eq("shop_id", user.shop.id)
-    .eq("source", GIVEAWAY.leadSource)
-    .ilike("internal_notes", `%[giveaway:${GIVEAWAY.key}]%`)
-    .limit(5000);
+  const entries = await fetchAllGiveawayLeads<{
+    id: string;
+    created_at: string;
+    internal_notes: string | null;
+    contacts: { full_name: string | null; first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;
+    vehicles: { year: number | null; make: string | null; model: string | null } | null;
+  }>(
+    supabase,
+    user.shop.id,
+    "id, created_at, internal_notes, contacts(full_name, first_name, last_name, email, phone), vehicles(year, make, model)",
+  );
 
   const valid = (entries ?? [])
     .map((e) => ({ ...e, tag: parseEntryTag(e.internal_notes) as EntryTag }))

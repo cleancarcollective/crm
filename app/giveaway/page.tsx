@@ -12,6 +12,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { GIVEAWAY, REFERRAL, parseEntryTag, referralCounts, ticketsFor, type EntryTag } from "@/lib/giveaway/wlgOct2026";
 import { GiveawayDrawButton } from "@/components/dashboard/GiveawayDrawButton";
 import { TOUCHES, sentTouches } from "@/lib/giveaway/drip";
+import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 
 export const metadata = { title: "Giveaway - CCC CRM" };
 export const dynamic = "force-dynamic";
@@ -34,16 +35,13 @@ export default async function GiveawayPage() {
   if (!user) redirect("/login");
 
   const supabase = getSupabaseAdminClient();
-  const { data } = await supabase
-    .from("leads")
-    .select("id, created_at, internal_notes, contacts(id, full_name, email, phone), vehicles(year, make, model)")
-    .eq("shop_id", user.shop.id)
-    .eq("source", GIVEAWAY.leadSource)
-    .ilike("internal_notes", `%[giveaway:${GIVEAWAY.key}]%`)
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  const data = await fetchAllGiveawayLeads<Row>(
+    supabase,
+    user.shop.id,
+    "id, created_at, internal_notes, contacts(id, full_name, email, phone), vehicles(year, make, model)",
+  );
 
-  const all = ((data ?? []) as unknown as Row[]).map((r) => ({ ...r, tag: parseEntryTag(r.internal_notes) }));
+  const all = data.map((r) => ({ ...r, tag: parseEntryTag(r.internal_notes) }));
   const rows = all.filter((r): r is Entry => !!r.tag && !r.tag.test);
   const counts = referralCounts(rows);
   const byCode = new Map<string, Entry>();
