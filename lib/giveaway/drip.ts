@@ -44,10 +44,10 @@ export const PRIZE_SHORT = "free Premium Detail + $100 cash";
 export const PRIZE_LONG = "a free Premium Detail plus $100 cash, over $800 in value, with ceramic protection added on top";
 export const SECOND_PRIZES = "There's more than one winner: second prizes are drawn on Friday 30 October too.";
 export const BOOK_URL = "https://cleancarcollective.co.nz/make-a-booking/";
-// Bulk giveaway mail can go out from a sending subdomain (e.g. news.cleancarcollective.co.nz,
-// verified in Postmark) so its reputation stays apart from the main domain's day-to-day mail.
-// Set GIVEAWAY_FROM_LINE in Vercel to switch; replies still go to hello@.
-export const FROM_LINE = process.env.GIVEAWAY_FROM_LINE || "Clean Car Collective <hello@cleancarcollective.co.nz>";
+// Bulk giveaway mail goes out from the mail. sending subdomain (DKIM + Return-Path verified in
+// Postmark, used by nothing else) so complaints never touch the main domain's day-to-day mail.
+// The subdomain has no inbox: replies go to hello@ via REPLY_TO. GIVEAWAY_FROM_LINE overrides.
+export const FROM_LINE = process.env.GIVEAWAY_FROM_LINE || "Clean Car Collective <hello@mail.cleancarcollective.co.nz>";
 export const REPLY_TO = "hello@cleancarcollective.co.nz";
 
 /* ---- Sent markers, one line per touch in leads.internal_notes ---- */
