@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     const row = tagged.find((r) => r.tag && (r.contacts?.email || "").toLowerCase() === previewTo) ?? null;
     const m = renderSecondPrizeEmail({ firstName: firstNameOf(row?.contacts ?? null) || "Max", winner, claimUrl: claimShortUrl(row?.tag.code) });
     try {
-      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
+      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
       return NextResponse.json({ ok: true, preview, to: previewTo, matched_entry: !!row, prefilled: !!row, winner, drawn: grand.length > 0, postmark: { ErrorCode: r.ErrorCode, Message: r.Message } });
     } catch (err) {
       return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 502 });
@@ -149,9 +149,9 @@ export async function GET(req: NextRequest) {
         try {
           const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ row, e }) => {
             if (touch.key === "post_draw") {
-              // Plain text only (lib/giveaway/secondPrize.ts)
+              // Bare, personal-looking email (lib/giveaway/secondPrize.ts)
               const m = renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimShortUrl(e.code) });
-              return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
+              return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
             }
             const m = renderCountdownEmail(e, now);
             return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
