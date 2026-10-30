@@ -13,7 +13,7 @@
  *   ?test=1         act on test entries only (tag.test === true)
  *   ?touch=KEY      with test=1 or dry=1: force one touch regardless of its window
  *                   (dry=1 on real entries only counts; it sends nothing)
- *   &variant=A|B|C|D  preview only, for Gmail tab testing: A as live, B text only,
+ *   &variant=A|B|C|D  preview only, for Gmail tab testing: A text + HTML (as live), B text only,
  *                   C text only from the main domain, D C with the short SMS-style copy
  *   ?sms=0          with test=1: skip the SMS leg (test entries use made-up numbers)
  *   ?preview=post_draw&to=EMAIL[&sms_to=PHONE]
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
       const smsCopy = renderSecondPrizeSms({ firstName: firstNameOf(row?.contacts ?? null) || "Max", claimUrl: claimShortUrl(row?.tag.code) });
       const from = variant === "C" || variant === "D" ? "Clean Car Collective <hello@cleancarcollective.co.nz>" : FROM_LINE;
       const text = variant === "D" ? smsCopy.replace(" Reply STOP to opt out", "\n\nClean Car Collective\n8 Ebor Street, Te Aro, Wellington\n\nUnsubscribe: {{{ pm:unsubscribe }}}") : m.text;
-      const parts = variant && variant !== "A" ? { TextBody: text } : { TextBody: m.text, HtmlBody: m.html };
+      const parts = variant === "A" ? { TextBody: m.text, HtmlBody: m.html } : { TextBody: text };
       const r = await getBroadcastClient().sendEmail({ From: from, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST${variant ? " " + variant : ""}] ${m.subject}`, ...parts, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
       const smsText = renderSecondPrizeSms({ firstName: firstNameOf(row?.contacts ?? null) || "Max", claimUrl: claimShortUrl(row?.tag.code) });
       const sms = previewSmsTo ? await sendTnzSms(previewSmsTo, smsText) : null;
@@ -160,7 +160,8 @@ export async function GET(req: NextRequest) {
         try {
           const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ row, e }) => {
             if (touch.key === "post_draw") {
-              // Bare, personal-looking email (lib/giveaway/secondPrize.ts)
+              // Text + bare HTML so the claim link and unsubscribe are words, not URLs (Max, 30 Oct;
+              // an earlier HTML test went to Gmail Promotions, text-only went to Primary)
               const m = renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimShortUrl(e.code) });
               return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
             }

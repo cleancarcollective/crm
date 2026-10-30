@@ -2,7 +2,8 @@
  * Giveaway second prize (WLG Oct 2026). Every entrant except the grand prize
  * winner(s) wins it (Max, 28 Oct): Ceramic Coating Gold for the Bronze price,
  * plus a free full-car glass ceramic coating, a take-home CarPro sealant
- * bottle and a free maintenance wash. Book by 12pm Mon 2 Nov, work done
+ * bottle, a free maintenance wash and free pickup and drop-off anywhere in
+ * Wellington (Max, 30 Oct). Book by 12pm Mon 2 Nov, work done
  * within 3 months. No public copy names the prize; only this email does.
  *
  * The email links to crm.../claim/<entry code>, which mints the claim link and
@@ -75,13 +76,14 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
     `a full-car glass ceramic coating ($250+ in value)`,
     `a free bottle of CarPro ceramic sealant to take home ($60 value)`,
     `a bonus maintenance wash to keep the coating at its best ($200+ in value)`,
+    `free pickup and drop-off anywhere in Wellington ($120 value)`,
   ];
-  const value = `That's up to $1,020 of value for free, depending on your car.`;
+  const value = `That's up to $1,140 of value for free, depending on your car.`;
   const after = `Your details are filled in and you'll see your discounted price before you book.`;
   const deadline = `Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.`;
 
   const text = [
-    opener, ``, won, ``, `What you won:`, what, ...items.map((i) => `- ${i}`), ``, value, ``,
+    opener, ``, won, ``, `What you won:`, ``, what, ``, ...items.map((i) => `- ${i}`), ``, value, ``,
     `Claim your prize here: ${p.claimUrl}`, after, ``, deadline, ``,
     `Clean Car Collective`, `8 Ebor Street, Te Aro, Wellington`, ``, `Unsubscribe: {{{ pm:unsubscribe }}}`,
   ].join("\n");
@@ -89,9 +91,9 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
   const html = `<!doctype html><html><body>
 <p>${esc(opener)}</p>
 <p>${esc(won)}</p>
-<p>What you won:<br>
-${esc(what)}<br>
-${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
+<p>What you won:</p>
+<p>${esc(what)}</p>
+<p>${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
 <p>${esc(value)}</p>
 <p><a href="${esc(p.claimUrl)}">Claim your prize here</a>. ${esc(after)}</p>
 <p>${esc(deadline)}</p>
@@ -107,7 +109,7 @@ ${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
  */
 export function renderSecondPrizeSms(p: { firstName: string; claimUrl: string }): string {
   const opener = p.firstName ? `${p.firstName}, I've got good news...` : `I've got good news...`;
-  return `${opener} You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize! Click the link below to claim your freebies and $1020 of savings: ${p.claimUrl} Reply STOP to opt out`;
+  return `${opener} You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize! Click the link below to claim your freebies and $1140 of savings: ${p.claimUrl} Reply STOP to opt out`;
 }
 
 /**

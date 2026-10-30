@@ -72,7 +72,7 @@ const PROMO_CODES: PromoCodeDef[] = [
       },
     ],
     noteForBooking:
-      "GIVEAWAY SECOND PRIZE (SECONDPRIZE): Ceramic Coating Gold at the Bronze price (already in the price), plus a free full-car glass ceramic coating, a CarPro ceramic sealant bottle to take home, and a free maintenance wash (credit on the profile). Work to be done within 3 months.",
+      "GIVEAWAY SECOND PRIZE (SECONDPRIZE): Ceramic Coating Gold at the Bronze price (already in the price), plus a free full-car glass ceramic coating, a CarPro ceramic sealant bottle to take home, a free maintenance wash (credit on the profile), and free pickup and drop-off anywhere in Wellington. Work to be done within 3 months.",
   },
 ];
 
