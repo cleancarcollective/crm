@@ -1,0 +1,36 @@
+name: Giveaway email preview
+
+# Sends ONE test copy of a giveaway email (today: the post_draw second-prize
+# email) to the address given, built for that address's giveaway entry when
+# there is one, so the claim link prefills the booking form. Never touches
+# real entrants or their sent markers. See app/api/cron/giveaway-drip.
+
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: "Send the test to this email"
+        required: true
+      touch:
+        description: "Which email"
+        required: true
+        default: "post_draw"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send preview
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TO: ${{ inputs.to }}
+          TOUCH: ${{ inputs.touch }}
+        run: |
+          code=$(curl -sS -m 60 -o /tmp/body -w '%{http_code}' -G \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            --data-urlencode "preview=${TOUCH}" --data-urlencode "to=${TO}" \
+            "https://crm.cleancarcollective.co.nz/api/cron/giveaway-drip")
+          echo "HTTP ${code}"
+          cat /tmp/body || true
+          echo
+          test "$code" = "200"

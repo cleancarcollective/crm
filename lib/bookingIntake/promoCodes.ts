@@ -54,6 +54,26 @@ const PROMO_CODES: PromoCodeDef[] = [
     noteForBooking:
       "Promo code CCC5 applied: 5% off this booking (already in the price), plus a free Deluxe Exterior Detail on your next visit.",
   },
+  {
+    // SECONDPRIZE: WLG Oct 2026 giveaway second prize (lib/giveaway/secondPrize.ts).
+    // Gold at the Bronze price is applied client-side by the Wellington booking
+    // app (the price arrives already reduced), so percentOff is 0. The server
+    // records the prize on the booking and grants the free maintenance wash.
+    // The intake adds an entrant check line (secondPrizeCheck).
+    code: "SECONDPRIZE",
+    shopSlugs: ["wellington"],
+    percentOff: 0,
+    credits: [
+      {
+        serviceName: "Deluxe Exterior Detail",
+        description:
+          "Free maintenance wash (Deluxe Exterior Detail): giveaway second prize, WLG Oct 2026. Redeem on a future booking.",
+        source: "promo_code:SECONDPRIZE",
+      },
+    ],
+    noteForBooking:
+      "GIVEAWAY SECOND PRIZE (SECONDPRIZE): Ceramic Coating Gold at the Bronze price (already in the price), plus a free full-car glass ceramic coating, a CarPro ceramic sealant bottle to take home, and a free maintenance wash (credit on the profile). Work to be done within 3 months.",
+  },
 ];
 
 /**
