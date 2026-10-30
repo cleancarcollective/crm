@@ -11,6 +11,10 @@ on:
       to:
         description: "Send the test to this email"
         required: true
+      sms_to:
+        description: "Also send the SMS to this NZ mobile (optional)"
+        required: false
+        default: ""
       touch:
         description: "Which email"
         required: true
@@ -25,10 +29,11 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           TO: ${{ inputs.to }}
           TOUCH: ${{ inputs.touch }}
+          SMS_TO: ${{ inputs.sms_to }}
         run: |
           code=$(curl -sS -m 60 -o /tmp/body -w '%{http_code}' -G \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            --data-urlencode "preview=${TOUCH}" --data-urlencode "to=${TO}" \
+            --data-urlencode "preview=${TOUCH}" --data-urlencode "to=${TO}" --data-urlencode "sms_to=${SMS_TO}" \
             "https://crm.cleancarcollective.co.nz/api/cron/giveaway-drip")
           echo "HTTP ${code}"
           cat /tmp/body || true

@@ -36,7 +36,7 @@ export const TOUCHES: Touch[] = [
   { key: "countdown_last", sendAt: new Date("2026-10-29T10:30:00+13:00"), validUntil: new Date("2026-10-29T20:00:00+13:00"), email: true, sms: false, enabled: true,  note: "Thu 29 Oct, closes tonight" },
   // Winners announced + "you've won a second prize, 72h to claim". Copy and the
   // booking-form claim code still to be confirmed with Max, so it is off.
-  { key: "post_draw",      sendAt: new Date("2026-10-30T12:00:00+13:00"), validUntil: new Date("2026-10-31T20:00:00+13:00"), email: true, sms: false, enabled: false, note: "Fri 30 Oct, winners + second prize claim (OFF until copy approved)" },
+  { key: "post_draw",      sendAt: new Date("2026-10-30T12:00:00+13:00"), validUntil: new Date("2026-10-31T20:00:00+13:00"), email: true, sms: true,  enabled: false, note: "Fri 30 Oct, winners + second prize claim (OFF until copy approved)" },
 ];
 
 // Matches the giveaway page and the ads: "Win a Free Premium Detail + $100 Cash", over $800 in value.
