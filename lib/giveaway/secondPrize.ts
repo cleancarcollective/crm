@@ -55,11 +55,16 @@ export function claimShortUrl(code: string | null | undefined): string {
   return `${SECOND_PRIZE.claimBase}${code || "PRIZE"}`;
 }
 
+const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 /**
- * Plain text only, one link plus Postmark's required unsubscribe: an
- * HTML/image-style version landed in Gmail's Promotions tab (Max, 30 Oct).
+ * Written like a personal email: an HTML/image-style version landed in Gmail's
+ * Promotions tab (Max, 30 Oct). The HTML part is bare (no styling, images or
+ * buttons) and exists only so the claim link and the unsubscribe are short
+ * words, not long URLs. The unsubscribe stays: NZ's Unsolicited Electronic
+ * Messages Act needs one, and Postmark appends its own if it's missing.
  */
-export function renderSecondPrizeEmail(p: { firstName: string; winner: string | null; claimUrl: string }): { subject: string; text: string } {
+export function renderSecondPrizeEmail(p: { firstName: string; winner: string | null; claimUrl: string }): { subject: string; text: string; html: string } {
   const first = p.firstName || "there";
   const draw = p.winner
     ? `The draw is done. Our grand prize went to ${p.winner.replace(/\.$/, "")}, and you've won second prize.`
@@ -88,7 +93,22 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
     ``,
     `Unsubscribe: {{{ pm:unsubscribe }}}`,
   ].join("\n");
-  return { subject: "You won second prize in our giveaway", text };
+
+  const html = `<!doctype html><html><body>
+<p>Hi ${esc(first)},</p>
+<p>${esc(draw)}</p>
+<p>Your prize: book a Bronze ceramic coating and we'll do Gold instead, for the Bronze price. That takes your warranty from 1 year to 5 years. We'll also add, free:<br>
+- a full-car glass ceramic coating ($250 value)<br>
+- a bottle of CarPro ceramic sealant to take home ($60 value)<br>
+- a maintenance wash to keep the coating at its best ($200 value)</p>
+<p>That's up to $1,020 free, depending on your car.</p>
+<p><a href="${esc(p.claimUrl)}">Claim your prize here</a>. Your details are filled in and you'll see your price before you book.</p>
+<p>Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.</p>
+<p>Any questions, just reply to this email.</p>
+<p>Clean Car Collective<br>8 Ebor Street, Te Aro, Wellington</p>
+<p><a href="{{{ pm:unsubscribe }}}">Unsubscribe</a></p>
+</body></html>`;
+  return { subject: "You won second prize in our giveaway", text, html };
 }
 
 /**
