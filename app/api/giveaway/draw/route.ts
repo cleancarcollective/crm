@@ -22,9 +22,11 @@ import { GIVEAWAY, parseEntryTag, replaceEntryTag, referralCounts, ticketsFor, r
 
 const RUNNERS_UP = 10;
 const RESERVES = 3;
-const PRIZE_GRAND = "GRAND PRIZE - Premium Protection Pack + $100";
-const PRIZE_GRAND_BONUS = "GRAND PRIZE (referral bonus) - Premium Protection Pack + $100";
-const PRIZE_RUNNER_UP = "Second prize - $250 off the Protection Pack";
+const PRIZE_GRAND = "GRAND PRIZE - Premium Detail + $100 cash";
+const PRIZE_GRAND_BONUS = "GRAND PRIZE (referral bonus) - Premium Detail + $100 cash";
+// Every non-grand entrant wins the second prize (lib/giveaway/secondPrize.ts); the 10 runners-up
+// are drawn as named second-prize winners to announce, and reserves cover an unclaimed grand prize.
+const PRIZE_RUNNER_UP = "Second prize - Gold ceramic for the Bronze price";
 
 type Contact = { full_name?: string | null; first_name?: string | null; last_name?: string | null; email?: string | null; phone?: string | null };
 type Vehicle = { year?: string | null; make?: string | null; model?: string | null };

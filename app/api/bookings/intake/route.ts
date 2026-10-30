@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
 import { applyPercentOff, resolvePromoCode } from "@/lib/bookingIntake/promoCodes";
+import { SECOND_PRIZE, secondPrizeCheck } from "@/lib/giveaway/secondPrize";
 import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
@@ -164,8 +165,12 @@ export async function POST(request: Request) {
     const discountedPrice = promo
       ? applyPercentOff(normalized.data.booking.priceEstimate, promo.percentOff)
       : normalized.data.booking.priceEstimate;
+    // Giveaway second prize: say whether the booker is a real non-winning entrant and booked in time.
+    const prizeCheck = promo && normalized.data.booking.promoCode?.trim().toUpperCase() === SECOND_PRIZE.code
+      ? await secondPrizeCheck(supabase, shop.id, contact.id).catch(() => "Giveaway check: lookup failed, check by hand.")
+      : null;
     const notesWithPromo = promo
-      ? [promo.noteForBooking, normalized.data.booking.notes].filter(Boolean).join("\n\n")
+      ? [promo.noteForBooking, prizeCheck, normalized.data.booking.notes].filter(Boolean).join("\n\n")
       : normalized.data.booking.notes;
 
     const { data: booking, error: bookingError } = await supabase

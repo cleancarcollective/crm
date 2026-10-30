@@ -13,6 +13,13 @@
  *   ?test=1         act on test entries only (tag.test === true)
  *   ?touch=KEY      with test=1: force one touch regardless of its window
  *   ?sms=0          with test=1: skip the SMS leg (test entries use made-up numbers)
+ *   ?preview=post_draw&to=EMAIL
+ *                   send ONE second-prize email to EMAIL, built for the entry with that
+ *                   email when there is one (so the claim link prefills it), else for a
+ *                   made-up entrant. Writes no markers. .github/workflows/giveaway-preview.yml
+ *
+ * post_draw (lib/giveaway/secondPrize.ts) waits for the draw (a GRAND PRIZE tag) and goes
+ * to every entrant except the grand prize winner(s), each with their own claim link.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -24,6 +31,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 import { GIVEAWAY, parseEntryTag, referralCounts, ticketsFor, type EntryTag } from "@/lib/giveaway/wlgOct2026";
 import { TOUCHES, FROM_LINE, appendSentMarker, sentTouches, renderCountdownEmail, renderCountdownSms, type DripEntrant, type Touch, type TouchKey } from "@/lib/giveaway/drip";
+import { claimUrl, isGrandPrize, renderSecondPrizeEmail, winnerLabel } from "@/lib/giveaway/secondPrize";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -45,8 +53,9 @@ function getBroadcastClient() {
 type Row = {
   id: string;
   internal_notes: string | null;
-  contacts: { id: string; first_name: string | null; full_name: string | null; email: string | null; phone: string | null } | null;
+  contacts: { id: string; first_name: string | null; last_name: string | null; full_name: string | null; email: string | null; phone: string | null } | null;
 };
+const firstNameOf = (c: Row["contacts"]) => c?.first_name || (c?.full_name || "").split(" ")[0] || "";
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -68,9 +77,14 @@ export async function GET(req: NextRequest) {
   const forced = test ? (q.get("touch") as TouchKey | null) : null;
   const smsOff = test && q.get("sms") === "0";
   const now = new Date();
+  const preview = q.get("preview");
+  const previewTo = (q.get("to") || "").trim().toLowerCase();
+  if (preview && (preview !== "post_draw" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(previewTo))) {
+    return NextResponse.json({ error: "preview=post_draw needs a valid to=EMAIL" }, { status: 400 });
+  }
 
   const due: Touch[] = TOUCHES.filter((t) => (forced ? t.key === forced : t.enabled && now >= t.sendAt && now <= t.validUntil));
-  if (due.length === 0) return NextResponse.json({ ok: true, now: now.toISOString(), due: [] });
+  if (due.length === 0 && !preview) return NextResponse.json({ ok: true, now: now.toISOString(), due: [] });
 
   const supabase = getSupabaseAdminClient();
   const { data: shop } = await supabase.from("shops").select("id").eq("slug", GIVEAWAY.shopSlug).maybeSingle();
@@ -79,8 +93,25 @@ export async function GET(req: NextRequest) {
   const data = await fetchAllGiveawayLeads<Row>(
     supabase,
     shop.id,
-    "id, internal_notes, contacts(id, first_name, full_name, email, phone)",
+    "id, internal_notes, contacts(id, first_name, last_name, full_name, email, phone)",
   );
+
+  // The draw: grand prize winner(s), named in the second-prize email and left out of it.
+  const tagged = data.map((r) => ({ ...r, tag: parseEntryTag(r.internal_notes) as EntryTag }));
+  const grand = tagged.filter((r) => r.tag && !r.tag.test && isGrandPrize(r.tag.prize));
+  const mainGrand = grand.find((r) => !(r.tag.prize || "").includes("referral bonus")) ?? grand[0];
+  const winner = mainGrand ? winnerLabel(mainGrand.contacts) : null;
+
+  if (preview) {
+    const row = tagged.find((r) => r.tag && (r.contacts?.email || "").toLowerCase() === previewTo) ?? null;
+    const m = renderSecondPrizeEmail({ firstName: firstNameOf(row?.contacts ?? null) || "Max", winner, claimUrl: claimUrl(row?.id ?? null, shop.id) });
+    try {
+      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
+      return NextResponse.json({ ok: true, preview, to: previewTo, matched_entry: !!row, prefilled: !!row, winner, drawn: grand.length > 0, postmark: { ErrorCode: r.ErrorCode, Message: r.Message } });
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 502 });
+    }
+  }
   const entries = data
     .map((r) => ({ ...r, tag: parseEntryTag(r.internal_notes) as EntryTag }))
     .filter((r) => r.tag && r.tag.test === test && r.tag.code);
@@ -88,12 +119,14 @@ export async function GET(req: NextRequest) {
 
   const report: Record<string, unknown>[] = [];
   for (const touch of due) {
-    const pending = entries.filter((r) => !sentTouches(r.internal_notes).has(touch.key));
+    // The second-prize email waits for the draw and skips the grand prize winner(s).
+    if (touch.key === "post_draw" && grand.length === 0) { report.push({ touch: touch.key, waiting: "no draw yet" }); continue; }
+    const pending = entries.filter((r) => !sentTouches(r.internal_notes).has(touch.key) && !(touch.key === "post_draw" && isGrandPrize(r.tag.prize)));
     const batch = pending.slice(0, PER_RUN);
     const entrants: Array<{ row: typeof batch[number]; e: DripEntrant }> = batch.map((row) => ({
       row,
       e: {
-        firstName: row.contacts?.first_name || (row.contacts?.full_name || "").split(" ")[0] || "",
+        firstName: firstNameOf(row.contacts),
         email: row.contacts?.email ?? null,
         phone: row.contacts?.phone ?? null,
         code: row.tag.code!,
@@ -103,7 +136,7 @@ export async function GET(req: NextRequest) {
     }));
 
     if (dry) {
-      report.push({ touch: touch.key, pending: pending.length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: renderCountdownSms(e, now), subject: renderCountdownEmail(e, now).subject })) });
+      report.push({ touch: touch.key, pending: pending.length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: renderCountdownSms(e, now), subject: touch.key === "post_draw" ? "You won second prize in our giveaway!" : renderCountdownEmail(e, now).subject })) });
       continue;
     }
 
@@ -114,8 +147,10 @@ export async function GET(req: NextRequest) {
       const withEmail = entrants.filter(({ e }) => e.email);
       if (withEmail.length) {
         try {
-          const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ e }) => {
-            const m = renderCountdownEmail(e, now);
+          const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ row, e }) => {
+            const m = touch.key === "post_draw"
+              ? renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimUrl(row.id, shop.id) })
+              : renderCountdownEmail(e, now);
             return { From: FROM_LINE, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
           }));
           res.forEach((r, i) => emailResult.set(withEmail[i].row.id, r.ErrorCode === 0 ? `sent:${(r.MessageID || "").slice(0, 8)}` : `failed:${r.ErrorCode}`));
