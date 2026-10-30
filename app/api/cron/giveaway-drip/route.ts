@@ -13,7 +13,7 @@
  *   ?test=1         act on test entries only (tag.test === true)
  *   ?touch=KEY      with test=1 or dry=1: force one touch regardless of its window
  *                   (dry=1 on real entries only counts; it sends nothing)
- *   &variant=A|B|C|D  preview only, for Gmail tab testing: A text + HTML, B text only (as live),
+ *   &variant=A|B|C|D  preview only, for Gmail tab testing: A text + HTML (as live), B text only,
  *                   C text only from the main domain, D C with the short SMS-style copy
  *   ?sms=0          with test=1: skip the SMS leg (test entries use made-up numbers)
  *   ?preview=post_draw&to=EMAIL[&sms_to=PHONE]
@@ -160,9 +160,10 @@ export async function GET(req: NextRequest) {
         try {
           const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ row, e }) => {
             if (touch.key === "post_draw") {
-              // Plain text only: the HTML part sent Gmail tests to Promotions (variant B landed in Primary)
+              // Text + bare HTML so the claim link and unsubscribe are words, not URLs (Max, 30 Oct;
+              // an earlier HTML test went to Gmail Promotions, text-only went to Primary)
               const m = renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimShortUrl(e.code) });
-              return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
+              return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
             }
             const m = renderCountdownEmail(e, now);
             return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
