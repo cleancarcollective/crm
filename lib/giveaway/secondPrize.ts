@@ -65,46 +65,35 @@ const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * Messages Act needs one, and Postmark appends its own if it's missing.
  */
 export function renderSecondPrizeEmail(p: { firstName: string; winner: string | null; claimUrl: string }): { subject: string; text: string; html: string } {
-  const first = p.firstName || "there";
-  const draw = p.winner
-    ? `The draw is done. Our grand prize went to ${p.winner.replace(/\.$/, "")}, and you've won second prize.`
-    : `The draw is done, and you've won second prize.`;
+  // Copy: Max, 30 Oct 2026. `winner` is no longer named in the email.
+  const first = p.firstName || "Hi";
+  const opener = p.firstName ? `${first}, I've got good news…` : `I've got good news…`;
+  const won = `You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize!`;
+  const what = `Get a Gold ceramic coating ($1300+) for the price of our Bronze coating package, alongside a bunch of freebies! That takes your warranty from 1 year to 5 years and you also get these, completely free:`;
+  const items = [
+    `a full-car glass ceramic coating ($250+ in value)`,
+    `a free bottle of CarPro ceramic sealant to take home ($60 value)`,
+    `a bonus maintenance wash to keep the coating at its best ($200+ in value)`,
+  ];
+  const value = `That's up to $1,020 of value for free, depending on your car.`;
+  const after = `Your details are filled in and you'll see your discounted price before you book.`;
+  const deadline = `Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.`;
+
   const text = [
-    `Hi ${first},`,
-    ``,
-    draw,
-    ``,
-    `Your prize: book a Bronze ceramic coating and we'll do Gold instead, for the Bronze price. That takes your warranty from 1 year to 5 years. We'll also add, free:`,
-    `- a full-car glass ceramic coating ($250 value)`,
-    `- a bottle of CarPro ceramic sealant to take home ($60 value)`,
-    `- a maintenance wash to keep the coating at its best ($200 value)`,
-    ``,
-    `That's up to $1,020 free, depending on your car.`,
-    ``,
-    `Claim it here. Your details are filled in and you'll see your price before you book:`,
-    p.claimUrl,
-    ``,
-    `Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.`,
-    ``,
-    `Any questions, just reply to this email.`,
-    ``,
-    `Clean Car Collective`,
-    `8 Ebor Street, Te Aro, Wellington`,
-    ``,
-    `Unsubscribe: {{{ pm:unsubscribe }}}`,
+    opener, ``, won, ``, `What you won:`, what, ...items.map((i) => `- ${i}`), ``, value, ``,
+    `Claim your prize here: ${p.claimUrl}`, after, ``, deadline, ``,
+    `Clean Car Collective`, `8 Ebor Street, Te Aro, Wellington`, ``, `Unsubscribe: {{{ pm:unsubscribe }}}`,
   ].join("\n");
 
   const html = `<!doctype html><html><body>
-<p>Hi ${esc(first)},</p>
-<p>${esc(draw)}</p>
-<p>Your prize: book a Bronze ceramic coating and we'll do Gold instead, for the Bronze price. That takes your warranty from 1 year to 5 years. We'll also add, free:<br>
-- a full-car glass ceramic coating ($250 value)<br>
-- a bottle of CarPro ceramic sealant to take home ($60 value)<br>
-- a maintenance wash to keep the coating at its best ($200 value)</p>
-<p>That's up to $1,020 free, depending on your car.</p>
-<p><a href="${esc(p.claimUrl)}">Claim your prize here</a>. Your details are filled in and you'll see your price before you book.</p>
-<p>Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.</p>
-<p>Any questions, just reply to this email.</p>
+<p>${esc(opener)}</p>
+<p>${esc(won)}</p>
+<p>What you won:<br>
+${esc(what)}<br>
+${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
+<p>${esc(value)}</p>
+<p><a href="${esc(p.claimUrl)}">Claim your prize here</a>. ${esc(after)}</p>
+<p>${esc(deadline)}</p>
 <p>Clean Car Collective<br>8 Ebor Street, Te Aro, Wellington</p>
 <p><a href="{{{ pm:unsubscribe }}}">Unsubscribe</a></p>
 </body></html>`;
