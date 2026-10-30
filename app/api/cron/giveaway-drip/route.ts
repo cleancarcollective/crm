@@ -11,7 +11,10 @@
  * Query flags (test ones only act on test entries, never real entrants):
  *   ?dry=1          report what would send, send nothing
  *   ?test=1         act on test entries only (tag.test === true)
- *   ?touch=KEY      with test=1: force one touch regardless of its window
+ *   ?touch=KEY      with test=1 or dry=1: force one touch regardless of its window
+ *                   (dry=1 on real entries only counts; it sends nothing)
+ *   &variant=A|B|C|D  preview only, for Gmail tab testing: A as live, B text only,
+ *                   C text only from the main domain, D C with the short SMS-style copy
  *   ?sms=0          with test=1: skip the SMS leg (test entries use made-up numbers)
  *   ?preview=post_draw&to=EMAIL[&sms_to=PHONE]
  *                   send ONE second-prize email to EMAIL, built for the entry with that
@@ -74,7 +77,8 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const test = q.get("test") === "1";
   const dry = q.get("dry") === "1";
-  const forced = test ? (q.get("touch") as TouchKey | null) : null;
+  const forced = test || dry ? (q.get("touch") as TouchKey | null) : null;
+  const variant = (q.get("variant") || "").toUpperCase();
   const smsOff = test && q.get("sms") === "0";
   const now = new Date();
   const preview = q.get("preview");
@@ -107,7 +111,11 @@ export async function GET(req: NextRequest) {
     const row = tagged.find((r) => r.tag && (r.contacts?.email || "").toLowerCase() === previewTo) ?? null;
     const m = renderSecondPrizeEmail({ firstName: firstNameOf(row?.contacts ?? null) || "Max", winner, claimUrl: claimShortUrl(row?.tag.code) });
     try {
-      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
+      const smsCopy = renderSecondPrizeSms({ firstName: firstNameOf(row?.contacts ?? null) || "Max", claimUrl: claimShortUrl(row?.tag.code) });
+      const from = variant === "C" || variant === "D" ? "Clean Car Collective <hello@cleancarcollective.co.nz>" : FROM_LINE;
+      const text = variant === "D" ? smsCopy.replace(" Reply STOP to opt out", "\n\nClean Car Collective\n8 Ebor Street, Te Aro, Wellington\n\nUnsubscribe: {{{ pm:unsubscribe }}}") : m.text;
+      const parts = variant && variant !== "A" ? { TextBody: text } : { TextBody: m.text, HtmlBody: m.html };
+      const r = await getBroadcastClient().sendEmail({ From: from, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST${variant ? " " + variant : ""}] ${m.subject}`, ...parts, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
       const smsText = renderSecondPrizeSms({ firstName: firstNameOf(row?.contacts ?? null) || "Max", claimUrl: claimShortUrl(row?.tag.code) });
       const sms = previewSmsTo ? await sendTnzSms(previewSmsTo, smsText) : null;
       return NextResponse.json({ ok: true, preview, to: previewTo, from: FROM_LINE, matched_entry: !!row, prefilled: !!row, winner, drawn: grand.length > 0, postmark: { ErrorCode: r.ErrorCode, Message: r.Message }, sms: sms ? { success: sms.success, error: sms.success ? null : sms.error, chars: smsText.length } : null });
@@ -139,7 +147,7 @@ export async function GET(req: NextRequest) {
     }));
 
     if (dry) {
-      report.push({ touch: touch.key, pending: pending.length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: touch.key === "post_draw" ? renderSecondPrizeSms({ firstName: e.firstName, claimUrl: claimShortUrl(e.code) }) : renderCountdownSms(e, now), subject: touch.key === "post_draw" ? "You won second prize in our giveaway" : renderCountdownEmail(e, now).subject })) });
+      report.push({ touch: touch.key, pending: pending.length, with_email: pending.filter((r) => r.contacts?.email).length, with_phone: pending.filter((r) => r.contacts?.phone).length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: touch.key === "post_draw" ? renderSecondPrizeSms({ firstName: e.firstName, claimUrl: claimShortUrl(e.code) }) : renderCountdownSms(e, now), subject: touch.key === "post_draw" ? "You won second prize in our giveaway" : renderCountdownEmail(e, now).subject })) });
       continue;
     }
 
