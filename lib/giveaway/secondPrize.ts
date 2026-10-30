@@ -20,8 +20,9 @@ import { GIVEAWAY, parseEntryTag } from "@/lib/giveaway/wlgOct2026";
 
 export const SECOND_PRIZE = {
   code: "SECONDPRIZE",
-  deadline: new Date("2026-11-02T12:00:00+13:00"),
-  deadlineLabel: "12pm Monday 2 November",
+  // Midnight at the end of Monday 2 Nov NZ (Max, 30 Oct).
+  deadline: new Date("2026-11-02T23:59:59+13:00"),
+  deadlineLabel: "11:59pm Monday 2 November",
   bookingUrl: "https://cleancarcollective.co.nz/make-a-booking/",
   claimBase: "https://crm.cleancarcollective.co.nz/claim/",
 };
@@ -69,7 +70,7 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
   const first = p.firstName || "Hi";
   const opener = p.firstName ? `${first}, I've got good news…` : `I've got good news…`;
   const won = `You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize!`;
-  const what = `Get a Gold ceramic coating ($1300+) for the price of our Bronze coating package, alongside a bunch of freebies! That takes your warranty from 1 year to 5 years and you also get these, completely free:`;
+  const what = `Get a Gold ceramic coating (worth up to $1,265) for the price of our Bronze coating package, alongside a bunch of freebies! That takes your warranty from 1 year to 5 years and you also get these, completely free:`;
   const items = [
     `a full-car glass ceramic coating ($250+ in value)`,
     `a free bottle of CarPro ceramic sealant to take home ($60 value)`,
@@ -98,6 +99,15 @@ ${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
 <p><a href="{{{ pm:unsubscribe }}}">Unsubscribe</a></p>
 </body></html>`;
   return { subject: "You won second prize in our giveaway", text, html };
+}
+
+/**
+ * Second-prize SMS (Max's copy, 30 Oct). Plain GSM-7 characters only (straight
+ * apostrophe, "..."), so it costs 2 segments instead of 5 UCS-2 ones.
+ */
+export function renderSecondPrizeSms(p: { firstName: string; claimUrl: string }): string {
+  const opener = p.firstName ? `${p.firstName}, I've got good news...` : `I've got good news...`;
+  return `${opener} You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize! Click the link below to claim your freebies and $1020 of savings: ${p.claimUrl} Reply STOP to opt out`;
 }
 
 /**
