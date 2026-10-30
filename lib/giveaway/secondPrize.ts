@@ -5,7 +5,8 @@
  * bottle and a free maintenance wash. Book by 12pm Mon 2 Nov, work done
  * within 3 months. No public copy names the prize; only this email does.
  *
- * The claim link opens the Wellington booking form with Gold and the free
+ * The email links to crm.../claim/<entry code>, which mints the claim link and
+ * redirects. The claim link opens the Wellington booking form with Gold and the free
  * glass add-on picked, the SECONDPRIZE code applied (Gold priced at Bronze,
  * New-Booking-System constants.ts) and the entrant's details prefilled from
  * a booking_prefill token. The booking intake grants the maintenance wash as
@@ -22,10 +23,8 @@ export const SECOND_PRIZE = {
   deadline: new Date("2026-11-02T12:00:00+13:00"),
   deadlineLabel: "12pm Monday 2 November",
   bookingUrl: "https://cleancarcollective.co.nz/make-a-booking/",
+  claimBase: "https://crm.cleancarcollective.co.nz/claim/",
 };
-
-const escapeHtml = (v: string) =>
-  v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 export const isGrandPrize = (prize: string | null | undefined) => !!prize && prize.startsWith("GRAND PRIZE");
 
@@ -51,74 +50,45 @@ export function claimUrl(leadId: string | null, shopId: string): string {
   return u.toString();
 }
 
-const ITEMS = [
-  "<strong>Free upgrade to Gold.</strong> Your warranty goes from 1 year to 5 years.",
-  "<strong>Free full-car glass ceramic coating</strong> ($250 value)",
-  "<strong>A bottle of CarPro ceramic sealant</strong> to take home ($60 value)",
-  "<strong>A free maintenance wash</strong> to keep the coating at its best ($200 value)",
-];
+/** Short per-entrant claim link (app/claim/[code]): one clean link in a plain-text email. */
+export function claimShortUrl(code: string | null | undefined): string {
+  return `${SECOND_PRIZE.claimBase}${code || "PRIZE"}`;
+}
 
-export function renderSecondPrizeEmail(p: { firstName: string; winner: string | null; claimUrl: string }): { subject: string; text: string; html: string } {
-  const subject = "You won second prize in our giveaway!";
-  const preheader = "A Gold ceramic coating for the Bronze price. Claim it before 12pm Monday.";
+/**
+ * Plain text only, one link plus Postmark's required unsubscribe: an
+ * HTML/image-style version landed in Gmail's Promotions tab (Max, 30 Oct).
+ */
+export function renderSecondPrizeEmail(p: { firstName: string; winner: string | null; claimUrl: string }): { subject: string; text: string } {
   const first = p.firstName || "there";
-  const drawLine = p.winner
-    ? `The draw is done. Our grand prize went to ${p.winner.replace(/\.$/, "")}. And you've won second prize:`
-    : `The draw is done, and you've won second prize:`;
-  const plain = (s: string) => s.replace(/<[^>]+>/g, "");
-
+  const draw = p.winner
+    ? `The draw is done. Our grand prize went to ${p.winner.replace(/\.$/, "")}, and you've won second prize.`
+    : `The draw is done, and you've won second prize.`;
   const text = [
     `Hi ${first},`,
     ``,
-    `${drawLine} a Gold ceramic coating for the Bronze price, plus extras on us.`,
+    draw,
     ``,
-    `Book a Bronze ceramic coating and we'll turn it into Gold:`,
-    ...ITEMS.map((i) => `+ ${plain(i)}`),
+    `Your prize: book a Bronze ceramic coating and we'll do Gold instead, for the Bronze price. That takes your warranty from 1 year to 5 years. We'll also add, free:`,
+    `- a full-car glass ceramic coating ($250 value)`,
+    `- a bottle of CarPro ceramic sealant to take home ($60 value)`,
+    `- a maintenance wash to keep the coating at its best ($200 value)`,
     ``,
-    `That's up to $1,020 free, depending on your car. You pay the Bronze price. Claim it here (your price shows for your car):`,
+    `That's up to $1,020 free, depending on your car.`,
+    ``,
+    `Claim it here. Your details are filled in and you'll see your price before you book:`,
     p.claimUrl,
     ``,
-    `Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months.`,
+    `Book by ${SECOND_PRIZE.deadlineLabel}. The work can be done any time in the next 3 months. Prices are +GST.`,
     ``,
-    `Questions about which coating suits your car? Just reply to this email and we'll help.`,
+    `Any questions, just reply to this email.`,
     ``,
-    `Clean Car Collective, 8 Ebor Street, Te Aro, Wellington. Prices are +GST.`,
-    `Don't want giveaway updates? Unsubscribe: {{{ pm:unsubscribe }}}`,
+    `Clean Car Collective`,
+    `8 Ebor Street, Te Aro, Wellington`,
+    ``,
+    `Unsubscribe: {{{ pm:unsubscribe }}}`,
   ].join("\n");
-
-  const lis = ITEMS.map((i) => `<tr><td style="padding:0 10px 9px 0;vertical-align:top;font-size:15px;color:#111;font-weight:800;">+</td><td style="padding:0 0 9px;font-size:15px;line-height:1.45;color:#222;">${i}</td></tr>`).join("");
-  const href = escapeHtml(p.claimUrl);
-
-  const html = `<!doctype html>
-<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${escapeHtml(subject)}</title></head>
-<body style="margin:0;padding:0;background:#E5E4E2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-  <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#E5E4E2;padding:28px 12px;"><tr><td align="center">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
-      <tr><td style="background:#000000;padding:22px 28px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;">Clean Car Collective</td></tr>
-      <tr><td style="padding:30px 28px 6px;">
-        <p style="margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#8a7a00;">Second prize winner</p>
-        <p style="margin:0 0 14px;font-size:24px;font-weight:800;line-height:1.2;color:#111;">You won second prize, ${escapeHtml(first)}!</p>
-        <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#333;">${escapeHtml(drawLine)} <strong>a Gold ceramic coating for the Bronze price</strong>, plus extras on us.</p>
-      </td></tr>
-      <tr><td style="padding:8px 28px 10px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffbe6;border:2px solid #f7e04a;border-radius:14px;"><tr><td style="padding:22px 22px 20px;">
-          <p style="margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#111;">Your second prize</p>
-          <p style="margin:0 0 14px;font-size:19px;font-weight:800;line-height:1.3;color:#111;">Book a Bronze ceramic coating and we'll turn it into Gold.</p>
-          <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 12px;">${lis}</table>
-          <p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#444;">That's up to <strong>$1,020 free</strong>, depending on your car. You pay the Bronze price. Tap below to see your exact price.</p>
-          <a href="${href}" style="display:inline-block;background:#111;color:#ffffff;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;text-decoration:none;">Claim my prize</a>
-          <p style="margin:14px 0 0;font-size:13px;font-weight:700;color:#8a7a00;">Book by ${SECOND_PRIZE.deadlineLabel}</p>
-        </td></tr></table>
-      </td></tr>
-      <tr><td style="padding:12px 28px 30px;">
-        <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#555;">The work can be done any time in the next 3 months. Questions about which coating suits your car? Just reply to this email and we'll help.</p>
-        <p style="margin:0;font-size:12px;line-height:1.6;color:#888;">Clean Car Collective, 8 Ebor Street, Te Aro, Wellington. You're getting this because you entered our Wellington giveaway. Prices shown are +GST.<br />Don't want giveaway updates? <a href="{{{ pm:unsubscribe }}}" style="color:#888;">Unsubscribe</a>.</p>
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`;
-  return { subject, text, html };
+  return { subject: "You won second prize in our giveaway", text };
 }
 
 /**
