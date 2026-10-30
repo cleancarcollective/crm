@@ -30,8 +30,8 @@ import { hasSmsOptOut } from "@/lib/sms/consent";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { fetchAllGiveawayLeads } from "@/lib/giveaway/fetchEntries";
 import { GIVEAWAY, parseEntryTag, referralCounts, ticketsFor, type EntryTag } from "@/lib/giveaway/wlgOct2026";
-import { TOUCHES, FROM_LINE, appendSentMarker, sentTouches, renderCountdownEmail, renderCountdownSms, type DripEntrant, type Touch, type TouchKey } from "@/lib/giveaway/drip";
-import { claimUrl, isGrandPrize, renderSecondPrizeEmail, winnerLabel } from "@/lib/giveaway/secondPrize";
+import { TOUCHES, FROM_LINE, REPLY_TO, appendSentMarker, sentTouches, renderCountdownEmail, renderCountdownSms, type DripEntrant, type Touch, type TouchKey } from "@/lib/giveaway/drip";
+import { claimShortUrl, isGrandPrize, renderSecondPrizeEmail, winnerLabel } from "@/lib/giveaway/secondPrize";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -104,9 +104,9 @@ export async function GET(req: NextRequest) {
 
   if (preview) {
     const row = tagged.find((r) => r.tag && (r.contacts?.email || "").toLowerCase() === previewTo) ?? null;
-    const m = renderSecondPrizeEmail({ firstName: firstNameOf(row?.contacts ?? null) || "Max", winner, claimUrl: claimUrl(row?.id ?? null, shop.id) });
+    const m = renderSecondPrizeEmail({ firstName: firstNameOf(row?.contacts ?? null) || "Max", winner, claimUrl: claimShortUrl(row?.tag.code) });
     try {
-      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
+      const r = await getBroadcastClient().sendEmail({ From: FROM_LINE, ReplyTo: REPLY_TO, To: previewTo, Subject: `[TEST] ${m.subject}`, TextBody: m.text, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: "giveaway-post_draw-preview" });
       return NextResponse.json({ ok: true, preview, to: previewTo, matched_entry: !!row, prefilled: !!row, winner, drawn: grand.length > 0, postmark: { ErrorCode: r.ErrorCode, Message: r.Message } });
     } catch (err) {
       return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 502 });
@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
     }));
 
     if (dry) {
-      report.push({ touch: touch.key, pending: pending.length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: renderCountdownSms(e, now), subject: touch.key === "post_draw" ? "You won second prize in our giveaway!" : renderCountdownEmail(e, now).subject })) });
+      report.push({ touch: touch.key, pending: pending.length, would_send: entrants.length, sample: entrants.slice(0, 3).map(({ e }) => ({ ...e, email: e.email ? "set" : null, phone: e.phone ? "set" : null, sms: renderCountdownSms(e, now), subject: touch.key === "post_draw" ? "You won second prize in our giveaway" : renderCountdownEmail(e, now).subject })) });
       continue;
     }
 
@@ -148,10 +148,13 @@ export async function GET(req: NextRequest) {
       if (withEmail.length) {
         try {
           const res = await getBroadcastClient().sendEmailBatch(withEmail.map(({ row, e }) => {
-            const m = touch.key === "post_draw"
-              ? renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimUrl(row.id, shop.id) })
-              : renderCountdownEmail(e, now);
-            return { From: FROM_LINE, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
+            if (touch.key === "post_draw") {
+              // Plain text only (lib/giveaway/secondPrize.ts)
+              const m = renderSecondPrizeEmail({ firstName: e.firstName, winner, claimUrl: claimShortUrl(e.code) });
+              return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
+            }
+            const m = renderCountdownEmail(e, now);
+            return { From: FROM_LINE, ReplyTo: REPLY_TO, To: e.email!, Subject: m.subject, TextBody: m.text, HtmlBody: m.html, MessageStream: BROADCAST_STREAM, TrackOpens: false, TrackLinks: "None" as never, Tag: `giveaway-${touch.key}`, Metadata: { touch: touch.key, code: e.code } };
           }));
           res.forEach((r, i) => emailResult.set(withEmail[i].row.id, r.ErrorCode === 0 ? `sent:${(r.MessageID || "").slice(0, 8)}` : `failed:${r.ErrorCode}`));
           if (test) postmarkDebug.push(...res.map((r) => ({ ErrorCode: r.ErrorCode, Message: r.Message, MessageID: r.MessageID })));

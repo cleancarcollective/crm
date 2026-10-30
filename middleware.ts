@@ -37,6 +37,7 @@ const PUBLIC_PREFIXES = [
   "/api/portal/",                    // portal APIs (self-authed via portal session cookie)
   "/api/cron/portal-reminders",      // Vercel cron 9pm UTC = 9am NZ daily
   "/api/stripe/webhook",             // signature-authed in handler
+  "/claim/",                         // giveaway second-prize claim redirect (app/claim/[code])
   "/r/",                             // short URL redirector (SMS touchpoints)
   "/api/public/",                    // token-authed customer-facing actions
   "/_next/",
