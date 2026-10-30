@@ -88,15 +88,19 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
     `Clean Car Collective`, `8 Ebor Street, Te Aro, Wellington`, ``, `Unsubscribe: {{{ pm:unsubscribe }}}`,
   ].join("\n");
 
+  // Every prize line links to the claim page (Max, 30 Oct: "hyperlink everything").
+  const a = (t: string) => `<a href="${esc(p.claimUrl)}">${esc(t)}</a>`;
+  const goldLink = "Gold ceramic coating (worth up to $1,265)";
+  const [beforeGold, afterGold] = what.split(goldLink);
   const html = `<!doctype html><html><body>
 <p>${esc(opener)}</p>
 <p>${esc(won)}</p>
 <p>What you won:</p>
-<p>${esc(what)}</p>
-<p>${items.map((i) => `- ${esc(i)}`).join("<br>\n")}</p>
-<p>${esc(value)}</p>
-<p><a href="${esc(p.claimUrl)}">Claim your prize here</a>. ${esc(after)}</p>
-<p>${esc(deadline)}</p>
+<p>${esc(beforeGold)}${a(goldLink)}${esc(afterGold)}</p>
+<p>${items.map((i) => `- ${a(i)}`).join("<br>\n")}</p>
+<p>${a(value)}</p>
+<p>${a("Claim your prize here")}. ${esc(after)}</p>
+<p>${a(`Book by ${SECOND_PRIZE.deadlineLabel}.`)} The work can be done any time in the next 3 months. Prices are +GST.</p>
 <p>Clean Car Collective<br>8 Ebor Street, Te Aro, Wellington</p>
 <p><a href="{{{ pm:unsubscribe }}}">Unsubscribe</a></p>
 </body></html>`;
