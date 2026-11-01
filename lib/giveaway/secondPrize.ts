@@ -3,7 +3,7 @@
  * winner(s) wins it (Max, 28 Oct): Ceramic Coating Gold for the Bronze price,
  * plus a free full-car glass ceramic coating, a take-home CarPro sealant
  * bottle, a free maintenance wash and free pickup and drop-off anywhere in
- * Wellington (Max, 30 Oct). Book by 12pm Mon 2 Nov, work done
+ * Wellington (Max, 30 Oct). Book by 11:59pm Wed 4 Nov (extended 2 Nov), work done
  * within 3 months. No public copy names the prize; only this email does.
  *
  * The email links to crm.../claim/<entry code>, which mints the claim link and
@@ -21,9 +21,9 @@ import { GIVEAWAY, parseEntryTag } from "@/lib/giveaway/wlgOct2026";
 
 export const SECOND_PRIZE = {
   code: "SECONDPRIZE",
-  // Midnight at the end of Monday 2 Nov NZ (Max, 30 Oct).
-  deadline: new Date("2026-11-02T23:59:59+13:00"),
-  deadlineLabel: "11:59pm Monday 2 November",
+  // Midnight at the end of Wednesday 4 Nov NZ (Max, 2 Nov; was Monday 2 Nov).
+  deadline: new Date("2026-11-04T23:59:59+13:00"),
+  deadlineLabel: "11:59pm Wednesday 4 November",
   bookingUrl: "https://cleancarcollective.co.nz/make-a-booking/",
   claimBase: "https://crm.cleancarcollective.co.nz/claim/",
 };
