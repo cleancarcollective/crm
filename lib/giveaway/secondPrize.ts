@@ -16,6 +16,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatInTimeZone } from "date-fns-tz";
 import { signActionToken } from "@/lib/auth/signedTokens";
 import { GIVEAWAY, parseEntryTag } from "@/lib/giveaway/wlgOct2026";
 
@@ -24,6 +25,9 @@ export const SECOND_PRIZE = {
   // Midnight at the end of Wednesday 4 Nov NZ (Max, 2 Nov; was Monday 2 Nov).
   deadline: new Date("2026-11-04T23:59:59+13:00"),
   deadlineLabel: "11:59pm Wednesday 4 November",
+  // Prize bookings allowed per day (Max, 2 Nov). Full days close to prize
+  // claims only; other bookings can still take them.
+  dayCap: 2,
   bookingUrl: "https://cleancarcollective.co.nz/make-a-booking/",
   claimBase: "https://crm.cleancarcollective.co.nz/claim/",
 };
@@ -117,6 +121,24 @@ export function renderSecondPrizeSms(p: { firstName: string; claimUrl: string })
   const name = p.firstName.trim();
   const named = /^[A-Za-z' -]+$/.test(name) ? body(`${name}, you`) : null;
   return named && named.length <= SMS_SEGMENT ? named : body("You");
+}
+
+/** NZ dates (yyyy-MM-dd) that already hold SECOND_PRIZE.dayCap live prize bookings. */
+export async function prizeFullDays(supabase: SupabaseClient, shopId: string, timezone: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("scheduled_start")
+    .eq("shop_id", shopId)
+    .neq("status", "cancelled")
+    .ilike("raw_payload->>promo_code", SECOND_PRIZE.code)
+    .gte("scheduled_start", new Date(Date.now() - 864e5).toISOString());
+  if (error) throw error;
+  const perDay = new Map<string, number>();
+  for (const b of data ?? []) {
+    const day = formatInTimeZone(b.scheduled_start as string, timezone, "yyyy-MM-dd");
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+  }
+  return [...perDay].filter(([, n]) => n >= SECOND_PRIZE.dayCap).map(([day]) => day).sort();
 }
 
 /**

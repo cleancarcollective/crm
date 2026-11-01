@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { mapBookingPayload } from "@/lib/bookingIntake/mapPayload";
 import { applyPercentOff, resolvePromoCode } from "@/lib/bookingIntake/promoCodes";
-import { SECOND_PRIZE, secondPrizeCheck } from "@/lib/giveaway/secondPrize";
+import { prizeFullDays, SECOND_PRIZE, secondPrizeCheck } from "@/lib/giveaway/secondPrize";
 import type { BookingIntakePayload } from "@/lib/bookingIntake/types";
 import { upsertContact } from "@/lib/bookingIntake/upsertContact";
 import { upsertVehicle } from "@/lib/bookingIntake/upsertVehicle";
@@ -165,8 +165,22 @@ export async function POST(request: Request) {
     const discountedPrice = promo
       ? applyPercentOff(normalized.data.booking.priceEstimate, promo.percentOff)
       : normalized.data.booking.priceEstimate;
+    // Giveaway second prize: at most SECOND_PRIZE.dayCap per day. The form
+    // hides full days; this catches two claims racing for the last place.
+    const isPrize = !!promo && normalized.data.booking.promoCode?.trim().toUpperCase() === SECOND_PRIZE.code;
+    if (isPrize) {
+      const tz = (shop as ShopRow).timezone;
+      const day = formatInTimeZone(normalized.data.booking.scheduledStart, tz, "yyyy-MM-dd");
+      const full = await prizeFullDays(supabase, shop.id, tz).catch(() => [] as string[]);
+      if (full.includes(day)) {
+        return withCors(NextResponse.json(
+          { success: false, error: "prize_day_full", message: "That day's giveaway places have just filled up. Please pick another day." },
+          { status: 409 }
+        ));
+      }
+    }
     // Giveaway second prize: say whether the booker is a real non-winning entrant and booked in time.
-    const prizeCheck = promo && normalized.data.booking.promoCode?.trim().toUpperCase() === SECOND_PRIZE.code
+    const prizeCheck = isPrize
       ? await secondPrizeCheck(supabase, shop.id, contact.id).catch(() => "Giveaway check: lookup failed, check by hand.")
       : null;
     const notesWithPromo = promo
