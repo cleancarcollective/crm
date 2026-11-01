@@ -104,12 +104,19 @@ export function renderSecondPrizeEmail(p: { firstName: string; winner: string | 
 }
 
 /**
- * Second-prize SMS (Max's copy, 30 Oct). Plain GSM-7 characters only (straight
- * apostrophe, "..."), so it costs 2 segments instead of 5 UCS-2 ones.
+ * Second-prize SMS (Max, 1 Nov): one segment, so at most 160 plain GSM-7
+ * characters. The link drops "https://" (phones still make it tappable). A
+ * first name is only used when it is plain letters and the text still fits;
+ * otherwise it opens "You won", since one accented letter switches the whole
+ * text to UCS-2 (70 characters a segment).
  */
+export const SMS_SEGMENT = 160;
 export function renderSecondPrizeSms(p: { firstName: string; claimUrl: string }): string {
-  const opener = p.firstName ? `${p.firstName}, I've got good news...` : `I've got good news...`;
-  return `${opener} You won! The Clean Car Collective giveaway draw is done, and you've won our second place prize! Click the link below to claim your freebies and $1140 of savings: ${p.claimUrl} Reply STOP to opt out`;
+  const link = p.claimUrl.replace(/^https?:\/\//, "");
+  const body = (opener: string) => `${opener} won 2nd prize in the Clean Car Collective giveaway! Claim $1140 of freebies: ${link} Reply STOP to opt out`;
+  const name = p.firstName.trim();
+  const named = /^[A-Za-z' -]+$/.test(name) ? body(`${name}, you`) : null;
+  return named && named.length <= SMS_SEGMENT ? named : body("You");
 }
 
 /**
