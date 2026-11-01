@@ -128,6 +128,29 @@ export async function GET(req: NextRequest) {
     .filter((r) => r.tag && r.tag.test === test && r.tag.code);
   const counts = referralCounts(entries);
 
+  // While post_draw is live (Max, 2 Nov): resend only the second-prize text to
+  // entrants whose SMS failed on phone format (leading apostrophe from an
+  // import). No second email. The marker becomes sms=retry-<result>, so the
+  // next run skips them.
+  let smsRetry: Record<string, unknown> | null = null;
+  if (!test && !dry && due.some((t) => t.key === "post_draw")) {
+    const FAILED = /(\[giveaway-sent:post_draw\][^\n]* sms=)failed:Could not normalise[^\n]*/;
+    const failed = entries.filter((r) => FAILED.test(r.internal_notes ?? ""));
+    const out = new Map<string, string>();
+    await mapLimit(failed.filter((r) => r.contacts?.phone), SMS_CONCURRENCY, async (r) => {
+      if (await hasSmsOptOut(r.contacts?.id)) { out.set(r.id, "skipped:optout"); return; }
+      const res = await sendTnzSms(r.contacts!.phone!, renderSecondPrizeSms({ firstName: firstNameOf(r.contacts), claimUrl: claimShortUrl(r.tag.code) }));
+      out.set(r.id, res.success ? "sent" : `failed:${(res.error || "").slice(0, 40)}`);
+    });
+    await mapLimit(failed, 10, async (r) => {
+      const notes = (r.internal_notes ?? "").replace(FAILED, `$1retry-${out.get(r.id) ?? "no-phone"}`);
+      await supabase.from("leads").update({ internal_notes: notes }).eq("id", r.id);
+    });
+    const tally: Record<string, number> = {};
+    for (const v of out.values()) tally[v.split(":")[0]] = (tally[v.split(":")[0]] ?? 0) + 1;
+    smsRetry = { candidates: failed.length, sms: tally };
+  }
+
   const report: Record<string, unknown>[] = [];
   for (const touch of due) {
     // The second-prize email waits for the draw and skips the grand prize winner(s).
@@ -198,5 +221,5 @@ export async function GET(req: NextRequest) {
     report.push({ touch: touch.key, processed: entrants.length, remaining: pending.length - entrants.length, email: tally(emailResult), sms: tally(smsResult), ...(test ? { postmark: postmarkDebug, stream: BROADCAST_STREAM, token: process.env.POSTMARK_BROADCAST_TOKEN ? "POSTMARK_BROADCAST_TOKEN" : "POSTMARK_SERVER_TOKEN" } : {}) });
   }
 
-  return NextResponse.json({ ok: true, now: now.toISOString(), test, dry, report });
+  return NextResponse.json({ ok: true, now: now.toISOString(), test, dry, report, ...(smsRetry ? { sms_retry: smsRetry } : {}) });
 }
