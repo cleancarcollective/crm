@@ -30,12 +30,15 @@ function getAuthToken(): string {
  * Handles: 021..., 027..., 022..., 0800..., +64..., 64...
  */
 export function normaliseNzPhone(raw: string): string | null {
-  const digits = raw.replace(/[\s\-().+]/g, "");
+  // Spreadsheet imports left a leading apostrophe on some numbers ('+6421...),
+  // and some carry the trunk 0 after the country code (+64021...).
+  let digits = raw.replace(/[\s\-().+']/g, "");
+  if (digits.startsWith("640")) digits = `64${digits.slice(3)}`;
 
   if (!digits) return null;
 
-  // Already E.164
-  if (digits.startsWith("64") && digits.length >= 11) {
+  // Already E.164 (+6421 123456 is 10 digits)
+  if (digits.startsWith("64") && digits.length >= 10) {
     return `+${digits}`;
   }
 
