@@ -79,16 +79,22 @@ type ProcessLeadInput = {
   landingUrl: string | null;
   /** Customer phone — used by the ad-lead nurture SMS touch. */
   phone: string | null;
-  /** Shop slug — gates the CHC web-price experiment on estimate pricing. */
+  /** Shop slug — gates the CHC web-price experiment on estimate pricing
+   *  (experiment ended 2026-09-27; see CHC_WEB_PRICE_CUT). */
   shopSlug: string | null;
 };
 
-// Christchurch web-form price experiment (chc-web-15off-2026-07): the CHC
-// booking form and all CHC organic pages show sticker × 0.85, so estimates
-// must match. Ad-promo leads are excluded — they get their code discount
-// instead, mirroring the booking app's funnel gate. Remove alongside the
-// booking-app PRICE_EXPERIMENT when the experiment ends.
-const CHC_WEB_PRICE_CUT = { shopSlug: "christchurch", percentOff: 15 };
+// Christchurch web-form price experiment (chc-web-15off-2026-07): while it
+// ran, the CHC booking form and all CHC organic pages showed sticker × 0.85,
+// so estimates matched. Ad-promo leads were excluded — they get their code
+// discount instead, mirroring the booking app's funnel gate.
+//
+// ENDED 2026-09-27 (owner call: end the sale now, not on 30 Sep).
+// enabled:false => CHC estimate emails quote full sticker prices from the
+// `pricing` table again. Kept as a flag (not deleted) so the readout in
+// docs/experiments/chc-price-drop-2026-07.md stays traceable to code. Ship
+// together with the booking-app PRICE_EXPERIMENT switch-off.
+const CHC_WEB_PRICE_CUT = { enabled: false, shopSlug: "christchurch", percentOff: 15 };
 
 /**
  * Ad-page promos. If a lead's landing_url matches one of these, the auto-quote
@@ -332,7 +338,7 @@ export async function processLeadAutoRespond(input: ProcessLeadInput): Promise<A
     // offer (e.g. /10-off-road-trip/ => 10% off, code CCC10).
     if (landingPromo) {
       pricing = discountPricing(pricing, landingPromo.percentOff);
-    } else if (input.shopSlug === CHC_WEB_PRICE_CUT.shopSlug) {
+    } else if (CHC_WEB_PRICE_CUT.enabled && input.shopSlug === CHC_WEB_PRICE_CUT.shopSlug) {
       pricing = discountPricing(pricing, CHC_WEB_PRICE_CUT.percentOff);
     }
     const ctx = buildTemplateContext(
