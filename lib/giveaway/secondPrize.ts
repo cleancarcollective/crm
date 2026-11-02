@@ -28,6 +28,10 @@ export const SECOND_PRIZE = {
   // Prize bookings allowed per day (Max, 2 Nov). Full days close to prize
   // claims only; other bookings can still take them.
   dayCap: 2,
+  // Work must be done within 3 months (Max, 2 Nov): prize bookings can't be
+  // scheduled after this.
+  workBy: new Date("2027-02-04T23:59:59+13:00"),
+  workByLabel: "Thursday 4 February",
   bookingUrl: "https://cleancarcollective.co.nz/make-a-booking/",
   claimBase: "https://crm.cleancarcollective.co.nz/claim/",
 };

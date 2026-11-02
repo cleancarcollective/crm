@@ -170,6 +170,12 @@ export async function POST(request: Request) {
     const isPrize = !!promo && normalized.data.booking.promoCode?.trim().toUpperCase() === SECOND_PRIZE.code;
     if (isPrize) {
       const tz = (shop as ShopRow).timezone;
+      if (new Date(normalized.data.booking.scheduledStart) > SECOND_PRIZE.workBy) {
+        return withCors(NextResponse.json(
+          { success: false, error: "prize_after_work_by", message: `Giveaway prize bookings need to be done by ${SECOND_PRIZE.workByLabel}. Please pick an earlier day.` },
+          { status: 409 }
+        ));
+      }
       const day = formatInTimeZone(normalized.data.booking.scheduledStart, tz, "yyyy-MM-dd");
       const full = await prizeFullDays(supabase, shop.id, tz).catch(() => [] as string[]);
       if (full.includes(day)) {
