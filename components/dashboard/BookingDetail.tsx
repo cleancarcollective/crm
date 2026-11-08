@@ -214,7 +214,13 @@ export function BookingDetail({ booking, shop, seriesStatus = null }: BookingDet
               onClick={() => (inSeries ? setScopeChoice("edit") : handleSave(true))}
               disabled={isPending || pickupPending || seriesCancelled}
             >
-              {inSeries ? "Edit booking" : isPending ? "Saving…" : "Save + email update"}
+              {inSeries
+                ? "Edit booking"
+                : isPending
+                  ? "Saving…"
+                  : status === "cancelled" && booking.status !== "cancelled"
+                    ? "Save + email cancellation"
+                    : "Save + email update"}
             </button>
             <button
               className="buttonPrimary"
