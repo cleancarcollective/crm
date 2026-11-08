@@ -6,6 +6,7 @@ import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingWithRelationsById, getShopById } from "@/lib/dashboard/bookings";
 import { createReminderJobsForBooking } from "@/lib/email/scheduledReminderJobs";
 import { sendBookingUpdateEmail } from "@/lib/email/sendBookingUpdateEmail";
+import { sendBookingCancelCustomerEmail } from "@/lib/email/sendSeriesEditCancelEmails";
 import { scheduleBookingReminderSms } from "@/lib/sms/scheduledSmsJobs";
 import { schedulePostDetailTouchpoints } from "@/lib/bookings/postDetailTouchpoints";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -254,7 +255,36 @@ export async function PATCH(
 
   let updateEmailStatus: "not_requested" | "sent" | "skipped" | "failed" = "not_requested";
 
-  if (payload.send_update_email) {
+  const justCancelled = booking.status === "cancelled" && existingBooking.status !== "cancelled";
+
+  if (payload.send_update_email && justCancelled) {
+    // A cancel gets its own email. The field diff would only show the
+    // trigger-zeroed price ("Price: $X -> $0.00"), never "cancelled".
+    try {
+      const { data: contact } = booking.contact_id
+        ? await supabase
+            .from("contacts")
+            .select("email, first_name, full_name")
+            .eq("id", booking.contact_id)
+            .maybeSingle()
+        : { data: null };
+      const result = await sendBookingCancelCustomerEmail({
+        shopId: booking.shop_id,
+        bookingId: booking.id,
+        serviceName: booking.service_name,
+        scheduledStart: existingBooking.scheduled_start,
+        customerEmail: (contact?.email as string | null) ?? null,
+        customerFirstName:
+          (contact?.first_name as string | null) ??
+          (contact?.full_name as string | null)?.split(" ")[0] ??
+          null,
+      });
+      updateEmailStatus = result.skipped ? "skipped" : "sent";
+    } catch (error) {
+      console.error("Booking cancel email failed", { bookingId: booking.id, error });
+      updateEmailStatus = "failed";
+    }
+  } else if (payload.send_update_email) {
     try {
       const shop = await getShopById(existingBooking.shop_id);
       const bookingWithRelations = await getBookingWithRelationsById(booking.id, existingBooking.shop_id);

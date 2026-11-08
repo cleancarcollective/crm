@@ -12,6 +12,8 @@
  * email_templates would require a per-shop seed migration.
  */
 
+import { formatInTimeZone } from "date-fns-tz";
+
 import { getShopContacts, getShopContactsById } from "@/lib/email/shopContacts";
 import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { getShopById } from "@/lib/dashboard/bookings";
@@ -147,6 +149,74 @@ export async function sendSeriesCancelCustomerEmail(args: {
     console.error("Series cancel customer email failed", { seriesId: args.seriesId, err });
     throw err;
   }
+}
+
+// ── Single booking cancel customer email ─────────────────────────────────
+
+/**
+ * Staff cancelled one booking and hit "Save + email". The generic
+ * booking-update email only lists field diffs, and the DB trigger zeroes
+ * the price on cancel, so customers used to get "Price: $X -> $0.00"
+ * instead of being told the booking was cancelled.
+ */
+export async function sendBookingCancelCustomerEmail(args: {
+  shopId: string;
+  bookingId: string;
+  serviceName: string;
+  scheduledStart: string;
+  customerEmail: string | null;
+  customerFirstName: string | null;
+}) {
+  if (!args.customerEmail) {
+    return { skipped: true as const, reason: "missing_email" };
+  }
+  const shop = await getShopById(args.shopId);
+  const when = formatInTimeZone(args.scheduledStart, shop.timezone, "EEEE d MMMM 'at' h:mm a");
+  const subject = `Your ${args.serviceName} booking has been cancelled`;
+  const raw = (args.customerFirstName ?? "").trim();
+  const firstName = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "there";
+  const closing = "If this wasn't expected, or you'd like to book a new time, just reply to this email or give us a call.";
+
+  const textLines = [
+    `Hi ${firstName},`,
+    "",
+    `Your ${args.serviceName} booking with ${shop.name} on ${when} has been cancelled.`,
+    "",
+    closing,
+    "",
+    "Thanks,",
+    shop.name,
+  ];
+
+  const htmlLines = [
+    `Hi ${escapeHtml(firstName)},`,
+    `Your ${escapeHtml(args.serviceName)} booking with ${escapeHtml(shop.name)} on <strong>${escapeHtml(when)}</strong> has been cancelled.`,
+    escapeHtml(closing),
+    `Thanks,<br/>${escapeHtml(shop.name)}`,
+  ];
+
+  const htmlBody = buildHtml({
+    shopName: shop.name,
+    subject,
+    accent: "#c0392b",
+    lines: htmlLines,
+    rawHtml: true,
+  });
+
+  const fromLine = getShopContacts(shop).from_line;
+  const response = await sendViaGmailSmtp({
+    From: fromLine,
+    To: args.customerEmail,
+    Subject: subject,
+    TextBody: textLines.join("\n"),
+    HtmlBody: htmlBody,
+    Metadata: {
+      booking_id: args.bookingId,
+      shop_id: args.shopId,
+      template_key: "booking_cancel_customer",
+    },
+  });
+  return { skipped: false as const, providerMessageId: response.MessageID };
 }
 
 // ── Series cancel team notification ──────────────────────────────────────
