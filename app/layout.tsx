@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { GlobalNavLinks } from "@/components/dashboard/GlobalNavLinks";
+import { GlobalNavLinks, type NavItem } from "@/components/dashboard/GlobalNavLinks";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 import { NewBookingButton } from "@/components/dashboard/NewBookingButton";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
@@ -96,26 +96,40 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     allShops = (data ?? []) as Array<{ slug: string; name: string }>;
   }
 
-  const navItems = [
+  // Six tabs max. Sales tools and admin reports live in dropdowns.
+  const isAdmin = user.role === "admin";
+  const isSales = user.role === "sales";
+  const navItems: NavItem[] = [
     { href: "/", label: "Calendar" },
     { href: "/leads", label: "Leads" },
     { href: "/clients", label: "Clients" },
-    ...(user.role === "sales" || user.role === "admin"
+    ...(isSales || isAdmin
       ? [
-          { href: "/sales", label: "Cold leads" },
-          { href: "/sales/services", label: "Services" },
-          { href: "/sales/selling-guide", label: "Selling guide" },
-          { href: "/sales/script", label: "Script" },
-          { href: "/sales/objections", label: "Objections" },
+          {
+            label: "Sales",
+            children: [
+              { href: "/sales", label: "Cold leads" },
+              { href: "/sales/services", label: "Services" },
+              { href: "/sales/selling-guide", label: "Selling guide" },
+              { href: "/sales/script", label: "Script" },
+              { href: "/sales/objections", label: "Objections" },
+              ...(isAdmin ? [{ href: "/sales/stats", label: "Rep stats" }] : []),
+            ],
+          },
         ]
       : []),
-    ...(user.role === "admin"
+    ...(isAdmin
       ? [
-          { href: "/analytics", label: "Funnel" },
-          { href: "/revenue", label: "Revenue" },
-          { href: "/collective", label: "Collective" },
-          { href: "/giveaway", label: "Giveaway" },
-          { href: "/journey", label: "Journey" },
+          {
+            label: "Reports",
+            children: [
+              { href: "/analytics", label: "Funnel" },
+              { href: "/revenue", label: "Revenue" },
+              { href: "/collective", label: "Collective" },
+              { href: "/giveaway", label: "Giveaway" },
+              { href: "/journey", label: "Journey" },
+            ],
+          },
           { href: "/settings", label: "Settings" },
         ]
       : []),

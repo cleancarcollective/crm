@@ -1857,10 +1857,10 @@ textarea {
   display: flex;
   gap: 4px;
   flex: 1;
-  /* Never crush labels into two lines - overflow scrolls sideways. */
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* Visible overflow so dropdown menus aren't clipped. Six tabs fit
+     without scrolling at every supported width. */
+  overflow: visible;
 }
 
 .globalNavLinks::-webkit-scrollbar {
@@ -2304,13 +2304,6 @@ textarea {
   .modalRow2,
   .modalRow3 {
     grid-template-columns: 1fr;
-  }
-
-  /* Keep nav links reachable on phones - scroll the strip instead of
-     hiding it (it used to display:none, stranding phone users). */
-  .globalNavLinks {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   .globalNavUser {
@@ -5292,3 +5285,59 @@ textarea {
 .upsellTotal { font-size: 15px; margin-bottom: 10px; }
 .upsellDone { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
 .upsellFootHint { color: var(--muted); font-size: 13px; }
+
+/* ── Global nav dropdown groups (Sales ▾ / Reports ▾) ───────── */
+
+.globalNavGroup {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.globalNavGroupBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.globalNavCaret {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.globalNavMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: var(--panel, #fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 60;
+}
+
+.globalNavMenuItem {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.globalNavMenuItem:hover {
+  background: var(--panel-soft);
+}
+
+.globalNavMenuItem[aria-current="page"] {
+  background: var(--panel-soft);
+  font-weight: 600;
+}
