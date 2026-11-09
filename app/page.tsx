@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BookingCalendar } from "@/components/dashboard/BookingCalendar";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
+import { getMemberContactIds } from "@/lib/collective/memberAlert";
 import { getBookingsForMonth } from "@/lib/dashboard/bookings";
 import { formatCurrency, formatMonthLabel } from "@/lib/dashboard/format";
 
@@ -12,7 +13,10 @@ export default async function HomePage({
 }) {
   const params = searchParams ? await searchParams : undefined;
   const currentShop = await requireCurrentShop();
-  const { shop, month, previous, next, days } = await getBookingsForMonth(params?.month, currentShop.slug);
+  const [{ shop, month, previous, next, days }, memberContactIds] = await Promise.all([
+    getBookingsForMonth(params?.month, currentShop.slug),
+    getMemberContactIds(),
+  ]);
 
   // Only sum days that belong to the displayed month. The calendar grid runs
   // from the Sunday before the 1st to the Saturday after the last day, so it
@@ -68,6 +72,7 @@ export default async function HomePage({
         previousMonth={previous}
         nextMonth={next}
         days={days}
+        memberContactIds={memberContactIds}
       />
     </main>
   );

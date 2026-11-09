@@ -119,6 +119,8 @@ type SendBookingEmailArgs = {
   fullNameOverride?: string | null;
   includeCustomerDetails?: boolean;
   updateSummary?: string;
+  /** Banner put above the email body (team emails: Collective member alert). */
+  topAlert?: { subjectPrefix: string; html: string; text: string } | null;
 };
 
 export async function sendBookingEmail({
@@ -131,7 +133,8 @@ export async function sendBookingEmail({
   firstName,
   fullNameOverride,
   includeCustomerDetails = false,
-  updateSummary
+  updateSummary,
+  topAlert
 }: SendBookingEmailArgs) {
   if (!recipient) {
     console.info("Booking email skipped: missing recipient email", {
@@ -177,6 +180,15 @@ export async function sendBookingEmail({
     includeCustomerDetails,
     updateSummary
   }));
+
+  if (topAlert) {
+    rendered.subject = topAlert.subjectPrefix + rendered.subject;
+    rendered.textBody = topAlert.text + "\n" + (rendered.textBody ?? "");
+    const bodyTag = /<body[^>]*>/i.exec(rendered.htmlBody);
+    rendered.htmlBody = bodyTag
+      ? rendered.htmlBody.slice(0, bodyTag.index + bodyTag[0].length) + topAlert.html + rendered.htmlBody.slice(bodyTag.index + bodyTag[0].length)
+      : topAlert.html + rendered.htmlBody;
+  }
 
   const messageRecord = await createQueuedEmailMessage({
     shopId: shop.id,

@@ -9,11 +9,14 @@ type BookingCalendarProps = {
   previousMonth: string;
   nextMonth: string;
   days: CalendarDaySummary[];
+  /** Contact ids of paying Collective members: their bookings get a badge. */
+  memberContactIds?: string[];
 };
 
 const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: BookingCalendarProps) {
+export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days, memberContactIds = [] }: BookingCalendarProps) {
+  const members = new Set(memberContactIds);
   return (
     <section className="calendarShell">
       <div className="calendarHeader">
@@ -93,6 +96,7 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               // notes. Flag visually so staff knows to action it.
               const needsReschedule = !!booking.notes?.includes("[Reschedule requested]");
               const isRecurring = !!booking.series_id;
+              const isMember = members.has(booking.contact?.id ?? booking.contact_id ?? "");
               const classes = [
                 "calendarPreview",
                 isMobile ? "calendarPreview--mobile" : "",
@@ -104,12 +108,31 @@ export function BookingCalendar({ monthLabel, previousMonth, nextMonth, days }: 
               if (isMobile && booking.service_address) tooltipParts.push(`Mobile — ${booking.service_address}`);
               if (needsReschedule) tooltipParts.push("Customer requested a reschedule — open booking to confirm");
               if (isRecurring) tooltipParts.push("Part of recurring series");
+              if (isMember) tooltipParts.push("Collective member — open booking for plan + washes this year");
               return (
                 <div
                   key={booking.id}
                   className={classes}
                   title={tooltipParts.join(" · ")}
                 >
+                  {isMember ? (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        background: "#14532d",
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.05em",
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        marginBottom: 2,
+                        alignSelf: "flex-start",
+                      }}
+                    >
+                      ★ MEMBER
+                    </span>
+                  ) : null}
                   <span>
                     {needsReschedule ? "🔄 " : ""}
                     {isMobile ? "🚐 " : ""}
