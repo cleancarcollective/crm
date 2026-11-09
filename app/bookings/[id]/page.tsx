@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { BookingDetail } from "@/components/dashboard/BookingDetail";
+import { MemberAlertBanner } from "@/components/dashboard/MemberAlertBanner";
+import { getMemberAlert } from "@/lib/collective/memberAlert";
 import { requireCurrentShop } from "@/lib/auth/currentShop";
 import { getBookingById } from "@/lib/dashboard/bookings";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -29,6 +31,7 @@ export default async function BookingDetailPage({
   }
 
   const seriesCancelled = seriesStatus === "cancelled";
+  const memberAlert = await getMemberAlert(booking.contact?.id ?? booking.contact_id, shop.timezone || undefined);
 
   return (
     <main className="pageShell">
@@ -39,6 +42,10 @@ export default async function BookingDetailPage({
           </Link>
         </div>
       </div>
+
+      {memberAlert ? (
+        <MemberAlertBanner alert={memberAlert} bookingIsPast={new Date(booking.scheduled_start) <= new Date()} />
+      ) : null}
 
       {booking.series_id ? (
         <div
