@@ -29,6 +29,7 @@ import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { withoutRetiredShops } from "@/lib/shops/retired";
 
 /**
  * How long after a lead arrives we'll still credit a resulting booking back
@@ -536,7 +537,7 @@ export async function sendWeeklyConversionReportForAllShops() {
   if (error || !shops) return { sent: 0, errors: [error?.message ?? "no shops"] };
 
   const results: Array<{ shop: string; ok: boolean; error?: string }> = [];
-  for (const shop of shops) {
+  for (const shop of withoutRetiredShops(shops)) {
     try {
       await sendWeeklyConversionReportForShop(shop as ShopRecord);
       results.push({ shop: shop.slug, ok: true });

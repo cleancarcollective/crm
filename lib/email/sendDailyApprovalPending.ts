@@ -17,6 +17,7 @@ import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { withoutRetiredShops } from "@/lib/shops/retired";
 
 function escapeHtml(value: string) {
   return value
@@ -202,7 +203,7 @@ export async function sendDailyApprovalPendingForAllShops() {
   let sent = 0;
   let skipped = 0;
   const errors: string[] = [];
-  for (const shop of shops) {
+  for (const shop of withoutRetiredShops(shops)) {
     try {
       const r = await sendDailyApprovalPendingForShop(shop as ShopRecord);
       if (r.sent) sent++;

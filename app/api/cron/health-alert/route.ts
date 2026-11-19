@@ -19,6 +19,7 @@ import { getPostmarkClient } from "@/lib/email/postmarkClient";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type { ShopRecord } from "@/lib/dashboard/types";
+import { withoutRetiredShops } from "@/lib/shops/retired";
 
 function isAuthorized(request: Request) {
   const vercelCron = request.headers.get("x-vercel-cron");
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
 
   const results: Array<{ shop: string; errors: number; alerted: boolean }> = [];
 
-  for (const shop of (shops ?? []) as ShopRecord[]) {
+  for (const shop of withoutRetiredShops((shops ?? []) as ShopRecord[])) {
     const checks = await runChecks(shop.id);
     const errors = checks.filter((c) => c.status === "error");
 

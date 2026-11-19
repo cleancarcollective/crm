@@ -16,10 +16,11 @@
  */
 
 import { formatInTimeZone } from "date-fns-tz";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ManageBookingClient } from "@/components/dashboard/ManageBookingClient";
 import { verifyActionToken } from "@/lib/auth/signedTokens";
+import { isRetiredShop, retiredShopManageBookingUrl } from "@/lib/shops/retired";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export default async function ManageBookingPage({
@@ -78,6 +79,23 @@ export default async function ManageBookingPage({
     .maybeSingle();
 
   if (!shop) notFound();
+
+  // Shop has moved to its own CRM: this database's copy of the booking is
+  // frozen, so send the customer to the same booking on the new system.
+  if (isRetiredShop(shop.slug)) {
+    const movedUrl = retiredShopManageBookingUrl(booking.id as string, booking.shop_id as string);
+    // External URL: typed routes only know this app's own paths.
+    if (movedUrl) redirect(movedUrl as Parameters<typeof redirect>[0]);
+    return (
+      <main className="leadActionShell">
+        <div className="leadActionCard leadActionCard--info">
+          <div className="leadActionEmoji">ℹ️</div>
+          <h1>We&apos;ve moved to a new booking system</h1>
+          <p>To change or cancel this booking, reply to your booking confirmation email and we&apos;ll sort it for you.</p>
+        </div>
+      </main>
+    );
+  }
 
   // Already-cancelled booking → show tombstone
   if (booking.status === "cancelled") {

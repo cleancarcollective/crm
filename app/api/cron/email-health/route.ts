@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { withoutRetiredShops } from "@/lib/shops/retired";
 
 function isAuthorized(request: Request) {
   const vercelCron = request.headers.get("x-vercel-cron");
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     unhealthy: boolean;
   }> = [];
 
-  for (const shop of shops ?? []) {
+  for (const shop of withoutRetiredShops(shops ?? [])) {
     const { data } = await supabase
       .from("email_messages")
       .select("status, created_at")
