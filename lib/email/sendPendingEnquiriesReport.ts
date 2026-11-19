@@ -20,6 +20,7 @@ import { sendViaGmailSmtp } from "@/lib/email/smtpClient";
 import { EMAIL_HEAD_HARDENING } from "@/lib/email/sharedEmailStyles";
 import { getShopContacts } from "@/lib/email/shopContacts";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { withoutRetiredShops } from "@/lib/shops/retired";
 
 const LOOKBACK_DAYS = 90;
 
@@ -263,7 +264,7 @@ export async function sendPendingEnquiriesReportForAllShops() {
   if (error || !shops) return { sent: 0, errors: [error?.message ?? "no shops"] };
 
   const results: Array<{ shop: string; count: number; ok: boolean; error?: string }> = [];
-  for (const shop of shops) {
+  for (const shop of withoutRetiredShops(shops)) {
     try {
       const r = await sendPendingEnquiriesReportForShop(shop as ShopRecord);
       results.push({ shop: shop.slug, count: r.count, ok: true });

@@ -24,6 +24,7 @@ import {
 } from "@/lib/email/sendSeriesEditCancelEmails";
 import { enqueueTeamNotification, notifyTeamReliable } from "@/lib/email/teamNotify";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { isRetiredShop } from "@/lib/shops/retired";
 
 type Body = {
   token?: string;
@@ -81,6 +82,13 @@ export async function POST(request: Request) {
     .eq("id", booking.shop_id)
     .maybeSingle();
   if (!shop) return NextResponse.json({ error: "Shop missing" }, { status: 500 });
+  // Shop has moved to its own CRM: never change this frozen copy.
+  if (isRetiredShop(shop.slug)) {
+    return NextResponse.json(
+      { error: "This booking has moved to a new system. Reply to your booking confirmation email and we'll sort it." },
+      { status: 410 }
+    );
+  }
 
   const contact = booking.contact as unknown as { first_name: string; last_name: string | null; email: string; phone: string | null } | null;
   const customerName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(" ") : "Customer";
