@@ -27,6 +27,7 @@
 import nodemailer from "nodemailer";
 
 import { getShopContactsById } from "@/lib/email/shopContacts";
+import { sanitizeEmailFields } from "@/lib/email/stripEmDashes";
 
 type TransportCache = Map<string, nodemailer.Transporter>;
 const transports: TransportCache = new Map();
@@ -90,7 +91,9 @@ export type SmtpSendArgs = {
 
 export type SmtpSendResult = { MessageID: string };
 
-export async function sendViaGmailSmtp(args: SmtpSendArgs): Promise<SmtpSendResult> {
+export async function sendViaGmailSmtp(rawArgs: SmtpSendArgs): Promise<SmtpSendResult> {
+  // House rule: no em dashes in any outbound email (subject or body).
+  const args = sanitizeEmailFields(rawArgs);
   const fromEmail = extractEmailAddress(args.From);
   const password = appPasswordFor(fromEmail);
   if (!password) {

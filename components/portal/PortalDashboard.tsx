@@ -405,7 +405,7 @@ function CollectiveSection({ snapshot, onChanged }: { snapshot: PortalSnapshot; 
 
 const TIER_LABEL: Record<string, string> = {
   bronze: "Bronze · 1 year",
-  silver: "Silver · 3 years",
+  silver: "Silver · 2 years",
   gold: "Gold · 5 years",
   unknown: "Ceramic coating",
 };
@@ -925,7 +925,7 @@ function protectionFor(
   for (const b of past) {
     const s = b.service_name.toLowerCase();
     if (s.includes("ceramic")) {
-      const months = s.includes("gold") ? 60 : s.includes("silver") ? 36 : 12;
+      const months = s.includes("gold") ? 60 : s.includes("silver") ? 24 : 12;
       return { label: "Ceramic coating", appliedAt: b.scheduled_start, months };
     }
     if (s.includes("premium detail") || s.includes("6 month")) {

@@ -3,6 +3,7 @@
  * Docs: https://www.tnz.co.nz/Docs/RestAPI/
  * Auth: Basic [TNZ_AUTH_TOKEN] in Authorization header
  */
+import { stripEmDashes } from "@/lib/email/stripEmDashes";
 
 const TNZ_API_BASE = "https://api.tnz.co.nz/api/v2.04";
 
@@ -66,7 +67,8 @@ export async function sendTnzSms(
 
   const payload: TnzSmsPayload = {
     MessageData: {
-      Message: message,
+      // House rule: no em dashes in any outbound message (email or SMS).
+      Message: stripEmDashes(message) ?? message,
       Destinations: [{ Recipient: recipient }],
     },
   };
