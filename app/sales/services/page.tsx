@@ -51,14 +51,17 @@ export default async function SalesServicesPage() {
   let offerings = (data ?? []) as ServiceOffering[];
   const isAdmin = user.role === "admin";
 
-  // Christchurch runs a live 15% price-experiment on the booking form
-  // (see Christchurch-Booking-System services/pricing.ts -> expPrice).
-  // service_offerings holds BASE prices, so without this the CRM would show
-  // staff numbers ~15% higher than what the form actually charges. Applied at
-  // render time rather than duplicated as CHC rows, so it disappears on its
-  // own when the experiment ends.
+  // Christchurch ran a 15% price-experiment on the booking form
+  // (chc-web-15off-2026-07; see Christchurch-Booking-System
+  // services/pricing.ts -> expPrice). service_offerings holds BASE prices, so
+  // while it ran this showed CHC staff the discounted numbers the form charged.
+  // Applied at render time rather than duplicated as CHC rows.
+  //
+  // ENDED 2026-09-27 (owner call: end the sale now). Staff see full sticker
+  // prices again. Flip back to true only if the booking app re-enables expPrice.
+  const CHC_PRICE_EXPERIMENT_ACTIVE = false;
   const CHC_PRICE_EXPERIMENT_MULTIPLIER = 0.85;
-  if (user.shop.slug === "christchurch") {
+  if (CHC_PRICE_EXPERIMENT_ACTIVE && user.shop.slug === "christchurch") {
     const disc = (n: number | undefined) =>
       typeof n === "number" ? Math.round(n * CHC_PRICE_EXPERIMENT_MULTIPLIER) : n;
     offerings = offerings.map((o) => {
